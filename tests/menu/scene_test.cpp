@@ -272,3 +272,30 @@ TEST_CASE("Mike's OBJ props lie on the street at real-world sizes, textured and 
 		}
 	}
 }
+
+TEST_CASE("cars and debris carry real colour instead of reading as black shapes")
+{
+	Scene scene;
+	auto brightest = [](ISceneNode* node) {
+		video::SColor colour = node->getMaterial(0).DiffuseColor;
+		return std::max(colour.getRed(), std::max(colour.getGreen(), colour.getBlue()));
+	};
+	int checked = 0;
+	for (ISceneNode* node : scene.menu->scene()->getRootSceneNode()->getChildren())
+	{
+		std::string name = node->getName();
+		if (name == "debris")
+		{
+			CHECK(brightest(node) >= 80);
+			++checked;
+		}
+		if (name == "car")
+			for (ISceneNode* part : node->getChildren())
+				if (std::string(part->getName()) == "car body" || std::string(part->getName()) == "car cabin")
+				{
+					CHECK(brightest(part) >= 80);
+					++checked;
+				}
+	}
+	CHECK(checked >= 8);
+}

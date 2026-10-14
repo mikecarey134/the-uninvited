@@ -14,7 +14,10 @@ namespace
 	const SColor zenith(255, 14, 13, 13);
 	const SColor groundColour(255, 24, 21, 19);
 	const SColor ruinColour(255, 22, 20, 19);
-	const SColor propColour(255, 34, 31, 27);
+	const SColor rustColour(255, 156, 80, 48);
+	const SColor cabinColour(255, 124, 118, 108);
+	const SColor trimColour(255, 92, 86, 78);
+	const SColor concreteColour(255, 140, 132, 120);
 	const SColor packColour(255, 52, 48, 36);
 	const vector3df eye(0.0f, 1.0f, 0.0f);
 	const vector3df ahead(0.0f, 3.5f, 60.0f);
@@ -73,17 +76,17 @@ ISceneNode* MenuScene::car(const vector3df& position, const vector3df& rotation)
 	frame->setName("car");
 	frame->setPosition(position);
 	frame->setRotation(rotation);
-	box("car body", vector3df(0.0f, 0.62f, 0.0f), vector3df(4.3f, 0.62f, 1.8f), propColour, vector3df(), frame);
-	box("car cabin", vector3df(-0.25f, 1.18f, 0.0f), vector3df(2.3f, 0.52f, 1.6f), propColour, vector3df(), frame);
-	box("car bumper", vector3df(2.2f, 0.5f, 0.0f), vector3df(0.15f, 0.25f, 1.8f), propColour, vector3df(), frame);
-	box("car bumper", vector3df(-2.2f, 0.5f, 0.0f), vector3df(0.15f, 0.25f, 1.8f), propColour, vector3df(), frame);
-	IMesh* wheel = scene_->getGeometryCreator()->createCylinderMesh(0.36f, 0.26f, 14, propColour, true);
+	box("car body", vector3df(0.0f, 0.62f, 0.0f), vector3df(4.3f, 0.62f, 1.8f), rustColour, vector3df(), frame);
+	box("car cabin", vector3df(-0.25f, 1.18f, 0.0f), vector3df(2.3f, 0.52f, 1.6f), cabinColour, vector3df(), frame);
+	box("car bumper", vector3df(2.2f, 0.5f, 0.0f), vector3df(0.15f, 0.25f, 1.8f), trimColour, vector3df(), frame);
+	box("car bumper", vector3df(-2.2f, 0.5f, 0.0f), vector3df(0.15f, 0.25f, 1.8f), trimColour, vector3df(), frame);
+	IMesh* wheel = scene_->getGeometryCreator()->createCylinderMesh(0.36f, 0.26f, 14, trimColour, true);
 	for (f32 x : { -1.35f, 1.35f })
 		for (f32 z : { -0.78f, 0.78f })
 		{
 			ISceneNode* node = scene_->addMeshSceneNode(wheel, frame, -1, vector3df(x, 0.36f, z), vector3df(z < 0.0f ? -90.0f : 90.0f, 0.0f, 0.0f));
 			node->setName("car wheel");
-			finish(node, SColor(255, 18, 17, 16));
+			finish(node, SColor(255, 40, 38, 36));
 		}
 	wheel->drop();
 	return frame;
@@ -140,9 +143,9 @@ void MenuScene::addProps()
 
 	for (s32 i = 0; i < 6; ++i)
 		box("debris", vector3df(5.0f + (i % 3) * 0.9f, 0.25f + (i / 3) * 0.3f, 15.0f + (i % 2) * 0.8f),
-			vector3df(1.2f - i * 0.1f, 0.5f, 0.9f), propColour, vector3df((f32)(i * 17), (f32)(i * 41), (f32)(i * 13)));
-	box("curb", vector3df(-9.0f, 0.1f, 200.0f), vector3df(0.4f, 0.2f, 400.0f), propColour);
-	box("curb", vector3df(9.0f, 0.1f, 200.0f), vector3df(0.4f, 0.2f, 400.0f), propColour);
+			vector3df(1.2f - i * 0.1f, 0.5f, 0.9f), concreteColour, vector3df((f32)(i * 17), (f32)(i * 41), (f32)(i * 13)));
+	box("curb", vector3df(-9.0f, 0.1f, 200.0f), vector3df(0.4f, 0.2f, 400.0f), concreteColour);
+	box("curb", vector3df(9.0f, 0.1f, 200.0f), vector3df(0.4f, 0.2f, 400.0f), concreteColour);
 }
 
 void MenuScene::prop(const char* name, const char* file, f32 x, f32 z, const vector3df& rotation, f32 length)
@@ -184,7 +187,7 @@ void MenuScene::addLights()
 	sun->setRotation(vector3df(14.0f, 180.0f, 0.0f));
 	sun->setName("sun");
 	ILightSceneNode* fill = scene_->addLightSceneNode(0, vector3df(0.4f, 1.8f, -1.5f), SColorf(0.62f, 0.46f, 0.32f));
-	fill->getLightData().Attenuation = vector3df(1.0f, 0.0f, 0.015f);
+	fill->getLightData().Attenuation = vector3df(1.0f, 0.0f, 0.004f);
 	fill->setName("fill");
 }
 
