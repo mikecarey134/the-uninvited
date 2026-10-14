@@ -240,3 +240,35 @@ TEST_CASE("showing twice keeps one character, and hiding removes it")
 	CHECK(scene.count("character") == 0);
 	CHECK(scene.menu->character() == nullptr);
 }
+
+TEST_CASE("Mike's OBJ props lie on the street at real-world sizes, textured and lit like the rest of the scene")
+{
+	Scene scene;
+	struct Prop { const char* name; f32 shortest; f32 longest; };
+	const Prop props[] = { { "crate", 0.4f, 0.9f }, { "barrel", 0.7f, 1.0f }, { "chest", 0.5f, 1.0f }, { "log", 1.2f, 2.0f },
+		{ "axe", 0.6f, 0.9f }, { "flint axe", 0.4f, 0.7f }, { "flint knife", 0.2f, 0.4f } };
+	for (const Prop& prop : props)
+	{
+		INFO(prop.name);
+		ISceneNode* node = scene.menu->scene()->getSceneNodeFromName(prop.name);
+		REQUIRE(node != nullptr);
+		node->updateAbsolutePosition();
+		aabbox3df box = node->getTransformedBoundingBox();
+		CHECK(box.MinEdge.Y == doctest::Approx(0.0f).epsilon(0.02));
+		vector3df size = box.getExtent();
+		f32 longest = std::max(size.X, std::max(size.Y, size.Z));
+		CHECK(longest >= prop.shortest);
+		CHECK(longest <= prop.longest);
+		CHECK(box.getCenter().Z > 4.0f);
+		CHECK(box.getCenter().Z < 30.0f);
+		for (u32 i = 0; i < node->getMaterialCount(); ++i)
+		{
+			const video::SMaterial& material = node->getMaterial(i);
+			CHECK(material.getTexture(0) != nullptr);
+			CHECK(material.Lighting);
+			CHECK(material.AmbientColor.getRed() > 200);
+			CHECK(material.FogEnable);
+			CHECK(material.NormalizeNormals);
+		}
+	}
+}

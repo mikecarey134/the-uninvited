@@ -193,14 +193,14 @@ TEST_CASE("the bloodline attribute is chosen at random")
 TEST_CASE("bloodlines are rare at the default odds")
 {
 	int count = 0;
-	for (unsigned seed = 0; seed < 5000; ++seed)
+	for (unsigned seed = 0; seed < 50000; ++seed)
 	{
 		std::mt19937 random(seed);
 		if (CharacterSheet::create("Ada", Gender::Female, nurse, random).hasBloodline())
 			++count;
 	}
-	CHECK(count > 20);
-	CHECK(count < 90);
+	CHECK(count > 25);
+	CHECK(count < 80);
 }
 
 TEST_CASE("without a bloodline every attribute is just rolled plus placed")

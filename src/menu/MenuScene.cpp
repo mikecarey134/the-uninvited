@@ -1,4 +1,5 @@
 #include "MenuScene.h"
+#include <algorithm>
 #include <cmath>
 #include <random>
 
@@ -38,6 +39,7 @@ MenuScene::MenuScene(IrrlichtDevice* device)
 	addGround();
 	addCity();
 	addProps();
+	addModels();
 	addLights();
 }
 
@@ -141,6 +143,37 @@ void MenuScene::addProps()
 			vector3df(1.2f - i * 0.1f, 0.5f, 0.9f), propColour, vector3df((f32)(i * 17), (f32)(i * 41), (f32)(i * 13)));
 	box("curb", vector3df(-9.0f, 0.1f, 200.0f), vector3df(0.4f, 0.2f, 400.0f), propColour);
 	box("curb", vector3df(9.0f, 0.1f, 200.0f), vector3df(0.4f, 0.2f, 400.0f), propColour);
+}
+
+void MenuScene::prop(const char* name, const char* file, f32 x, f32 z, const vector3df& rotation, f32 length)
+{
+	IAnimatedMesh* mesh = scene_->getMesh(file);
+	if (!mesh)
+		return;
+	vector3df size = mesh->getBoundingBox().getExtent();
+	f32 scale = length / std::max(size.X, std::max(size.Y, size.Z));
+	ISceneNode* node = scene_->addMeshSceneNode(mesh->getMesh(0), 0, -1, vector3df(x, 0.0f, z), rotation, vector3df(scale, scale, scale));
+	node->setName(name);
+	node->updateAbsolutePosition();
+	node->setPosition(vector3df(x, -node->getTransformedBoundingBox().MinEdge.Y, z));
+	for (u32 i = 0; i < node->getMaterialCount(); ++i)
+	{
+		SMaterial& material = node->getMaterial(i);
+		material.AmbientColor = SColor(255, 255, 255, 255);
+		material.FogEnable = true;
+		material.NormalizeNormals = true;
+	}
+}
+
+void MenuScene::addModels()
+{
+	prop("crate", "assets/models/props/crate/crate.obj", -0.3f, 9.8f, vector3df(0.0f, 28.0f, 0.0f), 0.6f);
+	prop("barrel", "assets/models/props/barrel/barrel.obj", 7.9f, 13.5f, vector3df(0.0f, 10.0f, 0.0f), 0.9f);
+	prop("chest", "assets/models/props/chest/chest.obj", -3.4f, 9.0f, vector3df(0.0f, 70.0f, 0.0f), 0.8f);
+	prop("log", "assets/models/props/log/log.obj", 3.2f, 15.5f, vector3df(0.0f, 70.0f, 90.0f), 1.6f);
+	prop("axe", "assets/models/props/axe/Axe.obj", 0.2f, 5.6f, vector3df(90.0f, 40.0f, 0.0f), 0.75f);
+	prop("flint axe", "assets/models/props/flint/flintAxe.obj", 2.9f, 6.8f, vector3df(90.0f, -60.0f, 0.0f), 0.55f);
+	prop("flint knife", "assets/models/props/flint/flintknife.obj", -0.8f, 7.3f, vector3df(90.0f, 25.0f, 0.0f), 0.3f);
 }
 
 void MenuScene::addLights()

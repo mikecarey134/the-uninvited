@@ -13,7 +13,7 @@ namespace character
 		static const int BASE_POOL = 20;
 		static const int INTELLIGENCE_PER_POOL_POINT = 5;
 		static const int BLOODLINE_MULTIPLIER = 10;
-		static const int BLOODLINE_ONE_IN = 100;
+		static const int BLOODLINE_ONE_IN = 1000;
 
 		static Aegis roll(std::mt19937& random, int bloodlineOneIn = BLOODLINE_ONE_IN);
 

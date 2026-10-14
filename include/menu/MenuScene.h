@@ -29,6 +29,8 @@ private:
 	void addGround();
 	void addCity();
 	void addProps();
+	void prop(const char* name, const char* file, irr::f32 x, irr::f32 z, const irr::core::vector3df& rotation, irr::f32 length);
+	void addModels();
 	void addLights();
 
 	irr::IrrlichtDevice* device_;
