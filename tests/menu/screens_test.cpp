@@ -311,7 +311,7 @@ TEST_CASE("every profession row on the create screen fits inside its list, long 
 	for (u32 i = 0; i < list->getItemCount(); ++i)
 	{
 		std::wstring item = list->getListItem(i);
-		INFO(std::string(item.begin(), item.end()));
+		INFO(core::stringc(item.c_str()).c_str());
 		CHECK((s32)font->getDimension(item.c_str()).Width <= room);
 		CHECK(item.find(std::wstring(menu.flow.professions()[i].name.begin(), menu.flow.professions()[i].name.end())) != std::wstring::npos);
 		if (item.size() >= 3 && item.compare(item.size() - 3, 3, L"...") == 0)
