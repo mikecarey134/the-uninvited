@@ -3,6 +3,7 @@
 #include "server/GameServer.h"
 #include <filesystem>
 #include <fstream>
+#include <set>
 #include <sstream>
 
 using namespace menu;
@@ -26,8 +27,8 @@ namespace
 
 	struct Fixture
 	{
-		explicit Fixture(const char* name, std::vector<Profession> professions = shippedProfessions())
-			: directory(freshDirectory(name)), store(directory), flow(store, professions), random(9) {}
+		explicit Fixture(const char* name, std::vector<Profession> professions = shippedProfessions(), int bloodlineOneIn = 1000000)
+			: directory(freshDirectory(name)), store(directory), flow(store, professions, 9, bloodlineOneIn) {}
 
 		static std::string freshDirectory(const char* name)
 		{
@@ -48,14 +49,13 @@ namespace
 		{
 			flow.play();
 			flow.newCharacter();
-			REQUIRE(flow.create(name, Gender::Male, professionNamed("Doctor"), random));
+			REQUIRE(flow.create(name, Gender::Male, professionNamed("Doctor")));
 			REQUIRE(flow.select());
 		}
 
 		std::string directory;
 		CharacterStore store;
 		MenuFlow flow;
-		std::mt19937 random;
 	};
 }
 
@@ -97,7 +97,7 @@ TEST_CASE("creating a character saves it, returns to select and highlights it")
 	fixture.flow.play();
 	CHECK(fixture.flow.characters().empty());
 	fixture.flow.newCharacter();
-	REQUIRE(fixture.flow.create("Dana", Gender::Female, fixture.professionNamed("Paramedic"), fixture.random));
+	REQUIRE(fixture.flow.create("Dana", Gender::Female, fixture.professionNamed("Paramedic")));
 
 	CHECK(fixture.flow.screen() == Screen::CharacterSelect);
 	REQUIRE(fixture.flow.characters().size() == 1);
@@ -106,7 +106,7 @@ TEST_CASE("creating a character saves it, returns to select and highlights it")
 	CHECK(dana.gender() == Gender::Female);
 	CHECK(dana.profession().name == "Paramedic");
 	CHECK(dana.skill(Skill::Medicine) == 15);
-	CHECK(dana.unplacedPoints() == CharacterSheet::PLAYER_POINTS);
+	CHECK(dana.unplacedPoints() == dana.pointPool());
 	CHECK(fixture.flow.highlighted() == 0);
 	CHECK(fs::is_regular_file(fs::path(fixture.directory) / "Dana.character"));
 	fixture.flow.back();
@@ -118,13 +118,104 @@ TEST_CASE("characters persist: a new menu over the same folder lists them")
 	Fixture first("persist");
 	first.flow.play();
 	first.flow.newCharacter();
-	REQUIRE(first.flow.create("Bo", Gender::Male, first.professionNamed("Chef"), first.random));
+	REQUIRE(first.flow.create("Bo", Gender::Male, first.professionNamed("Chef")));
 	std::string saved = first.flow.characters()[0].toText();
 
 	MenuFlow again(first.store, shippedProfessions());
 	again.play();
 	REQUIRE(again.characters().size() == 1);
 	CHECK(again.characters()[0].toText() == saved);
+}
+
+TEST_CASE("starting a new character rolls a fresh draft with its whole pool to place")
+{
+	Fixture fixture("draft");
+	fixture.flow.play();
+	fixture.flow.newCharacter();
+	const Aegis& draft = fixture.flow.draft();
+	int total = 0;
+	for (int i = 0; i < ATTRIBUTE_COUNT; ++i)
+	{
+		CHECK(draft.rolled[i] >= 1);
+		CHECK(draft.placed[i] == 0);
+		total += draft.rolled[i];
+	}
+	CHECK(total == 100);
+	CHECK(draft.unplaced() == draft.pool());
+}
+
+TEST_CASE("re-rolling gives a new draft and forgets placed points, as often as the player likes")
+{
+	Fixture fixture("reroll");
+	fixture.flow.play();
+	fixture.flow.newCharacter();
+	REQUIRE(fixture.flow.adjust(Attribute::Strength, 1));
+	std::set<std::vector<int> > seen;
+	for (int roll = 0; roll < 20; ++roll)
+	{
+		const Aegis& draft = fixture.flow.draft();
+		seen.insert(std::vector<int>(draft.rolled, draft.rolled + ATTRIBUTE_COUNT));
+		fixture.flow.reroll();
+		CHECK(fixture.flow.draft().placed[(int)Attribute::Strength] == 0);
+	}
+	CHECK(seen.size() > 15);
+	CHECK(fixture.flow.screen() == Screen::CharacterCreation);
+}
+
+TEST_CASE("plus and minus move points between the pool and an attribute, within the pool and the rolled value")
+{
+	Fixture fixture("adjust");
+	fixture.flow.play();
+	fixture.flow.newCharacter();
+	int pool = fixture.flow.draft().pool();
+	CHECK_FALSE(fixture.flow.adjust(Attribute::Guile, -1));
+	for (int point = 0; point < pool; ++point)
+		REQUIRE(fixture.flow.adjust(Attribute::Guile, 1));
+	CHECK_FALSE(fixture.flow.adjust(Attribute::Agility, 1));
+	CHECK(fixture.flow.draft().unplaced() == 0);
+	CHECK(fixture.flow.adjust(Attribute::Guile, -1));
+	CHECK(fixture.flow.adjust(Attribute::Agility, 1));
+	CHECK(fixture.flow.draft().placed[(int)Attribute::Guile] == pool - 1);
+	CHECK(fixture.flow.draft().placed[(int)Attribute::Agility] == 1);
+}
+
+TEST_CASE("the draft can only be changed while creating a character")
+{
+	Fixture fixture("adjust_elsewhere");
+	fixture.flow.play();
+	CHECK_FALSE(fixture.flow.adjust(Attribute::Guile, 1));
+	fixture.flow.newCharacter();
+	std::vector<int> rolled(fixture.flow.draft().rolled, fixture.flow.draft().rolled + ATTRIBUTE_COUNT);
+	fixture.flow.back();
+	fixture.flow.reroll();
+	CHECK_FALSE(fixture.flow.adjust(Attribute::Guile, 1));
+	CHECK(std::vector<int>(fixture.flow.draft().rolled, fixture.flow.draft().rolled + ATTRIBUTE_COUNT) == rolled);
+}
+
+TEST_CASE("creating a character saves exactly the draft's roll, placements and bloodline")
+{
+	Fixture fixture("create_draft", shippedProfessions(), 1);
+	fixture.flow.play();
+	fixture.flow.newCharacter();
+	REQUIRE(fixture.flow.adjust(Attribute::Strength, 1));
+	REQUIRE(fixture.flow.adjust(Attribute::Strength, 1));
+	REQUIRE(fixture.flow.adjust(Attribute::Intelligence, 1));
+	Aegis draft = fixture.flow.draft();
+	REQUIRE(fixture.flow.create("Dana", Gender::Female, fixture.professionNamed("Doctor")));
+
+	MenuFlow reopened(fixture.store, shippedProfessions());
+	reopened.play();
+	REQUIRE(reopened.characters().size() == 1);
+	const CharacterSheet& dana = reopened.characters()[0];
+	for (int i = 0; i < ATTRIBUTE_COUNT; ++i)
+	{
+		CHECK(dana.rolledPoints((Attribute)i) == draft.rolled[i]);
+		CHECK(dana.placedPoints((Attribute)i) == draft.placed[i]);
+	}
+	CHECK(dana.placedPoints(Attribute::Strength) == 2);
+	CHECK(dana.hasBloodline());
+	CHECK(dana.bloodlineName() == "[Placeholder]");
+	CHECK(dana.bloodlineAttribute() == draft.bloodlineAttribute);
 }
 
 TEST_CASE("creation refuses invalid and duplicate names and a missing profession, staying on the screen")
@@ -134,19 +225,19 @@ TEST_CASE("creation refuses invalid and duplicate names and a missing profession
 	fixture.flow.newCharacter();
 	int doctor = fixture.professionNamed("Doctor");
 
-	CHECK_FALSE(fixture.flow.create("", Gender::Male, doctor, fixture.random));
+	CHECK_FALSE(fixture.flow.create("", Gender::Male, doctor));
 	CHECK(fixture.flow.message() == "Enter a name");
-	CHECK_FALSE(fixture.flow.create("a/b", Gender::Male, doctor, fixture.random));
+	CHECK_FALSE(fixture.flow.create("a/b", Gender::Male, doctor));
 	CHECK(fixture.flow.message() == "Use only letters, numbers, spaces, - and _");
-	CHECK_FALSE(fixture.flow.create(std::string(MAX_NAME_LENGTH + 1, 'x'), Gender::Male, doctor, fixture.random));
-	CHECK_FALSE(fixture.flow.create("Dana", Gender::Male, -1, fixture.random));
+	CHECK_FALSE(fixture.flow.create(std::string(MAX_NAME_LENGTH + 1, 'x'), Gender::Male, doctor));
+	CHECK_FALSE(fixture.flow.create("Dana", Gender::Male, -1));
 	CHECK(fixture.flow.message() == "Pick a profession");
 	CHECK(fixture.flow.screen() == Screen::CharacterCreation);
 	CHECK_FALSE(fs::exists(fixture.directory));
 
-	REQUIRE(fixture.flow.create("Dana", Gender::Male, doctor, fixture.random));
+	REQUIRE(fixture.flow.create("Dana", Gender::Male, doctor));
 	fixture.flow.newCharacter();
-	CHECK_FALSE(fixture.flow.create("DANA", Gender::Female, doctor, fixture.random));
+	CHECK_FALSE(fixture.flow.create("DANA", Gender::Female, doctor));
 	CHECK(fixture.flow.message() == "There is already a character called DANA");
 	CHECK(fixture.flow.screen() == Screen::CharacterCreation);
 }
@@ -156,7 +247,7 @@ TEST_CASE("creation without loaded professions says so")
 	Fixture fixture("no_professions", std::vector<Profession>());
 	fixture.flow.play();
 	fixture.flow.newCharacter();
-	CHECK_FALSE(fixture.flow.create("Dana", Gender::Male, 0, fixture.random));
+	CHECK_FALSE(fixture.flow.create("Dana", Gender::Male, 0));
 	CHECK(fixture.flow.message() == "No professions are loaded");
 }
 
@@ -167,7 +258,7 @@ TEST_CASE("select needs a highlighted character")
 	CHECK_FALSE(fixture.flow.select());
 	CHECK(fixture.flow.message() == "Create a character first");
 	fixture.flow.newCharacter();
-	REQUIRE(fixture.flow.create("Dana", Gender::Male, 0, fixture.random));
+	REQUIRE(fixture.flow.create("Dana", Gender::Male, 0));
 	fixture.flow.highlight(-1);
 	CHECK_FALSE(fixture.flow.select());
 	CHECK(fixture.flow.message() == "Pick a character from the list");
@@ -266,7 +357,7 @@ TEST_CASE("buttons from other screens do nothing")
 	fixture.flow.join();
 	CHECK_FALSE(fixture.flow.select());
 	CHECK_FALSE(fixture.flow.connect("a", "1"));
-	CHECK_FALSE(fixture.flow.create("Dana", Gender::Male, 0, fixture.random));
+	CHECK_FALSE(fixture.flow.create("Dana", Gender::Male, 0));
 	fixture.flow.back();
 	CHECK(fixture.flow.screen() == Screen::Title);
 	fixture.flow.play();

@@ -19,7 +19,7 @@ TEST_CASE("create makes a valid character ready for the player to finish")
 	for (int i = 0; i < ATTRIBUTE_COUNT; ++i)
 		total += sheet.rolledPoints((Attribute)i);
 	CHECK(total == 100);
-	CHECK(sheet.unplacedPoints() == 20);
+	CHECK(sheet.unplacedPoints() == sheet.pointPool());
 
 	CHECK(sheet.skill(Skill::Medicine) == 15);
 	CHECK(sheet.skill(Skill::Electronics) == 10);
@@ -39,7 +39,7 @@ TEST_CASE("a created character can be configured and ticked")
 	CHECK(sheet.age() == 42.5f);
 	REQUIRE(sheet.placePoints(Attribute::Agility, 10));
 	REQUIRE(sheet.placePoints(Attribute::Endurance, 10));
-	CHECK(sheet.unplacedPoints() == 0);
+	CHECK(sheet.unplacedPoints() == sheet.pointPool() - 20);
 	sheet.addExperience(Skill::Medicine, 1000.0);
 	CHECK(sheet.skill(Skill::Medicine) > 15);
 	sheet.tick(60.0f, 60.0f);

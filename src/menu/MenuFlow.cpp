@@ -14,8 +14,9 @@ namespace menu
 		}
 	}
 
-	MenuFlow::MenuFlow(const CharacterStore& store, const std::vector<character::Profession>& professions)
-		: store_(store), professions_(professions)
+	MenuFlow::MenuFlow(const CharacterStore& store, const std::vector<character::Profession>& professions, unsigned seed,
+		int bloodlineOneIn)
+		: store_(store), professions_(professions), random_(seed), bloodlineOneIn_(bloodlineOneIn)
 	{
 	}
 
@@ -87,9 +88,23 @@ namespace menu
 			return;
 		screens_.push(Screen::CharacterCreation);
 		message_.clear();
+		draft_ = character::Aegis::roll(random_, bloodlineOneIn_);
 	}
 
-	bool MenuFlow::create(const std::string& name, character::Gender gender, int profession, std::mt19937& random)
+	void MenuFlow::reroll()
+	{
+		if (screen() == Screen::CharacterCreation)
+			draft_ = character::Aegis::roll(random_, bloodlineOneIn_);
+	}
+
+	bool MenuFlow::adjust(character::Attribute attribute, int change)
+	{
+		if (screen() != Screen::CharacterCreation)
+			return false;
+		return change > 0 ? draft_.place(attribute, change) : draft_.remove(attribute, -change);
+	}
+
+	bool MenuFlow::create(const std::string& name, character::Gender gender, int profession)
 	{
 		if (screen() != Screen::CharacterCreation)
 			return false;
@@ -109,7 +124,7 @@ namespace menu
 			message_ = professions_.empty() ? "No professions are loaded" : "Pick a profession";
 			return false;
 		}
-		character::CharacterSheet sheet = character::CharacterSheet::create(name, gender, professions_[profession], random);
+		character::CharacterSheet sheet = character::CharacterSheet::create(name, gender, professions_[profession], draft_);
 		if (!store_.save(sheet, problem))
 		{
 			message_ = problem;

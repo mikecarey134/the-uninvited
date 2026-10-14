@@ -16,7 +16,8 @@ namespace menu
 	class MenuFlow
 	{
 	public:
-		MenuFlow(const CharacterStore& store, const std::vector<character::Profession>& professions);
+		MenuFlow(const CharacterStore& store, const std::vector<character::Profession>& professions,
+			unsigned seed = std::random_device()(), int bloodlineOneIn = character::Aegis::BLOODLINE_ONE_IN);
 
 		Screen screen() const { return screens_.top(); }
 		const std::string& message() const { return message_; }
@@ -33,7 +34,10 @@ namespace menu
 		void newCharacter();
 
 		const std::vector<character::Profession>& professions() const { return professions_; }
-		bool create(const std::string& name, character::Gender gender, int profession, std::mt19937& random);
+		const character::Aegis& draft() const { return draft_; }
+		void reroll();
+		bool adjust(character::Attribute attribute, int change);
+		bool create(const std::string& name, character::Gender gender, int profession);
 
 		void host();
 		void join();
@@ -58,5 +62,8 @@ namespace menu
 		Session session_ = Session::None;
 		std::string address_;
 		uint16_t port_ = DEFAULT_PORT;
+		std::mt19937 random_;
+		int bloodlineOneIn_;
+		character::Aegis draft_;
 	};
 }

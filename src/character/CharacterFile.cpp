@@ -67,10 +67,11 @@ namespace character
 		out.add("profession_items", joined(profession_.startingItems));
 		for (int i = 0; i < ATTRIBUTE_COUNT; ++i)
 		{
-			out.add(std::string("rolled.") + attributeName((Attribute)i), rolled_[i]);
-			out.add(std::string("placed.") + attributeName((Attribute)i), placed_[i]);
+			out.add(std::string("rolled.") + attributeName((Attribute)i), aegis_.rolled[i]);
+			out.add(std::string("placed.") + attributeName((Attribute)i), aegis_.placed[i]);
 		}
-		out.add("bloodline", std::string(hasBloodline_ ? attributeName(bloodline_) : "none"));
+		out.add("bloodline", std::string(aegis_.hasBloodline ? attributeName(aegis_.bloodlineAttribute) : "none"));
+		out.add("bloodline_name", aegis_.bloodline);
 		for (int i = 0; i < SKILL_COUNT; ++i)
 		{
 			out.add(std::string("skill.") + skillName((Skill)i), startingSkills_[i]);
@@ -100,9 +101,9 @@ namespace character
 		for (int i = 0; read && i < ATTRIBUTE_COUNT; ++i)
 		{
 			std::string name = attributeName((Attribute)i);
-			read = fields.whole("rolled." + name, sheet.rolled_[i]) && fields.whole("placed." + name, sheet.placed_[i]);
+			read = fields.whole("rolled." + name, sheet.aegis_.rolled[i]) && fields.whole("placed." + name, sheet.aegis_.placed[i]);
 		}
-		read = read && fields.text("bloodline", bloodline);
+		read = read && fields.text("bloodline", bloodline) && fields.text("bloodline_name", sheet.aegis_.bloodline);
 		for (int i = 0; read && i < SKILL_COUNT; ++i)
 		{
 			std::string name = skillName((Skill)i);
@@ -123,8 +124,8 @@ namespace character
 			}
 			sheet.profession_.skillBonuses.push_back(std::make_pair(skill, std::atoi(entry.c_str() + colon + 1)));
 		}
-		sheet.hasBloodline_ = bloodline != "none";
-		if (read && sheet.hasBloodline_ && !attributeFromName(bloodline, sheet.bloodline_))
+		sheet.aegis_.hasBloodline = bloodline != "none";
+		if (read && sheet.aegis_.hasBloodline && !attributeFromName(bloodline, sheet.aegis_.bloodlineAttribute))
 			read = fields.fail("bad bloodline: " + bloodline);
 
 		problem = fields.problem();

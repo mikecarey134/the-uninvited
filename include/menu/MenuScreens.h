@@ -17,7 +17,8 @@ class MenuScreens
 public:
 	enum { GUI_ID_PLAY = 200, GUI_ID_SETTINGS, GUI_ID_QUIT, GUI_ID_BACK, GUI_ID_CHARACTERS, GUI_ID_NEW_CHARACTER,
 		GUI_ID_SELECT, GUI_ID_NAME, GUI_ID_MALE, GUI_ID_FEMALE, GUI_ID_PROFESSION, GUI_ID_CREATE, GUI_ID_HOST, GUI_ID_JOIN,
-		GUI_ID_ADDRESS, GUI_ID_PORT, GUI_ID_START, GUI_ID_LEAVE };
+		GUI_ID_ADDRESS, GUI_ID_PORT, GUI_ID_START, GUI_ID_LEAVE, GUI_ID_REROLL = 300, GUI_ID_MINUS_FIRST = 310,
+		GUI_ID_PLUS_FIRST = 320 };
 
 	MenuScreens(irr::IrrlichtDevice* device, Canvas& canvas, menu::MenuFlow& flow, gamecore::SoundEngine* sound,
 		const std::deque<std::string>& status);
@@ -28,7 +29,7 @@ public:
 	void hide();
 
 private:
-	enum class Style { Primary, Secondary, Back, Choice, Card };
+	enum class Style { Primary, Secondary, Back, Choice, Card, Step };
 
 	struct Button
 	{
@@ -53,6 +54,8 @@ private:
 	void showPreview();
 	void hidePreview();
 	void drawPreview();
+	void drawAegis();
+	bool isEnabled(irr::s32 id) const;
 
 	void drawButton(const Button& button);
 	void drawIcon(irr::s32 id, irr::core::position2d<irr::s32> at, irr::video::SColor colour);
@@ -71,7 +74,6 @@ private:
 	menu::Screen built_;
 	bool hasBuilt_;
 	character::Gender gender_;
-	std::mt19937 random_;
 	irr::scene::IAnimatedMeshSceneNode* model_;
 	irr::scene::ICameraSceneNode* camera_;
 	irr::scene::ILightSceneNode* light_;

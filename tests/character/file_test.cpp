@@ -21,6 +21,9 @@ static void checkSame(const CharacterSheet& a, const CharacterSheet& b)
 		CHECK(a.attribute((Attribute)i) == b.attribute((Attribute)i));
 	}
 	CHECK(a.hasBloodline() == b.hasBloodline());
+	CHECK(a.bloodlineName() == b.bloodlineName());
+	CHECK(a.pointPool() == b.pointPool());
+	CHECK(a.unplacedPoints() == b.unplacedPoints());
 	if (a.hasBloodline())
 		CHECK(a.bloodlineAttribute() == b.bloodlineAttribute());
 	for (int i = 0; i < SKILL_COUNT; ++i)

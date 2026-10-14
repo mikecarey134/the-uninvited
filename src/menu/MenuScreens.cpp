@@ -15,7 +15,10 @@ namespace
 {
 	const char* const gameTitle = "GAME NAME";
 	const char* const previewModel = "assets/models/stick_mike.ms3d";
-	const rect<s32> previewArea(704, 64, 1216, 656);
+	const rect<s32> previewArea(864, 64, 1216, 656);
+	const s32 aegisLeft = 480;
+	const s32 aegisRight = 832;
+	const s32 formRight = 448;
 	const char* const tagline = "The dead don't rest. Neither can you.";
 	const char* const titleFont = "assets/fonts/title.png";
 	const char* const headingFont = "assets/fonts/heading.png";
@@ -46,7 +49,7 @@ MenuScreens::MenuScreens(IrrlichtDevice* device, Canvas& canvas, menu::MenuFlow&
 	const std::deque<std::string>& status)
 	: device_(device), canvas_(canvas), flow_(flow), sound_(sound), status_(status),
 	panel_(device->getGUIEnvironment(), canvas.screenSize()), built_(Screen::Title), hasBuilt_(false),
-	gender_(character::Gender::Male), random_(std::random_device()()), model_(0), camera_(0), light_(0)
+	gender_(character::Gender::Male), model_(0), camera_(0), light_(0)
 {
 }
 
@@ -101,7 +104,11 @@ void MenuScreens::drawPreview()
 	canvas_.drawRect(rect<s32>(x, floor, x + 48, floor + 2), theme::accent);
 
 	std::string name = panel_.text(GUI_ID_NAME);
-	text(canvas_.loadFont(headingFont), name.empty() ? "Unnamed" : name, x - 2, floor + 18, name.empty() ? theme::dim : theme::text);
+	std::string shown = name.empty() ? "Unnamed" : name;
+	FontHandle nameFont = canvas_.loadFont(headingFont);
+	if ((s32)canvas_.textSize(nameFont, wide(shown).c_str()).Width > previewArea.getWidth() - 64)
+		nameFont = canvas_.loadFont(buttonFont);
+	text(nameFont, shown, x - 2, floor + 18, name.empty() ? theme::dim : theme::text);
 	s32 chosen = panel_.selected(GUI_ID_PROFESSION);
 	if (chosen >= 0 && chosen < (s32)flow_.professions().size())
 	{
@@ -187,15 +194,22 @@ void MenuScreens::build()
 	{
 		header("New Character", "Your name, and the life you had before.");
 		gender_ = character::Gender::Male;
-		addTextBox(GUI_ID_NAME, rect<s32>(left, 204, right, 248), "", menu::MAX_NAME_LENGTH, true);
-		addButton(GUI_ID_MALE, rect<s32>(left, 292, middle - 8, 332), "Male", Style::Choice);
-		addButton(GUI_ID_FEMALE, rect<s32>(middle + 8, 292, right, 332), "Female", Style::Choice);
+		addTextBox(GUI_ID_NAME, rect<s32>(left, 204, formRight, 248), "", menu::MAX_NAME_LENGTH, true);
+		addButton(GUI_ID_MALE, rect<s32>(left, 292, (left + formRight) / 2 - 8, 332), "Male", Style::Choice);
+		addButton(GUI_ID_FEMALE, rect<s32>((left + formRight) / 2 + 8, 292, formRight, 332), "Female", Style::Choice);
 		std::vector<std::string> professions;
 		for (const character::Profession& profession : flow_.professions())
 			professions.push_back("  " + profession.name + "   -   " + bonuses(profession));
-		IGUIListBox* list = panel_.list(place(rect<s32>(left, 376, right, 600)), GUI_ID_PROFESSION, professions, 0);
+		IGUIListBox* list = panel_.list(place(rect<s32>(left, 376, formRight, 600)), GUI_ID_PROFESSION, professions, 0);
 		list->setItemHeight(34);
-		addButton(GUI_ID_CREATE, rect<s32>(left, 620, right, 668), "Create Character", Style::Primary);
+		addButton(GUI_ID_CREATE, rect<s32>(left, 620, formRight, 668), "Create Character", Style::Primary);
+		for (s32 i = 0; i < character::ATTRIBUTE_COUNT; ++i)
+		{
+			s32 y = 204 + i * 50;
+			addButton(GUI_ID_MINUS_FIRST + i, rect<s32>(aegisRight - 120, y + 6, aegisRight - 88, y + 38), "-", Style::Step);
+			addButton(GUI_ID_PLUS_FIRST + i, rect<s32>(aegisRight - 48, y + 6, aegisRight - 16, y + 38), "+", Style::Step);
+		}
+		addButton(GUI_ID_REROLL, rect<s32>(aegisLeft, 532, aegisRight, 572), "Re-roll AEGIS", Style::Secondary);
 		showPreview();
 		break;
 	}
@@ -223,6 +237,69 @@ void MenuScreens::build()
 
 	default:
 		break;
+	}
+}
+
+bool MenuScreens::isEnabled(s32 id) const
+{
+	const character::Aegis& draft = flow_.draft();
+	if (id >= GUI_ID_PLUS_FIRST && id < GUI_ID_PLUS_FIRST + character::ATTRIBUTE_COUNT)
+		return draft.unplaced() > 0;
+	if (id >= GUI_ID_MINUS_FIRST && id < GUI_ID_MINUS_FIRST + character::ATTRIBUTE_COUNT)
+		return draft.placed[id - GUI_ID_MINUS_FIRST] > 0;
+	return true;
+}
+
+void MenuScreens::drawAegis()
+{
+	const character::Aegis& draft = flow_.draft();
+	label("AEGIS", aegisLeft, 186);
+	FontHandle buttonType = canvas_.loadFont(buttonFont);
+	FontHandle bodyType = canvas_.loadFont(bodyFont);
+	for (s32 i = 0; i < character::ATTRIBUTE_COUNT; ++i)
+	{
+		character::Attribute attribute = (character::Attribute)i;
+		bool blessed = draft.hasBloodline && draft.bloodlineAttribute == attribute;
+		s32 y = 204 + i * 50;
+		rect<s32> row(aegisLeft, y, aegisRight, y + 44);
+		canvas_.drawRect(row, blessed ? theme::accentFill : theme::panel);
+		canvas_.drawRectOutline(row, blessed ? theme::accentBorder : theme::border);
+		text(buttonType, character::attributeName(attribute), aegisLeft + 16, y + 10, theme::text);
+		std::string breakdown = std::to_string(draft.rolled[i]);
+		if (draft.placed[i] > 0)
+			breakdown += " + " + std::to_string(draft.placed[i]);
+		if (blessed)
+			breakdown += "  x" + std::to_string(character::Aegis::BLOODLINE_MULTIPLIER);
+		text(bodyType, breakdown, aegisLeft + 150, y + 12, blessed ? theme::accent : theme::muted);
+		canvas_.drawText(buttonType, wide(std::to_string(draft.value(attribute))).c_str(),
+			rect<s32>(aegisRight - 88, y, aegisRight - 48, y + 44), draft.placed[i] > 0 || blessed ? theme::text : theme::muted, true, true);
+	}
+
+	label("POINTS TO PLACE", aegisLeft, 462);
+	std::string left = std::to_string(draft.unplaced()) + " of " + std::to_string(draft.pool());
+	text(buttonType, left, aegisLeft, 478, draft.unplaced() > 0 ? theme::accent : theme::text);
+	s32 bonus = draft.pool() - character::Aegis::BASE_POOL;
+	text(bodyType, std::to_string(character::Aegis::BASE_POOL) + " base + " + std::to_string(bonus) + " from Intelligence " +
+		std::to_string(draft.rolled[(int)character::Attribute::Intelligence]), aegisLeft + 96, 482, theme::muted);
+
+	rect<s32> slot(aegisLeft, 588, aegisRight, 668);
+	if (draft.hasBloodline)
+	{
+		canvas_.drawRect(slot, theme::accentFill);
+		canvas_.drawRectOutline(slot, theme::accentBorderHover);
+		canvas_.drawRect(rect<s32>(slot.UpperLeftCorner.X, slot.UpperLeftCorner.Y, slot.UpperLeftCorner.X + 3, slot.LowerRightCorner.Y), theme::accent);
+		text(canvas_.loadFont(labelFont), "BLOODLINE", aegisLeft + 20, 600, theme::accent);
+		text(buttonType, draft.bloodline, aegisLeft + 20, 616, theme::text);
+		text(bodyType, std::string(character::attributeName(draft.bloodlineAttribute)) + " x" +
+			std::to_string(character::Aegis::BLOODLINE_MULTIPLIER), aegisLeft + 20, 642, theme::muted);
+	}
+	else
+	{
+		canvas_.drawRect(slot, theme::panel);
+		canvas_.drawRectOutline(slot, theme::border);
+		text(canvas_.loadFont(labelFont), "BLOODLINE", aegisLeft + 20, 600, theme::dim);
+		text(bodyType, "None. About 1 in " + std::to_string(character::Aegis::BLOODLINE_ONE_IN) + " are born with one.",
+			aegisLeft + 20, 624, theme::dim);
 	}
 }
 
@@ -318,6 +395,14 @@ void MenuScreens::drawButton(const Button& button)
 		canvas_.drawRectOutline(area, chosen ? theme::accentBorder : (hovered ? theme::borderHover : theme::border));
 		canvas_.drawText(font, wide(button.label).c_str(), area, chosen ? theme::text : (hovered ? theme::muted : theme::dim), true, true);
 		break;
+	case Style::Step:
+	{
+		bool enabled = isEnabled(button.id);
+		canvas_.drawRect(area, theme::panel);
+		canvas_.drawRectOutline(area, enabled && hovered ? theme::accentBorderHover : theme::border);
+		canvas_.drawText(font, wide(button.label).c_str(), area, enabled ? (hovered ? theme::text : theme::muted) : theme::dim, true, true);
+		break;
+	}
 	case Style::Card:
 	{
 		canvas_.drawRect(area, chosen ? theme::accentFill : theme::panel);
@@ -345,7 +430,10 @@ void MenuScreens::draw()
 	canvas_.drawGradientRect(rect<s32>(0, 0, (s32)screen.Width, (s32)screen.Height), theme::backgroundTop, theme::backgroundBottom);
 
 	if (built_ == Screen::CharacterCreation)
+	{
 		drawPreview();
+		drawAegis();
+	}
 
 	if (built_ == Screen::Title)
 	{
@@ -434,8 +522,9 @@ bool MenuScreens::clicked(s32 id)
 	case GUI_ID_FEMALE: gender_ = character::Gender::Female; break;
 	case GUI_ID_NAME:
 	case GUI_ID_CREATE:
-		flow_.create(panel_.text(GUI_ID_NAME), gender_, panel_.selected(GUI_ID_PROFESSION), random_);
+		flow_.create(panel_.text(GUI_ID_NAME), gender_, panel_.selected(GUI_ID_PROFESSION));
 		break;
+	case GUI_ID_REROLL: flow_.reroll(); break;
 	case GUI_ID_HOST:
 		if (flow_.screen() == Screen::JoinGame)
 			flow_.back();
@@ -451,7 +540,12 @@ bool MenuScreens::clicked(s32 id)
 		break;
 	case GUI_ID_LEAVE: flow_.returnToTitle(); break;
 	default:
-		return false;
+		if (id >= GUI_ID_MINUS_FIRST && id < GUI_ID_MINUS_FIRST + character::ATTRIBUTE_COUNT)
+			flow_.adjust((character::Attribute)(id - GUI_ID_MINUS_FIRST), -1);
+		else if (id >= GUI_ID_PLUS_FIRST && id < GUI_ID_PLUS_FIRST + character::ATTRIBUTE_COUNT)
+			flow_.adjust((character::Attribute)(id - GUI_ID_PLUS_FIRST), 1);
+		else
+			return false;
 	}
 	click();
 	return true;
