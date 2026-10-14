@@ -34,11 +34,12 @@ target_compile_definitions(menu_tests PRIVATE CHARACTER_CONFIG_DIR="${CMAKE_CURR
 target_link_libraries(menu_tests PRIVATE uninvited_menu game_net_session)
 add_test(NAME menu_tests COMMAND menu_tests)
 
-add_executable(ui_tests tests/menu/main.cpp tests/menu/ui_test.cpp tests/menu/scene_test.cpp src/menu/MenuSkin.cpp src/menu/MenuScene.cpp)
+add_executable(ui_tests tests/menu/main.cpp tests/menu/ui_test.cpp tests/menu/scene_test.cpp tests/menu/screens_test.cpp
+  src/menu/MenuSkin.cpp src/menu/MenuScene.cpp src/menu/MenuScreens.cpp)
 target_include_directories(ui_tests PRIVATE "${DOCTEST_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/include/menu")
 target_compile_definitions(ui_tests PRIVATE ASSETS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets")
-target_link_libraries(ui_tests PRIVATE gamecore_engine)
-add_test(NAME ui_tests COMMAND ui_tests)
+target_link_libraries(ui_tests PRIVATE uninvited_menu gamecore_engine)
+add_test(NAME ui_tests COMMAND ui_tests WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
 
 foreach(target uninvited_character uninvited_menu game character_tests menu_tests ui_tests)
   if(MSVC)

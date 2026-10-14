@@ -10,6 +10,12 @@ public:
 	~MenuScene();
 
 	void draw();
+	void showCharacter(const char* model);
+	void hideCharacter();
+	void turnCharacter(irr::f32 degrees);
+	irr::scene::IAnimatedMeshSceneNode* character() const { return character_; }
+	irr::f32 characterYaw() const { return yaw_; }
+	irr::f32 characterTargetYaw() const { return targetYaw_; }
 	irr::scene::ISceneManager* scene() const { return scene_; }
 	irr::scene::ICameraSceneNode* camera() const { return camera_; }
 
@@ -25,6 +31,10 @@ private:
 	irr::IrrlichtDevice* device_;
 	irr::scene::ISceneManager* scene_;
 	irr::scene::ICameraSceneNode* camera_;
+	irr::scene::IAnimatedMeshSceneNode* character_;
+	irr::f32 yaw_;
+	irr::f32 targetYaw_;
+	irr::u32 lastTime_;
 };
 
 #endif

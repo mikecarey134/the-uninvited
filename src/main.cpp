@@ -65,6 +65,7 @@ namespace
 		GuiInputLayer layer(device->getGUIEnvironment(), [&screens](const SEvent& event) { return screens.onGuiEvent(event); },
 			[&screens] { screens.back(); }, [] { return true; });
 		router.push(&layer);
+		router.push(&screens);
 		device->setEventReceiver(&router);
 
 		bool playing = false;

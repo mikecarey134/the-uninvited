@@ -117,3 +117,88 @@ TEST_CASE("the camera drifts only a few degrees over time")
 	CHECK(widest > 0.5f);
 	CHECK(widest < 5.0f);
 }
+
+namespace
+{
+	const char* const model = ASSETS_DIR "/models/stick_mike.ms3d";
+
+	position2d<s32> onScreen(Scene& scene, const vector3df& point)
+	{
+		return scene.menu->scene()->getSceneCollisionManager()->getScreenCoordinatesFrom3DPosition(point, scene.menu->camera());
+	}
+}
+
+TEST_CASE("a shown character stands on the street in the right half, whole from head to feet, facing the camera")
+{
+	Scene scene;
+	scene.device->getTimer()->setTime(0);
+	scene.menu->showCharacter(model);
+	IAnimatedMeshSceneNode* character = scene.menu->character();
+	REQUIRE(character != nullptr);
+	scene.menu->draw();
+	character->updateAbsolutePosition();
+	aabbox3df body = character->getMesh()->getMesh(206)->getBoundingBox();
+	character->getAbsoluteTransformation().transformBoxEx(body);
+	CHECK(body.MinEdge.Y == doctest::Approx(0.0f).epsilon(0.02));
+	CHECK(body.getExtent().Y > 1.5f);
+	CHECK(body.getExtent().Y < 2.0f);
+	position2d<s32> head = onScreen(scene, vector3df(body.getCenter().X, body.MaxEdge.Y, body.getCenter().Z));
+	position2d<s32> feet = onScreen(scene, vector3df(body.getCenter().X, body.MinEdge.Y, body.getCenter().Z));
+	CHECK(head.X > 640);
+	CHECK(head.X < 1216);
+	CHECK(head.Y > 40);
+	CHECK(feet.Y < 700);
+	CHECK(feet.Y - head.Y > 250);
+	CHECK(character->getRotation().Y == doctest::Approx(180.0f));
+}
+
+TEST_CASE("the character breathes on the idle loop and is lit only by the scene's own sun and fog")
+{
+	Scene scene;
+	scene.menu->showCharacter(model);
+	IAnimatedMeshSceneNode* character = scene.menu->character();
+	REQUIRE(character != nullptr);
+	CHECK(character->getStartFrame() == 206);
+	CHECK(character->getEndFrame() == 250);
+	CHECK(character->getLoopMode());
+	CHECK(character->getMaterial(0).Lighting);
+	CHECK(character->getMaterial(0).FogEnable);
+	int lights = 0;
+	for (ISceneNode* node : scene.menu->scene()->getRootSceneNode()->getChildren())
+		if (node->getType() == ESNT_LIGHT)
+			++lights;
+	CHECK(lights == 1);
+	CHECK(scene.device->getSceneManager()->getRootSceneNode()->getChildren().empty());
+}
+
+TEST_CASE("turning eases toward the dragged angle and stays where it was left")
+{
+	Scene scene;
+	ITimer* timer = scene.device->getTimer();
+	timer->setTime(1000);
+	scene.menu->showCharacter(model);
+	scene.menu->draw();
+	scene.menu->turnCharacter(90.0f);
+	timer->setTime(1016);
+	scene.menu->draw();
+	CHECK(scene.menu->characterYaw() > 0.0f);
+	CHECK(scene.menu->characterYaw() < 45.0f);
+	timer->setTime(3000);
+	scene.menu->draw();
+	CHECK(scene.menu->characterYaw() == doctest::Approx(90.0f).epsilon(0.01));
+	timer->setTime(9000);
+	scene.menu->draw();
+	CHECK(scene.menu->characterYaw() == doctest::Approx(90.0f).epsilon(0.01));
+	CHECK(scene.menu->character()->getRotation().Y == doctest::Approx(270.0f).epsilon(0.01));
+}
+
+TEST_CASE("showing twice keeps one character, and hiding removes it")
+{
+	Scene scene;
+	scene.menu->showCharacter(model);
+	scene.menu->showCharacter(model);
+	CHECK(scene.count("character") == 1);
+	scene.menu->hideCharacter();
+	CHECK(scene.count("character") == 0);
+	CHECK(scene.menu->character() == nullptr);
+}

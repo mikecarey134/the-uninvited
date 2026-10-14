@@ -10,13 +10,14 @@ using namespace core;
 using namespace video;
 using namespace gui;
 using menu::Screen;
-using namespace scene;
 
 namespace
 {
 	const char* const gameTitle = "GAME NAME";
-	const char* const previewModel = "assets/models/stick_mike.ms3d";
-	const rect<s32> previewArea(480, 40, 1216, 680);
+	const char* const characterModel = "assets/models/stick_mike.ms3d";
+	const rect<s32> captionArea(648, 568, 1216, 680);
+	const s32 turnArea = 480;
+	const f32 degreesPerPixel = 0.5f;
 	const s32 formRight = 448;
 	const s32 statTop = 428;
 	const s32 statRow = 28;
@@ -54,67 +55,63 @@ MenuScreens::MenuScreens(IrrlichtDevice* device, Canvas& canvas, menu::MenuFlow&
 	const std::deque<std::string>& status, MenuScene* backdrop)
 	: device_(device), canvas_(canvas), flow_(flow), sound_(sound), status_(status),
 	panel_(device->getGUIEnvironment(), canvas.screenSize()), built_(Screen::Title), hasBuilt_(false),
-	gender_(character::Gender::Male), model_(0), camera_(0), light_(0), backdrop_(backdrop)
+	gender_(character::Gender::Male), backdrop_(backdrop), turning_(false), turnFromX_(0)
 {
 }
 
-void MenuScreens::showPreview()
+void MenuScreens::showCharacter()
 {
-	scene::ISceneManager* smgr = device_->getSceneManager();
-	scene::IAnimatedMesh* mesh = smgr->getMesh(previewModel);
-	if (!mesh)
+	bool wanted = built_ == Screen::CharacterCreation || (built_ == Screen::CharacterSelect && flow_.highlighted() >= 0);
+	if (!backdrop_)
 		return;
-	model_ = smgr->addAnimatedMeshSceneNode(mesh);
-	model_->setFrameLoop(206, 250);
-	model_->setAnimationSpeed(12.0f);
-	aabbox3df box = mesh->getBoundingBox();
-	vector3df centre = box.getCenter();
-	f32 height = box.getExtent().Y;
-	vector3df target = centre + vector3df(0.0f, height * 0.2f, 0.0f);
-	camera_ = smgr->addCameraSceneNode(0, target + vector3df(0.0f, height * 0.1f, -height * 1.0f), target);
-	smgr->setActiveCamera(camera_);
-	smgr->setAmbientLight(SColorf(0.35f, 0.3f, 0.26f));
-	light_ = smgr->addLightSceneNode(0, centre + vector3df(-height, height, -height * 1.5f), SColorf(1.0f, 0.78f, 0.55f), height * 6.0f);
+	if (wanted)
+		backdrop_->showCharacter(characterModel);
+	else
+		backdrop_->hideCharacter();
 }
 
-void MenuScreens::hidePreview()
+void MenuScreens::drawCaption(const std::string& name, character::Gender gender, const character::Profession* profession)
 {
-	for (scene::ISceneNode* node : { (scene::ISceneNode*)model_, (scene::ISceneNode*)camera_, (scene::ISceneNode*)light_ })
-		if (node)
-			node->remove();
-	model_ = 0;
-	camera_ = 0;
-	light_ = 0;
+	s32 x = captionArea.UpperLeftCorner.X;
+	s32 y = captionArea.UpperLeftCorner.Y;
+	canvas_.drawRect(rect<s32>(x, y, x + 48, y + 2), theme::accent);
+	text(canvas_.loadFont(headingFont), name.empty() ? "Unnamed" : name, x - 2, y + 12, name.empty() ? theme::dim : theme::text);
+	if (!profession)
+		return;
+	std::string who = std::string(gender == character::Gender::Female ? "Female" : "Male") + "   " + profession->name;
+	text(canvas_.loadFont(bodyFont), who, x, y + 60, theme::muted);
+	text(canvas_.loadFont(bodyFont), bonuses(*profession), x, y + 84, theme::accent);
 }
 
-void MenuScreens::drawPreview()
+bool MenuScreens::onEvent(const SEvent& event)
 {
-	s32 floor = previewArea.LowerRightCorner.Y - 112;
-	if (model_)
+	if (event.EventType != EET_MOUSE_INPUT_EVENT || !backdrop_ || !backdrop_->character())
 	{
-		video::IVideoDriver* driver = device_->getVideoDriver();
-		dimension2d<u32> screen = canvas_.screenSize();
-		rect<s32> view(previewArea.UpperLeftCorner.X, previewArea.UpperLeftCorner.Y, previewArea.LowerRightCorner.X, floor);
-		model_->setRotation(vector3df(0.0f, (f32)(device_->getTimer()->getTime() % 18000) * 0.02f, 0.0f));
-		camera_->setAspectRatio((f32)view.getWidth() / (f32)view.getHeight());
-		driver->setViewPort(view);
-		driver->clearZBuffer();
-		device_->getSceneManager()->drawAll();
-		driver->setViewPort(rect<s32>(0, 0, (s32)screen.Width, (s32)screen.Height));
+		turning_ = false;
+		return false;
 	}
-	s32 x = previewArea.UpperLeftCorner.X + 96;
-	canvas_.drawRect(rect<s32>(x, floor, previewArea.LowerRightCorner.X - 96, floor + 1), theme::border);
-	canvas_.drawRect(rect<s32>(x, floor, x + 48, floor + 2), theme::accent);
-
-	std::string name = panel_.text(GUI_ID_NAME);
-	text(canvas_.loadFont(headingFont), name.empty() ? "Unnamed" : name, x - 2, floor + 12, name.empty() ? theme::dim : theme::text);
-	s32 chosen = panel_.selected(GUI_ID_PROFESSION);
-	if (chosen >= 0 && chosen < (s32)flow_.professions().size())
+	const SEvent::SMouseInput& mouse = event.MouseInput;
+	switch (mouse.Event)
 	{
-		const character::Profession& profession = flow_.professions()[chosen];
-		std::string who = std::string(gender_ == character::Gender::Female ? "Female" : "Male") + "   " + profession.name;
-		text(canvas_.loadFont(bodyFont), who, x, floor + 60, theme::muted);
-		text(canvas_.loadFont(bodyFont), bonuses(profession), x, floor + 84, theme::accent);
+	case EMIE_LMOUSE_PRESSED_DOWN:
+		if (mouse.X < turnArea)
+			return false;
+		turning_ = true;
+		turnFromX_ = mouse.X;
+		return true;
+	case EMIE_MOUSE_MOVED:
+		if (!turning_)
+			return false;
+		backdrop_->turnCharacter((f32)(turnFromX_ - mouse.X) * degreesPerPixel);
+		turnFromX_ = mouse.X;
+		return true;
+	case EMIE_LMOUSE_LEFT_UP:
+		if (!turning_)
+			return false;
+		turning_ = false;
+		return true;
+	default:
+		return false;
 	}
 }
 
@@ -147,7 +144,9 @@ void MenuScreens::header(const std::string& title)
 
 void MenuScreens::hide()
 {
-	hidePreview();
+	if (backdrop_)
+		backdrop_->hideCharacter();
+	turning_ = false;
 	panel_.clear();
 	buttons_.clear();
 	hasBuilt_ = false;
@@ -207,7 +206,6 @@ void MenuScreens::build()
 		}
 		addButton(GUI_ID_REROLL, rect<s32>(left + 236, statTop + 5 * statRow + 2, left + 324, statTop + 5 * statRow + 26), "RE-ROLL", Style::Link);
 		addButton(GUI_ID_CREATE, rect<s32>(left + 128, bottomTop, formRight, bottomBottom), "Create Character", Style::Primary);
-		showPreview();
 		break;
 	}
 
@@ -396,10 +394,18 @@ void MenuScreens::draw()
 	else
 		canvas_.drawGradientRect(rect<s32>(0, 0, (s32)screen.Width, (s32)screen.Height), theme::backgroundTop, theme::backgroundBottom);
 
+	showCharacter();
 	if (built_ == Screen::CharacterCreation)
 	{
-		drawPreview();
+		s32 chosen = panel_.selected(GUI_ID_PROFESSION);
+		drawCaption(panel_.text(GUI_ID_NAME), gender_,
+			chosen >= 0 && chosen < (s32)flow_.professions().size() ? &flow_.professions()[chosen] : nullptr);
 		drawAegis();
+	}
+	if (built_ == Screen::CharacterSelect && flow_.highlighted() >= 0 && flow_.highlighted() < (s32)flow_.characters().size())
+	{
+		const character::CharacterSheet& sheet = flow_.characters()[flow_.highlighted()];
+		drawCaption(sheet.name(), sheet.gender(), &sheet.profession());
 	}
 
 	if (built_ == Screen::Title)

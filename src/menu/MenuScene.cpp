@@ -18,10 +18,16 @@ namespace
 	const vector3df eye(0.0f, 1.0f, 0.0f);
 	const vector3df ahead(0.0f, 3.5f, 60.0f);
 	const f32 fieldOfView = 55.0f * DEGTORAD;
+	const vector3df standing(1.9f, 0.0f, 3.8f);
+	const f32 characterHeight = 1.75f;
+	const f32 facingCamera = 180.0f;
+	const s32 idleStart = 206;
+	const s32 idleEnd = 250;
 }
 
 MenuScene::MenuScene(IrrlichtDevice* device)
-	: device_(device), scene_(device->getSceneManager()->createNewSceneManager(false)), camera_(0)
+	: device_(device), scene_(device->getSceneManager()->createNewSceneManager(false)), camera_(0), character_(0), yaw_(0.0f),
+	targetYaw_(0.0f), lastTime_(device->getTimer()->getTime())
 {
 	camera_ = scene_->addCameraSceneNode(0, eye, ahead);
 	camera_->setFOV(fieldOfView);
@@ -118,11 +124,52 @@ void MenuScene::addLights()
 	sun->setName("sun");
 }
 
+void MenuScene::showCharacter(const char* model)
+{
+	if (character_)
+		return;
+	IAnimatedMesh* mesh = scene_->getMesh(model);
+	if (!mesh)
+		return;
+	f32 scale = characterHeight / mesh->getBoundingBox().getExtent().Y;
+	f32 feet = mesh->getMesh(idleStart)->getBoundingBox().MinEdge.Y;
+	character_ = scene_->addAnimatedMeshSceneNode(mesh, 0, -1, standing + vector3df(0.0f, -feet * scale, 0.0f),
+		vector3df(0.0f, facingCamera, 0.0f), vector3df(scale, scale, scale));
+	character_->setName("character");
+	character_->setFrameLoop(idleStart, idleEnd);
+	character_->setAnimationSpeed(12.0f);
+	character_->setLoopMode(true);
+	character_->setMaterialFlag(EMF_FOG_ENABLE, true);
+	character_->setMaterialFlag(EMF_NORMALIZE_NORMALS, true);
+	yaw_ = 0.0f;
+	targetYaw_ = 0.0f;
+}
+
+void MenuScene::hideCharacter()
+{
+	if (character_)
+		character_->remove();
+	character_ = 0;
+}
+
+void MenuScene::turnCharacter(f32 degrees)
+{
+	targetYaw_ += degrees;
+}
+
 void MenuScene::draw()
 {
 	IVideoDriver* driver = device_->getVideoDriver();
 	dimension2d<u32> screen = driver->getScreenSize();
-	f32 seconds = device_->getTimer()->getTime() / 1000.0f;
+	u32 now = device_->getTimer()->getTime();
+	f32 elapsed = now > lastTime_ ? (now - lastTime_) / 1000.0f : 0.0f;
+	lastTime_ = now;
+	if (character_)
+	{
+		yaw_ += (targetYaw_ - yaw_) * (1.0f - std::exp(-elapsed * 12.0f));
+		character_->setRotation(vector3df(0.0f, facingCamera + yaw_, 0.0f));
+	}
+	f32 seconds = now / 1000.0f;
 	f32 yaw = 2.5f * DEGTORAD * std::sin(seconds * 2.0f * PI / 120.0f);
 	camera_->setTarget(eye + vector3df(ahead.X * std::cos(yaw) + ahead.Z * std::sin(yaw), ahead.Y - eye.Y,
 		ahead.Z * std::cos(yaw) - ahead.X * std::sin(yaw)));

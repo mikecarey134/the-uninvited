@@ -8,12 +8,13 @@
 #include <irrlicht.h>
 #include "Canvas.h"
 #include "GuiPanel.h"
+#include "InputRouter.h"
 #include "MenuFlow.h"
 
 namespace gamecore { class SoundEngine; }
 class MenuScene;
 
-class MenuScreens
+class MenuScreens : public InputLayer
 {
 public:
 	enum { GUI_ID_PLAY = 200, GUI_ID_SETTINGS, GUI_ID_QUIT, GUI_ID_BACK, GUI_ID_CHARACTERS, GUI_ID_NEW_CHARACTER,
@@ -25,6 +26,7 @@ public:
 		const std::deque<std::string>& status, MenuScene* backdrop);
 
 	bool onGuiEvent(const irr::SEvent& event);
+	bool onEvent(const irr::SEvent& event) override;
 	void back();
 	void draw();
 	void hide();
@@ -52,9 +54,8 @@ private:
 	void markCharacters();
 	bool clicked(irr::s32 id);
 	void click();
-	void showPreview();
-	void hidePreview();
-	void drawPreview();
+	void showCharacter();
+	void drawCaption(const std::string& name, character::Gender gender, const character::Profession* profession);
 	void drawAegis();
 	bool isEnabled(irr::s32 id) const;
 
@@ -74,10 +75,9 @@ private:
 	menu::Screen built_;
 	bool hasBuilt_;
 	character::Gender gender_;
-	irr::scene::IAnimatedMeshSceneNode* model_;
-	irr::scene::ICameraSceneNode* camera_;
-	irr::scene::ILightSceneNode* light_;
 	MenuScene* backdrop_;
+	bool turning_;
+	irr::s32 turnFromX_;
 };
 
 #endif
