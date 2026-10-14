@@ -10,6 +10,7 @@
 #include "IrrlichtCanvas.h"
 #include "MenuFlow.h"
 #include "MenuScreens.h"
+#include "MenuScene.h"
 #include "MenuSkin.h"
 #include "SoundEngine.h"
 #include "client/NetSession.h"
@@ -58,7 +59,8 @@ namespace
 		NetClient client(clientTransport, clock, events);
 		NetSession session(serverTransport, client, clock, [](const std::string& line) { std::cout << line << std::endl; });
 
-		MenuScreens screens(device, canvas, flow, sound, status);
+		MenuScene backdrop(device);
+		MenuScreens screens(device, canvas, flow, sound, status, &backdrop);
 		InputRouter router;
 		GuiInputLayer layer(device->getGUIEnvironment(), [&screens](const SEvent& event) { return screens.onGuiEvent(event); },
 			[&screens] { screens.back(); }, [] { return true; });

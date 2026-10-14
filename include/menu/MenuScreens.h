@@ -11,6 +11,7 @@
 #include "MenuFlow.h"
 
 namespace gamecore { class SoundEngine; }
+class MenuScene;
 
 class MenuScreens
 {
@@ -21,7 +22,7 @@ public:
 		GUI_ID_PLUS_FIRST = 320 };
 
 	MenuScreens(irr::IrrlichtDevice* device, Canvas& canvas, menu::MenuFlow& flow, gamecore::SoundEngine* sound,
-		const std::deque<std::string>& status);
+		const std::deque<std::string>& status, MenuScene* backdrop);
 
 	bool onGuiEvent(const irr::SEvent& event);
 	void back();
@@ -76,6 +77,7 @@ private:
 	irr::scene::IAnimatedMeshSceneNode* model_;
 	irr::scene::ICameraSceneNode* camera_;
 	irr::scene::ILightSceneNode* light_;
+	MenuScene* backdrop_;
 };
 
 #endif

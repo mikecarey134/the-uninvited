@@ -1,4 +1,5 @@
 #include "MenuScreens.h"
+#include "MenuScene.h"
 #include "SoundEngine.h"
 #include "Theme.h"
 #include "UiAnchor.h"
@@ -50,10 +51,10 @@ namespace
 }
 
 MenuScreens::MenuScreens(IrrlichtDevice* device, Canvas& canvas, menu::MenuFlow& flow, gamecore::SoundEngine* sound,
-	const std::deque<std::string>& status)
+	const std::deque<std::string>& status, MenuScene* backdrop)
 	: device_(device), canvas_(canvas), flow_(flow), sound_(sound), status_(status),
 	panel_(device->getGUIEnvironment(), canvas.screenSize()), built_(Screen::Title), hasBuilt_(false),
-	gender_(character::Gender::Male), model_(0), camera_(0), light_(0)
+	gender_(character::Gender::Male), model_(0), camera_(0), light_(0), backdrop_(backdrop)
 {
 }
 
@@ -97,6 +98,7 @@ void MenuScreens::drawPreview()
 		model_->setRotation(vector3df(0.0f, (f32)(device_->getTimer()->getTime() % 18000) * 0.02f, 0.0f));
 		camera_->setAspectRatio((f32)view.getWidth() / (f32)view.getHeight());
 		driver->setViewPort(view);
+		driver->clearZBuffer();
 		device_->getSceneManager()->drawAll();
 		driver->setViewPort(rect<s32>(0, 0, (s32)screen.Width, (s32)screen.Height));
 	}
@@ -385,7 +387,14 @@ void MenuScreens::draw()
 		guienv->getSkin()->setFont(font);
 
 	dimension2d<u32> screen = canvas_.screenSize();
-	canvas_.drawGradientRect(rect<s32>(0, 0, (s32)screen.Width, (s32)screen.Height), theme::backgroundTop, theme::backgroundBottom);
+	if (backdrop_)
+	{
+		backdrop_->draw();
+		for (s32 x = 0; x < 720; x += 4)
+			canvas_.drawRect(rect<s32>(x, 0, x + 4, (s32)screen.Height), SColor((u32)(180 - x / 4), 8, 7, 5));
+	}
+	else
+		canvas_.drawGradientRect(rect<s32>(0, 0, (s32)screen.Width, (s32)screen.Height), theme::backgroundTop, theme::backgroundBottom);
 
 	if (built_ == Screen::CharacterCreation)
 	{
