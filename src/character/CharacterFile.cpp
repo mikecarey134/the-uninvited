@@ -41,6 +41,12 @@ namespace character
 			}
 		}
 
+		bool mentions(const std::string& text, const std::string& key)
+		{
+			std::string line = key + " =";
+			return text.compare(0, line.size(), line) == 0 || text.find("\n" + line) != std::string::npos;
+		}
+
 		bool attributeFromName(const std::string& name, Attribute& attribute)
 		{
 			for (int i = 0; i < ATTRIBUTE_COUNT; ++i)
@@ -58,6 +64,7 @@ namespace character
 		KeyValueWriter out;
 		out.add("name", name_);
 		out.add("gender", std::string(gender_ == Gender::Female ? "Female" : "Male"));
+		out.add("outfit", outfit_);
 		out.add("age", age_, 9);
 		out.add("profession", profession_.name);
 		std::vector<std::string> bonuses;
@@ -113,6 +120,12 @@ namespace character
 
 		if (read && gender != "Male" && gender != "Female")
 			read = fields.fail("bad gender: " + gender);
+		if (read && mentions(text, "outfit"))
+		{
+			read = fields.whole("outfit", sheet.outfit_);
+			if (read && sheet.outfit_ < 0)
+				read = fields.fail("bad outfit: " + std::to_string(sheet.outfit_));
+		}
 		for (const std::string& entry : read ? split(bonuses) : std::vector<std::string>())
 		{
 			std::string::size_type colon = entry.find(':');

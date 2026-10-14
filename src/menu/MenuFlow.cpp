@@ -104,7 +104,7 @@ namespace menu
 		return change > 0 ? draft_.place(attribute, change) : draft_.remove(attribute, -change);
 	}
 
-	bool MenuFlow::create(const std::string& name, character::Gender gender, int profession)
+	bool MenuFlow::create(const std::string& name, character::Gender gender, int profession, int outfit)
 	{
 		if (screen() != Screen::CharacterCreation)
 			return false;
@@ -125,6 +125,7 @@ namespace menu
 			return false;
 		}
 		character::CharacterSheet sheet = character::CharacterSheet::create(name, gender, professions_[profession], draft_);
+		sheet.setOutfit(outfit);
 		if (!store_.save(sheet, problem))
 		{
 			message_ = problem;

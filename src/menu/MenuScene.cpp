@@ -200,10 +200,13 @@ void MenuScene::addLights()
 	fill->setName("fill");
 }
 
-void MenuScene::showCharacter(const char* model)
+void MenuScene::showCharacter(const char* model, const char* skin)
 {
 	if (character_ && model_ == model)
+	{
+		dress(skin);
 		return;
+	}
 	IAnimatedMesh* mesh = scene_->getMesh(model);
 	if (!mesh)
 		return;
@@ -221,6 +224,8 @@ void MenuScene::showCharacter(const char* model)
 	character_->setLoopMode(true);
 	character_->setMaterialFlag(EMF_FOG_ENABLE, true);
 	character_->setMaterialFlag(EMF_NORMALIZE_NORMALS, true);
+	skin_.clear();
+	dress(skin);
 	if (swapping)
 		character_->setRotation(vector3df(0.0f, facingCamera + yaw_, 0.0f));
 	else
@@ -242,12 +247,24 @@ bool MenuScene::characterTop(position2d<s32>& at) const
 	return true;
 }
 
+void MenuScene::dress(const char* skin)
+{
+	if (!skin || skin_ == skin)
+		return;
+	if (ITexture* texture = device_->getVideoDriver()->getTexture(skin))
+	{
+		character_->setMaterialTexture(0, texture);
+		skin_ = skin;
+	}
+}
+
 void MenuScene::hideCharacter()
 {
 	if (character_)
 		character_->remove();
 	character_ = 0;
 	model_.clear();
+	skin_.clear();
 }
 
 void MenuScene::turnCharacter(f32 degrees)

@@ -11,7 +11,7 @@ public:
 	~MenuScene();
 
 	void draw();
-	void showCharacter(const char* model);
+	void showCharacter(const char* model, const char* skin = 0);
 	void hideCharacter();
 	void turnCharacter(irr::f32 degrees);
 	irr::scene::IAnimatedMeshSceneNode* character() const { return character_; }
@@ -27,6 +27,7 @@ private:
 		irr::video::SColor colour, const irr::core::vector3df& rotation = irr::core::vector3df(), irr::scene::ISceneNode* parent = 0);
 	void finish(irr::scene::ISceneNode* node, irr::video::SColor colour);
 	irr::scene::ISceneNode* car(const char* file, const irr::core::vector3df& position, const irr::core::vector3df& rotation);
+	void dress(const char* skin);
 	void addSky();
 	void addGround();
 	void addCity();
@@ -40,6 +41,7 @@ private:
 	irr::scene::ICameraSceneNode* camera_;
 	irr::scene::IAnimatedMeshSceneNode* character_;
 	std::string model_;
+	std::string skin_;
 	irr::f32 yaw_;
 	irr::f32 targetYaw_;
 	irr::u32 lastTime_;

@@ -1,4 +1,5 @@
 #include "MenuScreens.h"
+#include "Outfits.h"
 #include "MenuScene.h"
 #include "SoundEngine.h"
 #include "Theme.h"
@@ -32,6 +33,8 @@ namespace
 	const char* const bodyFont = "assets/fonts/body.png";
 	const char* const labelFont = "assets/fonts/label.png";
 	const wchar_t check = L'\x7f';
+	const rect<s32> outfitPrevious(744, 416, 784, 456);
+	const rect<s32> outfitNext(1120, 416, 1160, 456);
 
 	const s32 left = 64;
 	const s32 right = 608;
@@ -40,6 +43,18 @@ namespace
 	std::wstring wide(const std::string& text)
 	{
 		return std::wstring(text.begin(), text.end());
+	}
+
+	std::string fitted(IGUIFont* font, const std::string& text, s32 room)
+	{
+		if (!font || (s32)font->getDimension(wide(text).c_str()).Width <= room)
+			return text;
+		std::string cut = text;
+		while (!cut.empty() && (s32)font->getDimension(wide(cut + "...").c_str()).Width > room)
+			cut.pop_back();
+		while (!cut.empty() && (cut.back() == ' ' || cut.back() == ','))
+			cut.pop_back();
+		return cut + "...";
 	}
 
 	std::string bonuses(const character::Profession& profession)
@@ -55,7 +70,7 @@ MenuScreens::MenuScreens(IrrlichtDevice* device, Canvas& canvas, menu::MenuFlow&
 	const std::deque<std::string>& status, MenuScene* backdrop)
 	: device_(device), canvas_(canvas), flow_(flow), sound_(sound), status_(status),
 	panel_(device->getGUIEnvironment(), canvas.screenSize()), built_(Screen::Title), hasBuilt_(false),
-	gender_(character::Gender::Male), backdrop_(backdrop), turning_(false), turnFromX_(0)
+	gender_(character::Gender::Male), outfit_(0), backdrop_(backdrop), turning_(false), turnFromX_(0)
 {
 }
 
@@ -67,12 +82,16 @@ void MenuScreens::showCharacter()
 	if (!backdrop_)
 		return;
 	character::Gender gender = gender_;
-	if (built_ == Screen::CharacterSelect && flow_.highlighted() >= 0)
-		gender = flow_.characters()[flow_.highlighted()].gender();
-	else if (playing && flow_.chosen())
-		gender = flow_.chosen()->gender();
+	int outfit = outfit_;
+	const character::CharacterSheet* shown = built_ == Screen::CharacterSelect && flow_.highlighted() >= 0
+		? &flow_.characters()[flow_.highlighted()] : (playing ? flow_.chosen() : nullptr);
+	if (shown)
+	{
+		gender = shown->gender();
+		outfit = shown->outfit();
+	}
 	if (wanted)
-		backdrop_->showCharacter(gender == character::Gender::Female ? femaleModel : maleModel);
+		backdrop_->showCharacter(gender == character::Gender::Female ? femaleModel : maleModel, menu::outfitSkin(gender, outfit).c_str());
 	else
 		backdrop_->hideCharacter();
 }
@@ -204,6 +223,7 @@ void MenuScreens::build()
 	{
 		header("New Character");
 		gender_ = character::Gender::Male;
+		outfit_ = 0;
 		addTextBox(GUI_ID_NAME, rect<s32>(left, 118, formRight, 154), "", menu::MAX_NAME_LENGTH, true);
 		addButton(GUI_ID_MALE, rect<s32>(left, 184, (left + formRight) / 2 - 4, 216), "Male", Style::Choice);
 		addButton(GUI_ID_FEMALE, rect<s32>((left + formRight) / 2 + 4, 184, formRight, 216), "Female", Style::Choice);
@@ -212,6 +232,11 @@ void MenuScreens::build()
 			professions.push_back("  " + profession.name + "   -   " + bonuses(profession));
 		IGUIListBox* list = panel_.list(place(rect<s32>(left, 244, formRight, 418)), GUI_ID_PROFESSION, professions, 0);
 		list->setItemHeight(30);
+		IGUISkin* skin = device_->getGUIEnvironment()->getSkin();
+		s32 room = list->getAbsolutePosition().getWidth() - skin->getSize(EGDS_SCROLLBAR_SIZE) - 2 * skin->getSize(EGDS_TEXT_DISTANCE_X);
+		IGUIFont* font = device_->getGUIEnvironment()->getFont(bodyFont);
+		for (u32 i = 0; i < list->getItemCount(); ++i)
+			list->setItem(i, wide(fitted(font, professions[i], room)).c_str(), -1);
 		for (s32 i = 0; i < character::ATTRIBUTE_COUNT; ++i)
 		{
 			s32 y = statTop + i * statRow;
@@ -219,6 +244,8 @@ void MenuScreens::build()
 			addButton(GUI_ID_PLUS_FIRST + i, rect<s32>(left + 300, y + 2, left + 324, y + 26), "+", Style::Step);
 		}
 		addButton(GUI_ID_REROLL, rect<s32>(left + 236, statTop + 5 * statRow + 2, left + 324, statTop + 5 * statRow + 26), "RE-ROLL", Style::Link);
+		addButton(GUI_ID_OUTFIT_PREVIOUS, outfitPrevious, "<", Style::Choice);
+		addButton(GUI_ID_OUTFIT_NEXT, outfitNext, ">", Style::Choice);
 		addButton(GUI_ID_CREATE, rect<s32>(left + 128, bottomTop, formRight, bottomBottom), "Create Character", Style::Primary);
 		break;
 	}
@@ -256,6 +283,8 @@ bool MenuScreens::isEnabled(s32 id) const
 		return draft.unplaced() > 0;
 	if (id >= GUI_ID_MINUS_FIRST && id < GUI_ID_MINUS_FIRST + character::ATTRIBUTE_COUNT)
 		return draft.placed[id - GUI_ID_MINUS_FIRST] > 0;
+	if (id == GUI_ID_OUTFIT_PREVIOUS || id == GUI_ID_OUTFIT_NEXT)
+		return menu::outfitSkins(gender_).size() > 1;
 	return true;
 }
 
@@ -426,10 +455,19 @@ void MenuScreens::draw()
 	switch (built_)
 	{
 	case Screen::CharacterCreation:
+	{
 		label("NAME", left, 100);
 		label("GENDER", left, 166);
 		label("PROFESSION", left, 228);
+		position2d<s32> top;
+		if (backdrop_ && backdrop_->characterTop(top))
+		{
+			std::string line = "OUTFIT   " + std::to_string(outfit_ + 1) + " / " + std::to_string(menu::outfitSkins(gender_).size());
+			dimension2d<u32> size = canvas_.textSize(canvas_.loadFont(labelFont), wide(line).c_str());
+			label(line, top.X - (s32)size.Width / 2, top.Y - 24);
+		}
 		break;
+	}
 	case Screen::JoinGame:
 		label("SERVER ADDRESS", left, 192);
 		label("PORT", middle + 104, 192);
@@ -488,11 +526,18 @@ bool MenuScreens::clicked(s32 id)
 		flow_.highlight(panel_.selected(GUI_ID_CHARACTERS));
 		flow_.select();
 		break;
-	case GUI_ID_MALE: gender_ = character::Gender::Male; break;
-	case GUI_ID_FEMALE: gender_ = character::Gender::Female; break;
+	case GUI_ID_MALE: gender_ = character::Gender::Male; outfit_ = 0; break;
+	case GUI_ID_FEMALE: gender_ = character::Gender::Female; outfit_ = 0; break;
+	case GUI_ID_OUTFIT_PREVIOUS:
+	case GUI_ID_OUTFIT_NEXT:
+	{
+		int count = (int)menu::outfitSkins(gender_).size();
+		outfit_ = (outfit_ + (id == GUI_ID_OUTFIT_NEXT ? 1 : count - 1)) % count;
+		break;
+	}
 	case GUI_ID_NAME:
 	case GUI_ID_CREATE:
-		flow_.create(panel_.text(GUI_ID_NAME), gender_, panel_.selected(GUI_ID_PROFESSION));
+		flow_.create(panel_.text(GUI_ID_NAME), gender_, panel_.selected(GUI_ID_PROFESSION), outfit_);
 		break;
 	case GUI_ID_REROLL: flow_.reroll(); break;
 	case GUI_ID_HOST:

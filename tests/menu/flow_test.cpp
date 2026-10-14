@@ -454,3 +454,15 @@ TEST_CASE("a character without a bloodline reports none after a restart")
 	CHECK(out.text[9] == "Bloodline: none");
 	CHECK(out.text[2] == "Profession: Doctor (Medicine +30)");
 }
+
+TEST_CASE("creating a character saves the chosen outfit")
+{
+	Fixture fixture("create_outfit");
+	fixture.flow.play();
+	fixture.flow.newCharacter();
+	REQUIRE(fixture.flow.create("Ivy", Gender::Male, fixture.professionNamed("Doctor"), 2));
+	MenuFlow reopened(fixture.store, shippedProfessions());
+	reopened.play();
+	REQUIRE(reopened.characters().size() == 1);
+	CHECK(reopened.characters()[0].outfit() == 2);
+}

@@ -10,6 +10,7 @@ static void checkSame(const CharacterSheet& a, const CharacterSheet& b)
 {
 	CHECK(a.name() == b.name());
 	CHECK(a.gender() == b.gender());
+	CHECK(a.outfit() == b.outfit());
 	CHECK(a.age() == b.age());
 	CHECK(a.profession().name == b.profession().name);
 	CHECK(a.profession().skillBonuses == b.profession().skillBonuses);
@@ -116,4 +117,27 @@ TEST_CASE("broken character text is reported, not loaded")
 
 	CharacterSheet::fromText(good, problem);
 	CHECK(problem.empty());
+}
+
+TEST_CASE("the chosen outfit round trips, saves from before outfits load as the first one, and a negative outfit is refused")
+{
+	CharacterSheet dressed = CharacterSheet::create("Ada", Gender::Female, bartender);
+	dressed.setOutfit(2);
+	std::string problem;
+	CharacterSheet loaded = CharacterSheet::fromText(dressed.toText(), problem);
+	CHECK(problem.empty());
+	CHECK(loaded.outfit() == 2);
+
+	std::string old = dressed.toText();
+	std::string::size_type at = old.find("outfit = 2\n");
+	REQUIRE(at != std::string::npos);
+	old.erase(at, std::string("outfit = 2\n").size());
+	CharacterSheet older = CharacterSheet::fromText(old, problem);
+	CHECK(problem.empty());
+	CHECK(older.outfit() == 0);
+
+	std::string negative = dressed.toText();
+	negative.replace(negative.find("outfit = 2"), 10, "outfit = -1");
+	CharacterSheet::fromText(negative, problem);
+	CHECK(problem == "bad outfit: -1");
 }

@@ -48,6 +48,8 @@ namespace character
 
 		const std::string& name() const { return name_; }
 		Gender gender() const { return gender_; }
+		int outfit() const { return outfit_; }
+		void setOutfit(int outfit) { outfit_ = outfit; }
 		float age() const { return age_; }
 		void setAge(float age) { age_ = age; }
 		const Profession& profession() const { return profession_; }
@@ -82,6 +84,7 @@ namespace character
 
 		std::string name_;
 		Gender gender_ = Gender::Male;
+		int outfit_ = 0;
 		float age_ = 28.0f;
 		Profession profession_;
 		Aegis aegis_;

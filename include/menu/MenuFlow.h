@@ -37,7 +37,7 @@ namespace menu
 		const character::Aegis& draft() const { return draft_; }
 		void reroll();
 		bool adjust(character::Attribute attribute, int change);
-		bool create(const std::string& name, character::Gender gender, int profession);
+		bool create(const std::string& name, character::Gender gender, int profession, int outfit = 0);
 
 		void host();
 		void join();

@@ -20,7 +20,7 @@ public:
 	enum { GUI_ID_PLAY = 200, GUI_ID_SETTINGS, GUI_ID_QUIT, GUI_ID_BACK, GUI_ID_CHARACTERS, GUI_ID_NEW_CHARACTER,
 		GUI_ID_SELECT, GUI_ID_NAME, GUI_ID_MALE, GUI_ID_FEMALE, GUI_ID_PROFESSION, GUI_ID_CREATE, GUI_ID_HOST, GUI_ID_JOIN,
 		GUI_ID_ADDRESS, GUI_ID_PORT, GUI_ID_START, GUI_ID_LEAVE, GUI_ID_REROLL = 300, GUI_ID_MINUS_FIRST = 310,
-		GUI_ID_PLUS_FIRST = 320 };
+		GUI_ID_PLUS_FIRST = 320, GUI_ID_OUTFIT_PREVIOUS = 330, GUI_ID_OUTFIT_NEXT };
 
 	MenuScreens(irr::IrrlichtDevice* device, Canvas& canvas, menu::MenuFlow& flow, gamecore::SoundEngine* sound,
 		const std::deque<std::string>& status, MenuScene* backdrop);
@@ -76,6 +76,7 @@ private:
 	menu::Screen built_;
 	bool hasBuilt_;
 	character::Gender gender_;
+	int outfit_;
 	MenuScene* backdrop_;
 	bool turning_;
 	irr::s32 turnFromX_;

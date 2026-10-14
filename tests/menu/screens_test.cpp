@@ -4,12 +4,14 @@
 #include "MenuFlow.h"
 #include "MenuScene.h"
 #include "MenuScreens.h"
+#include "Outfits.h"
 #include <deque>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
 
 using namespace irr;
+using namespace gui;
 
 namespace
 {
@@ -215,4 +217,124 @@ TEST_CASE("select and the game screens stand each saved character as their own g
 	menu.flow.host();
 	menu.screens->draw();
 	CHECK(endsWith(menu.backdrop->characterModel(), "stick_dan.ms3d"));
+}
+
+namespace
+{
+	std::string skinOf(MenuScene* backdrop)
+	{
+		REQUIRE(backdrop->character() != nullptr);
+		video::ITexture* texture = backdrop->character()->getMaterial(0).getTexture(0);
+		REQUIRE(texture != nullptr);
+		return texture->getName().getPath().c_str();
+	}
+}
+
+TEST_CASE("the outfit arrows swap the model's clothes in place, wrapping both ways, and female starts on her own outfit")
+{
+	Menu menu("screens_outfits");
+	menu.flow.play();
+	menu.flow.newCharacter();
+	menu.screens->draw();
+	scene::ISceneNode* model = menu.backdrop->character();
+	CHECK(endsWith(skinOf(menu.backdrop), "playerskin_m1.jpg"));
+	menu.press(MenuScreens::GUI_ID_OUTFIT_NEXT);
+	menu.screens->draw();
+	CHECK(endsWith(skinOf(menu.backdrop), "playerskin_m2.jpg"));
+	CHECK(menu.backdrop->character() == model);
+	menu.press(MenuScreens::GUI_ID_OUTFIT_NEXT);
+	menu.screens->draw();
+	CHECK(endsWith(skinOf(menu.backdrop), "playerskin_m3.jpg"));
+	menu.press(MenuScreens::GUI_ID_OUTFIT_NEXT);
+	menu.screens->draw();
+	CHECK(endsWith(skinOf(menu.backdrop), "playerskin_m1.jpg"));
+	menu.press(MenuScreens::GUI_ID_OUTFIT_PREVIOUS);
+	menu.screens->draw();
+	CHECK(endsWith(skinOf(menu.backdrop), "playerskin_m3.jpg"));
+
+	menu.press(MenuScreens::GUI_ID_FEMALE);
+	menu.screens->draw();
+	CHECK(endsWith(skinOf(menu.backdrop), "playerskin_d1.bmp"));
+	menu.press(MenuScreens::GUI_ID_OUTFIT_NEXT);
+	menu.screens->draw();
+	CHECK(endsWith(skinOf(menu.backdrop), "playerskin_d1.bmp"));
+	for (const std::string& skin : menu::outfitSkins(character::Gender::Male))
+		CHECK((endsWith(skin, "m1.jpg") || endsWith(skin, "m2.jpg") || endsWith(skin, "m3.jpg")));
+	CHECK(menu::outfitSkins(character::Gender::Male).size() == 3);
+	CHECK(menu::outfitSkins(character::Gender::Female).size() == 1);
+}
+
+TEST_CASE("the outfit picked on create is saved and worn on select and in the game")
+{
+	Menu menu("screens_outfit_saved");
+	menu.flow.play();
+	menu.flow.newCharacter();
+	menu.screens->draw();
+	menu.press(MenuScreens::GUI_ID_OUTFIT_PREVIOUS);
+	menu.screens->draw();
+	IGUIElement* name = menu.device->getGUIEnvironment()->getRootGUIElement()->getElementFromId(MenuScreens::GUI_ID_NAME, true);
+	REQUIRE(name != nullptr);
+	name->setText(L"Ivy");
+	menu.press(MenuScreens::GUI_ID_CREATE);
+	REQUIRE(menu.flow.screen() == menu::Screen::CharacterSelect);
+	REQUIRE(menu.flow.characters().size() == 1);
+	CHECK(menu.flow.characters()[0].outfit() == 2);
+	menu.screens->draw();
+	menu.flow.newCharacter();
+	menu.screens->draw();
+	CHECK(endsWith(skinOf(menu.backdrop), "playerskin_m1.jpg"));
+	menu.flow.back();
+	menu.flow.highlight(0);
+	menu.screens->draw();
+	CHECK(endsWith(skinOf(menu.backdrop), "playerskin_m3.jpg"));
+	REQUIRE(menu.flow.select());
+	menu.flow.host();
+	menu.screens->draw();
+	CHECK(endsWith(skinOf(menu.backdrop), "playerskin_m3.jpg"));
+}
+
+TEST_CASE("every profession row on the create screen fits inside its list, long ones shortened with an ellipsis")
+{
+	Menu menu("screens_professions");
+	menu.flow.play();
+	menu.flow.newCharacter();
+	menu.screens->draw();
+	IGUIElement* element = menu.device->getGUIEnvironment()->getRootGUIElement()->getElementFromId(MenuScreens::GUI_ID_PROFESSION, true);
+	REQUIRE(element != nullptr);
+	IGUIListBox* list = static_cast<IGUIListBox*>(element);
+	IGUISkin* skin = menu.device->getGUIEnvironment()->getSkin();
+	IGUIFont* font = skin->getFont();
+	REQUIRE(font != nullptr);
+	s32 room = list->getAbsolutePosition().getWidth() - skin->getSize(EGDS_SCROLLBAR_SIZE) - 2 * skin->getSize(EGDS_TEXT_DISTANCE_X);
+	REQUIRE(list->getItemCount() == menu.flow.professions().size());
+	int shortened = 0;
+	for (u32 i = 0; i < list->getItemCount(); ++i)
+	{
+		std::wstring item = list->getListItem(i);
+		INFO(std::string(item.begin(), item.end()));
+		CHECK((s32)font->getDimension(item.c_str()).Width <= room);
+		CHECK(item.find(std::wstring(menu.flow.professions()[i].name.begin(), menu.flow.professions()[i].name.end())) != std::wstring::npos);
+		if (item.size() >= 3 && item.compare(item.size() - 3, 3, L"...") == 0)
+			++shortened;
+	}
+	CHECK(shortened >= 1);
+}
+
+TEST_CASE("switching to female after picking a male outfit saves her on her own first outfit")
+{
+	Menu menu("screens_outfit_female");
+	menu.flow.play();
+	menu.flow.newCharacter();
+	menu.screens->draw();
+	menu.press(MenuScreens::GUI_ID_OUTFIT_NEXT);
+	menu.press(MenuScreens::GUI_ID_OUTFIT_NEXT);
+	menu.press(MenuScreens::GUI_ID_FEMALE);
+	menu.screens->draw();
+	IGUIElement* name = menu.device->getGUIEnvironment()->getRootGUIElement()->getElementFromId(MenuScreens::GUI_ID_NAME, true);
+	REQUIRE(name != nullptr);
+	name->setText(L"Ada");
+	menu.press(MenuScreens::GUI_ID_CREATE);
+	REQUIRE(menu.flow.characters().size() == 1);
+	CHECK(menu.flow.characters()[0].gender() == character::Gender::Female);
+	CHECK(menu.flow.characters()[0].outfit() == 0);
 }
