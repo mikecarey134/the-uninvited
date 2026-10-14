@@ -4,12 +4,14 @@ Zombie survival RPG built on the [GameCore](https://github.com/mikecarey134/Game
 
 ## Build
 
-Requires GameCore engine installed. See GameCore README for dependencies.
+The GameCore engine is a git submodule in `engine/`. It needs Irrlicht 1.8 (apt `libirrlicht-dev`, brew `irrlicht`, or vcpkg `irrlicht`).
 
 ```
-mkdir build && cd build
-cmake .. -DGAMECORE_DIR=~/src/GameCore
-make -j$(nproc)
+git clone --recurse-submodules https://github.com/mikecarey134/the-uninvited.git
+cd the-uninvited
+cmake -S . -B build
+cmake --build build -j
+./build/game
 ```
 
 ## Status
