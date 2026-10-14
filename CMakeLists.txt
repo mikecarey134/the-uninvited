@@ -6,9 +6,30 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(GAMECORE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/engine/gamecorev0.1.1/gamecorev0.1.1")
 add_subdirectory("${GAMECORE_DIR}" engine EXCLUDE_FROM_ALL)
+set(DOCTEST_DIR "${GAMECORE_DIR}/inventory/third_party/doctest")
 
-file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp")
+add_library(uninvited_character STATIC src/character/Profession.cpp src/character/CharacterSheet.cpp src/character/CharacterFile.cpp)
+target_include_directories(uninvited_character PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/character")
+target_link_libraries(uninvited_character PUBLIC gamecore_engine)
 
-add_executable(game ${SOURCES})
+add_executable(game src/main.cpp)
 target_include_directories(game PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_link_libraries(game PRIVATE gamecore_engine game_net_session)
+
+enable_testing()
+add_executable(character_tests tests/character/main.cpp tests/character/profession_test.cpp tests/character/attributes_test.cpp
+  tests/character/skills_test.cpp tests/character/survival_test.cpp tests/character/sheet_test.cpp tests/character/file_test.cpp)
+target_include_directories(character_tests PRIVATE "${DOCTEST_DIR}")
+target_compile_definitions(character_tests PRIVATE CHARACTER_CONFIG_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/config")
+target_link_libraries(character_tests PRIVATE uninvited_character)
+add_test(NAME character_tests COMMAND character_tests)
+
+foreach(target uninvited_character character_tests)
+  if(MSVC)
+    target_compile_options(${target} PRIVATE /W4)
+    target_compile_definitions(${target} PRIVATE _CRT_SECURE_NO_WARNINGS)
+  else()
+    target_compile_options(${target} PRIVATE -Wall -Wextra -pedantic)
+  endif()
+  set_target_properties(${target} PROPERTIES COMPILE_WARNING_AS_ERROR ON)
+endforeach()

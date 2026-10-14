@@ -1,0 +1,28 @@
+name,                skills,                                           items
+Doctor,              Medicine:30,                                      -
+Chef,                Cooking:30,                                       -
+Locksmith,           Lockpicking:30,                                   -
+Hacker,              Electronics:30,                                   -
+Pharmacist,          Chemistry:30,                                     -
+Construction Worker, Construction:30,                                  -
+Park Ranger,         Survivalism:30,                                   -
+Soldier,             Smithing:15 | Survivalism:15,                     -
+Hunter,              Survivalism:20 | Smithing:10,                     -
+Mechanic,            Engineering:20 | Smithing:10,                     -
+Engineer,            Engineering:15 | Electronics:15,                  -
+Sailor,              Survivalism:15 | Engineering:15,                  -
+Politician,          Speech:20 | Survivalism:10,                       -
+Police Officer,      Lockpicking:15 | Speech:15,                       -
+Firefighter,         Survivalism:15 | Construction:15,                 -
+Electrician,         Electronics:20 | Construction:10,                 -
+Nurse,               Medicine:20 | Chemistry:10,                       -
+Farmer,              Cooking:15 | Survivalism:15,                      -
+Veterinarian,        Medicine:15 | Chemistry:15,                       -
+Welder,              Smithing:20 | Engineering:10,                     -
+Prepper,             Survivalism:20 | Smithing:10,                     -
+Journalist,          Speech:15 | Electronics:15,                       -
+Salesman,            Speech:15 | Survivalism:10 | Cooking:5,           -
+Bartender,           Speech:10 | Cooking:10 | Chemistry:10,            -
+Entrepreneur,        Speech:10 | Electronics:10 | Construction:10,     -
+Accountant,          Electronics:10 | Speech:10 | Lockpicking:10,      -
+Paramedic,           Medicine:15 | Electronics:10 | Survivalism:5,     -
