@@ -2,6 +2,7 @@
 #include "MenuScene.h"
 #include <algorithm>
 #include <cmath>
+#include <functional>
 #include <string>
 
 using namespace irr;
@@ -316,4 +317,31 @@ TEST_CASE("the barrel wears Mike's wood on its staves and pitted metal on its ho
 		CHECK(name.size() >= std::string(expected[i]).size());
 		CHECK(name.compare(name.size() - std::string(expected[i]).size(), std::string::npos, expected[i]) == 0);
 	}
+}
+
+TEST_CASE("street primitives keep a floor of their own colour so no face drops to black, while the skyline stays a silhouette")
+{
+	Scene scene;
+	auto brightest = [](video::SColor colour) { return std::max(colour.getRed(), std::max(colour.getGreen(), colour.getBlue())); };
+	int checked = 0;
+	std::function<void(ISceneNode*)> visit = [&](ISceneNode* node) {
+		std::string name = node->getName();
+		if (name == "car body" || name == "car cabin" || name == "car bumper" || name == "car wheel" || name == "debris" ||
+			name == "curb" || name == "backpack")
+		{
+			INFO(name);
+			const video::SMaterial& material = node->getMaterial(0);
+			CHECK(brightest(material.EmissiveColor) >= brightest(material.DiffuseColor) / 4);
+			CHECK(brightest(material.EmissiveColor) >= 12);
+			++checked;
+		}
+		if (name == "building")
+			CHECK(brightest(node->getMaterial(0).EmissiveColor) <= 10);
+		if (name == "backpack")
+			CHECK(brightest(node->getMaterial(0).DiffuseColor) >= 80);
+		for (ISceneNode* child : node->getChildren())
+			visit(child);
+	};
+	visit(scene.menu->scene()->getRootSceneNode());
+	CHECK(checked >= 20);
 }

@@ -18,7 +18,7 @@ namespace
 	const SColor cabinColour(255, 124, 118, 108);
 	const SColor trimColour(255, 92, 86, 78);
 	const SColor concreteColour(255, 140, 132, 120);
-	const SColor packColour(255, 52, 48, 36);
+	const SColor packColour(255, 98, 92, 62);
 	const vector3df eye(0.0f, 1.0f, 0.0f);
 	const vector3df ahead(0.0f, 3.5f, 60.0f);
 	const f32 fieldOfView = 55.0f * DEGTORAD;
@@ -57,6 +57,7 @@ void MenuScene::finish(ISceneNode* node, SColor colour)
 	material.ColorMaterial = ECM_NONE;
 	material.AmbientColor = colour;
 	material.DiffuseColor = colour;
+	material.EmissiveColor = SColor(255, colour.getRed() * 3 / 10, colour.getGreen() * 3 / 10, colour.getBlue() * 3 / 10);
 	material.FogEnable = true;
 	material.NormalizeNormals = true;
 }
@@ -86,7 +87,7 @@ ISceneNode* MenuScene::car(const vector3df& position, const vector3df& rotation)
 		{
 			ISceneNode* node = scene_->addMeshSceneNode(wheel, frame, -1, vector3df(x, 0.36f, z), vector3df(z < 0.0f ? -90.0f : 90.0f, 0.0f, 0.0f));
 			node->setName("car wheel");
-			finish(node, SColor(255, 40, 38, 36));
+			finish(node, SColor(255, 52, 50, 47));
 		}
 	wheel->drop();
 	return frame;
