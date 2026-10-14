@@ -21,7 +21,9 @@ public:
 
 private:
 	irr::scene::ISceneNode* box(const char* name, const irr::core::vector3df& position, const irr::core::vector3df& size,
-		irr::video::SColor colour, const irr::core::vector3df& rotation = irr::core::vector3df());
+		irr::video::SColor colour, const irr::core::vector3df& rotation = irr::core::vector3df(), irr::scene::ISceneNode* parent = 0);
+	void finish(irr::scene::ISceneNode* node, irr::video::SColor colour);
+	irr::scene::ISceneNode* car(const irr::core::vector3df& position, const irr::core::vector3df& rotation);
 	void addSky();
 	void addGround();
 	void addCity();

@@ -18,7 +18,7 @@ namespace
 	const vector3df eye(0.0f, 1.0f, 0.0f);
 	const vector3df ahead(0.0f, 3.5f, 60.0f);
 	const f32 fieldOfView = 55.0f * DEGTORAD;
-	const vector3df standing(1.9f, 0.0f, 3.8f);
+	const vector3df standing(1.35f, 0.0f, 3.0f);
 	const f32 characterHeight = 1.75f;
 	const f32 facingCamera = 180.0f;
 	const s32 idleStart = 206;
@@ -46,17 +46,45 @@ MenuScene::~MenuScene()
 	scene_->drop();
 }
 
-ISceneNode* MenuScene::box(const char* name, const vector3df& position, const vector3df& size, SColor colour, const vector3df& rotation)
+void MenuScene::finish(ISceneNode* node, SColor colour)
 {
-	ISceneNode* node = scene_->addCubeSceneNode(1.0f, 0, -1, position, rotation, size);
-	node->setName(name);
 	SMaterial& material = node->getMaterial(0);
 	material.ColorMaterial = ECM_NONE;
 	material.AmbientColor = colour;
 	material.DiffuseColor = colour;
 	material.FogEnable = true;
 	material.NormalizeNormals = true;
+}
+
+ISceneNode* MenuScene::box(const char* name, const vector3df& position, const vector3df& size, SColor colour, const vector3df& rotation,
+	ISceneNode* parent)
+{
+	ISceneNode* node = scene_->addCubeSceneNode(1.0f, parent, -1, position, rotation, size);
+	node->setName(name);
+	finish(node, colour);
 	return node;
+}
+
+ISceneNode* MenuScene::car(const vector3df& position, const vector3df& rotation)
+{
+	ISceneNode* frame = scene_->addEmptySceneNode(0);
+	frame->setName("car");
+	frame->setPosition(position);
+	frame->setRotation(rotation);
+	box("car body", vector3df(0.0f, 0.62f, 0.0f), vector3df(4.3f, 0.62f, 1.8f), propColour, vector3df(), frame);
+	box("car cabin", vector3df(-0.25f, 1.18f, 0.0f), vector3df(2.3f, 0.52f, 1.6f), propColour, vector3df(), frame);
+	box("car bumper", vector3df(2.2f, 0.5f, 0.0f), vector3df(0.15f, 0.25f, 1.8f), propColour, vector3df(), frame);
+	box("car bumper", vector3df(-2.2f, 0.5f, 0.0f), vector3df(0.15f, 0.25f, 1.8f), propColour, vector3df(), frame);
+	IMesh* wheel = scene_->getGeometryCreator()->createCylinderMesh(0.36f, 0.26f, 14, propColour, true);
+	for (f32 x : { -1.35f, 1.35f })
+		for (f32 z : { -0.78f, 0.78f })
+		{
+			ISceneNode* node = scene_->addMeshSceneNode(wheel, frame, -1, vector3df(x, 0.36f, z), vector3df(z < 0.0f ? -90.0f : 90.0f, 0.0f, 0.0f));
+			node->setName("car wheel");
+			finish(node, SColor(255, 18, 17, 16));
+		}
+	wheel->drop();
+	return frame;
 }
 
 void MenuScene::addSky()
@@ -102,12 +130,12 @@ void MenuScene::addCity()
 
 void MenuScene::addProps()
 {
-	box("backpack", vector3df(0.95f, 0.2f, 3.1f), vector3df(0.34f, 0.42f, 0.22f), packColour, vector3df(0.0f, -32.0f, 6.0f));
-	box("backpack", vector3df(0.93f, 0.44f, 3.09f), vector3df(0.3f, 0.08f, 0.2f), packColour, vector3df(0.0f, -32.0f, 6.0f));
-	box("backpack", vector3df(0.83f, 0.12f, 2.98f), vector3df(0.22f, 0.18f, 0.08f), packColour, vector3df(0.0f, -32.0f, 4.0f));
+	car(vector3df(-2.8f, 1.48f, 12.5f), vector3df(0.0f, 24.0f, 174.0f));
+	car(vector3df(6.5f, -0.14f, 24.0f), vector3df(2.0f, -18.0f, 3.0f));
+	box("backpack", vector3df(-1.05f, 0.24f, 11.15f), vector3df(0.34f, 0.46f, 0.22f), packColour, vector3df(-14.0f, -20.0f, 0.0f));
+	box("backpack", vector3df(-1.05f, 0.5f, 11.21f), vector3df(0.3f, 0.08f, 0.2f), packColour, vector3df(-14.0f, -20.0f, 0.0f));
+	box("backpack", vector3df(-1.12f, 0.15f, 11.0f), vector3df(0.22f, 0.18f, 0.08f), packColour, vector3df(-14.0f, -20.0f, 0.0f));
 
-	box("car", vector3df(-6.5f, 0.75f, 24.0f), vector3df(4.4f, 1.4f, 1.9f), propColour, vector3df(0.0f, 28.0f, 168.0f));
-	box("car", vector3df(-6.7f, 1.55f, 24.1f), vector3df(2.4f, 0.7f, 1.7f), propColour, vector3df(0.0f, 28.0f, 168.0f));
 	for (s32 i = 0; i < 6; ++i)
 		box("debris", vector3df(5.0f + (i % 3) * 0.9f, 0.25f + (i / 3) * 0.3f, 15.0f + (i % 2) * 0.8f),
 			vector3df(1.2f - i * 0.1f, 0.5f, 0.9f), propColour, vector3df((f32)(i * 17), (f32)(i * 41), (f32)(i * 13)));
@@ -122,6 +150,9 @@ void MenuScene::addLights()
 	sun->setLightType(ELT_DIRECTIONAL);
 	sun->setRotation(vector3df(14.0f, 180.0f, 0.0f));
 	sun->setName("sun");
+	ILightSceneNode* fill = scene_->addLightSceneNode(0, vector3df(0.4f, 1.8f, -1.5f), SColorf(0.62f, 0.46f, 0.32f));
+	fill->getLightData().Attenuation = vector3df(1.0f, 0.0f, 0.015f);
+	fill->setName("fill");
 }
 
 void MenuScene::showCharacter(const char* model)

@@ -1,5 +1,6 @@
 #include "doctest.h"
 #include "MenuScene.h"
+#include <algorithm>
 #include <cmath>
 #include <string>
 
@@ -53,7 +54,7 @@ TEST_CASE("the scene has ground, sky, a distant skyline, a backpack close by, an
 	CHECK(scene.count("sky") == 1);
 	CHECK(scene.count("building") >= 30);
 	CHECK(scene.count("backpack") >= 1);
-	CHECK(scene.count("car") >= 1);
+	CHECK(scene.count("car") >= 2);
 	CHECK(scene.count("debris") >= 1);
 	for (ISceneNode* node : scene.menu->scene()->getRootSceneNode()->getChildren())
 	{
@@ -62,25 +63,35 @@ TEST_CASE("the scene has ground, sky, a distant skyline, a backpack close by, an
 			CHECK(node->getPosition().Z > 400.0f);
 		if (name == "backpack")
 		{
-			CHECK(node->getPosition().Z < 5.0f);
-			CHECK(node->getPosition().X > 0.0f);
+			CHECK(node->getPosition().X < 0.0f);
+			f32 nearest = 1000.0f;
+			for (ISceneNode* other : scene.menu->scene()->getRootSceneNode()->getChildren())
+				if (std::string(other->getName()) == "car")
+					nearest = std::min(nearest, other->getPosition().getDistanceFrom(node->getPosition()));
+			CHECK(nearest < 3.0f);
 		}
 	}
 }
 
-TEST_CASE("the only light is a warm sun behind the city, over dim warm ambient light")
+TEST_CASE("a warm sun backlights the city, and a faint warm fill near the camera fades out long before the skyline")
 {
 	Scene scene;
 	ILightSceneNode* sun = nullptr;
+	ILightSceneNode* fill = nullptr;
 	int lights = 0;
 	for (ISceneNode* node : scene.menu->scene()->getRootSceneNode()->getChildren())
 		if (node->getType() == ESNT_LIGHT)
 		{
 			++lights;
-			sun = static_cast<ILightSceneNode*>(node);
+			ILightSceneNode* light = static_cast<ILightSceneNode*>(node);
+			if (light->getLightType() == video::ELT_DIRECTIONAL)
+				sun = light;
+			else
+				fill = light;
 		}
-	REQUIRE(lights == 1);
-	CHECK(sun->getLightType() == video::ELT_DIRECTIONAL);
+	REQUIRE(lights == 2);
+	REQUIRE(sun != nullptr);
+	REQUIRE(fill != nullptr);
 	scene.menu->draw();
 	vector3df direction = sun->getLightData().Direction;
 	CHECK(direction.Z < 0.0f);
@@ -91,6 +102,15 @@ TEST_CASE("the only light is a warm sun behind the city, over dim warm ambient l
 	video::SColorf ambient = scene.menu->scene()->getAmbientLight();
 	CHECK(ambient.r < 0.25f);
 	CHECK(ambient.r > ambient.b);
+
+	CHECK(fill->getLightType() == video::ELT_POINT);
+	CHECK(fill->getPosition().Z < scene.menu->camera()->getPosition().Z);
+	video::SColorf warm = fill->getLightData().DiffuseColor;
+	CHECK(warm.r > warm.b);
+	vector3df falloff = fill->getLightData().Attenuation;
+	auto strength = [&falloff](f32 distance) { return 1.0f / (falloff.X + falloff.Y * distance + falloff.Z * distance * distance); };
+	CHECK(strength(5.0f) > 0.6f);
+	CHECK(strength(500.0f) < 0.01f);
 }
 
 TEST_CASE("the menu scene is its own scene manager, so the character preview never shows the city")
@@ -148,11 +168,12 @@ TEST_CASE("a shown character stands on the street in the right half, whole from 
 	CHECK(head.X < 1216);
 	CHECK(head.Y > 40);
 	CHECK(feet.Y < 700);
-	CHECK(feet.Y - head.Y > 250);
+	CHECK(feet.Y - head.Y > 360);
+	CHECK(character->getPosition().Z < 3.5f);
 	CHECK(character->getRotation().Y == doctest::Approx(180.0f));
 }
 
-TEST_CASE("the character breathes on the idle loop and is lit only by the scene's own sun and fog")
+TEST_CASE("the character breathes on the idle loop and is lit by the scene's own lights and fog")
 {
 	Scene scene;
 	scene.menu->showCharacter(model);
@@ -167,7 +188,7 @@ TEST_CASE("the character breathes on the idle loop and is lit only by the scene'
 	for (ISceneNode* node : scene.menu->scene()->getRootSceneNode()->getChildren())
 		if (node->getType() == ESNT_LIGHT)
 			++lights;
-	CHECK(lights == 1);
+	CHECK(lights == 2);
 	CHECK(scene.device->getSceneManager()->getRootSceneNode()->getChildren().empty());
 }
 
