@@ -26,3 +26,4 @@ Bartender,           Speech:10 | Cooking:10 | Chemistry:10,            -
 Entrepreneur,        Speech:10 | Electronics:10 | Construction:10,     -
 Accountant,          Electronics:10 | Speech:10 | Lockpicking:10,      -
 Paramedic,           Medicine:15 | Electronics:10 | Survivalism:5,     -
+Blacksmith,          Smithing:30,                                      -

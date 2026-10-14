@@ -107,7 +107,7 @@ static std::string readConfigFile(const std::string& name)
 	return text.str();
 }
 
-TEST_CASE("the shipped professions file holds all 27 professions with their bonuses")
+TEST_CASE("the shipped professions file holds all 28 professions with their bonuses")
 {
 	struct Expected
 	{
@@ -142,10 +142,11 @@ TEST_CASE("the shipped professions file holds all 27 professions with their bonu
 		{ "Entrepreneur", { { Skill::Speech, 10 }, { Skill::Electronics, 10 }, { Skill::Construction, 10 } } },
 		{ "Accountant", { { Skill::Electronics, 10 }, { Skill::Speech, 10 }, { Skill::Lockpicking, 10 } } },
 		{ "Paramedic", { { Skill::Medicine, 15 }, { Skill::Electronics, 10 }, { Skill::Survivalism, 5 } } },
+		{ "Blacksmith", { { Skill::Smithing, 30 } } },
 	};
 
 	std::vector<Profession> professions = loaded(readConfigFile("professions.csv"));
-	CHECK(professions.size() == 27);
+	CHECK(professions.size() == 28);
 	for (const Expected& want : expected)
 	{
 		const Profession* profession = findProfession(professions, want.name);

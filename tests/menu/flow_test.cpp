@@ -369,8 +369,9 @@ TEST_CASE("buttons from other screens do nothing")
 TEST_CASE("the creation screen offers every shipped profession")
 {
 	Fixture fixture("professions");
-	REQUIRE(fixture.flow.professions().size() == 27);
+	REQUIRE(fixture.flow.professions().size() == 28);
 	CHECK(fixture.flow.professions()[0].name == "Doctor");
 	CHECK(fixture.flow.professions()[26].name == "Paramedic");
+	CHECK(fixture.flow.professions()[27].name == "Blacksmith");
 	CHECK(fixture.professionNamed("Construction Worker") >= 0);
 }

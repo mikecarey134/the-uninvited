@@ -29,7 +29,7 @@ public:
 	void hide();
 
 private:
-	enum class Style { Primary, Secondary, Back, Choice, Card, Step };
+	enum class Style { Primary, Secondary, Link, Choice, Card, Step };
 
 	struct Button
 	{
@@ -41,7 +41,7 @@ private:
 	};
 
 	void build();
-	void header(const std::string& title, const std::string& subtitle);
+	void header(const std::string& title);
 	void addButton(irr::s32 id, const irr::core::rect<irr::s32>& area, const std::string& label, Style style,
 		const std::string& detail = std::string());
 	irr::gui::IGUIEditBox* addTextBox(irr::s32 id, const irr::core::rect<irr::s32>& area, const std::string& text,
@@ -70,7 +70,6 @@ private:
 	GuiPanel panel_;
 	std::vector<Button> buttons_;
 	std::string title_;
-	std::string subtitle_;
 	menu::Screen built_;
 	bool hasBuilt_;
 	character::Gender gender_;
