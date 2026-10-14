@@ -50,6 +50,9 @@ private:
 	void markCharacters();
 	bool clicked(irr::s32 id);
 	void click();
+	void showPreview();
+	void hidePreview();
+	void drawPreview();
 
 	void drawButton(const Button& button);
 	void drawIcon(irr::s32 id, irr::core::position2d<irr::s32> at, irr::video::SColor colour);
@@ -69,6 +72,9 @@ private:
 	bool hasBuilt_;
 	character::Gender gender_;
 	std::mt19937 random_;
+	irr::scene::IAnimatedMeshSceneNode* model_;
+	irr::scene::ICameraSceneNode* camera_;
+	irr::scene::ILightSceneNode* light_;
 };
 
 #endif

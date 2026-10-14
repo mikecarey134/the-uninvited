@@ -9,10 +9,13 @@ using namespace core;
 using namespace video;
 using namespace gui;
 using menu::Screen;
+using namespace scene;
 
 namespace
 {
-	const char* const gameTitle = "UNTITLED SURVIVAL";
+	const char* const gameTitle = "GAME NAME";
+	const char* const previewModel = "assets/models/stick_mike.ms3d";
+	const rect<s32> previewArea(704, 64, 1216, 656);
 	const char* const tagline = "The dead don't rest. Neither can you.";
 	const char* const titleFont = "assets/fonts/title.png";
 	const char* const headingFont = "assets/fonts/heading.png";
@@ -43,8 +46,70 @@ MenuScreens::MenuScreens(IrrlichtDevice* device, Canvas& canvas, menu::MenuFlow&
 	const std::deque<std::string>& status)
 	: device_(device), canvas_(canvas), flow_(flow), sound_(sound), status_(status),
 	panel_(device->getGUIEnvironment(), canvas.screenSize()), built_(Screen::Title), hasBuilt_(false),
-	gender_(character::Gender::Male), random_(std::random_device()())
+	gender_(character::Gender::Male), random_(std::random_device()()), model_(0), camera_(0), light_(0)
 {
+}
+
+void MenuScreens::showPreview()
+{
+	scene::ISceneManager* smgr = device_->getSceneManager();
+	scene::IAnimatedMesh* mesh = smgr->getMesh(previewModel);
+	if (!mesh)
+		return;
+	model_ = smgr->addAnimatedMeshSceneNode(mesh);
+	model_->setFrameLoop(206, 250);
+	model_->setAnimationSpeed(12.0f);
+	aabbox3df box = mesh->getBoundingBox();
+	vector3df centre = box.getCenter();
+	f32 height = box.getExtent().Y;
+	vector3df target = centre + vector3df(0.0f, height * 0.24f, 0.0f);
+	camera_ = smgr->addCameraSceneNode(0, target + vector3df(0.0f, height * 0.12f, -height * 1.3f), target);
+	smgr->setActiveCamera(camera_);
+	smgr->setAmbientLight(SColorf(0.35f, 0.3f, 0.26f));
+	light_ = smgr->addLightSceneNode(0, centre + vector3df(-height, height, -height * 1.5f), SColorf(1.0f, 0.78f, 0.55f), height * 6.0f);
+}
+
+void MenuScreens::hidePreview()
+{
+	for (scene::ISceneNode* node : { (scene::ISceneNode*)model_, (scene::ISceneNode*)camera_, (scene::ISceneNode*)light_ })
+		if (node)
+			node->remove();
+	model_ = 0;
+	camera_ = 0;
+	light_ = 0;
+}
+
+void MenuScreens::drawPreview()
+{
+	canvas_.drawRect(previewArea, theme::panel);
+	canvas_.drawRectOutline(previewArea, theme::border);
+	if (model_)
+	{
+		video::IVideoDriver* driver = device_->getVideoDriver();
+		dimension2d<u32> screen = canvas_.screenSize();
+		rect<s32> view(previewArea.UpperLeftCorner.X + 1, previewArea.UpperLeftCorner.Y + 1, previewArea.LowerRightCorner.X - 1,
+			previewArea.LowerRightCorner.Y - 120);
+		model_->setRotation(vector3df(0.0f, (f32)(device_->getTimer()->getTime() % 18000) * 0.02f, 0.0f));
+		camera_->setAspectRatio((f32)view.getWidth() / (f32)view.getHeight());
+		driver->setViewPort(view);
+		device_->getSceneManager()->drawAll();
+		driver->setViewPort(rect<s32>(0, 0, (s32)screen.Width, (s32)screen.Height));
+	}
+	s32 x = previewArea.UpperLeftCorner.X + 32;
+	s32 floor = previewArea.LowerRightCorner.Y - 120;
+	canvas_.drawRect(rect<s32>(x, floor, previewArea.LowerRightCorner.X - 32, floor + 1), theme::border);
+	canvas_.drawRect(rect<s32>(x, floor, x + 48, floor + 2), theme::accent);
+
+	std::string name = panel_.text(GUI_ID_NAME);
+	text(canvas_.loadFont(headingFont), name.empty() ? "Unnamed" : name, x - 2, floor + 18, name.empty() ? theme::dim : theme::text);
+	s32 chosen = panel_.selected(GUI_ID_PROFESSION);
+	if (chosen >= 0 && chosen < (s32)flow_.professions().size())
+	{
+		const character::Profession& profession = flow_.professions()[chosen];
+		std::string who = std::string(gender_ == character::Gender::Female ? "Female" : "Male") + "   " + profession.name;
+		text(canvas_.loadFont(bodyFont), who, x, floor + 66, theme::muted);
+		text(canvas_.loadFont(bodyFont), bonuses(profession), x, floor + 90, theme::accent);
+	}
 }
 
 rect<s32> MenuScreens::place(const rect<s32>& area) const
@@ -77,6 +142,7 @@ void MenuScreens::header(const std::string& title, const std::string& subtitle)
 
 void MenuScreens::hide()
 {
+	hidePreview();
 	panel_.clear();
 	buttons_.clear();
 	hasBuilt_ = false;
@@ -130,6 +196,7 @@ void MenuScreens::build()
 		IGUIListBox* list = panel_.list(place(rect<s32>(left, 376, right, 600)), GUI_ID_PROFESSION, professions, 0);
 		list->setItemHeight(34);
 		addButton(GUI_ID_CREATE, rect<s32>(left, 620, right, 668), "Create Character", Style::Primary);
+		showPreview();
 		break;
 	}
 
@@ -276,6 +343,9 @@ void MenuScreens::draw()
 
 	dimension2d<u32> screen = canvas_.screenSize();
 	canvas_.drawGradientRect(rect<s32>(0, 0, (s32)screen.Width, (s32)screen.Height), theme::backgroundTop, theme::backgroundBottom);
+
+	if (built_ == Screen::CharacterCreation)
+		drawPreview();
 
 	if (built_ == Screen::Title)
 	{
