@@ -274,31 +274,57 @@ TEST_CASE("Mike's OBJ props lie on the street at real-world sizes, textured and 
 	}
 }
 
-TEST_CASE("cars and debris carry real colour instead of reading as black shapes")
+TEST_CASE("debris carries real colour instead of reading as black shapes")
 {
 	Scene scene;
-	auto brightest = [](ISceneNode* node) {
-		video::SColor colour = node->getMaterial(0).DiffuseColor;
-		return std::max(colour.getRed(), std::max(colour.getGreen(), colour.getBlue()));
-	};
 	int checked = 0;
 	for (ISceneNode* node : scene.menu->scene()->getRootSceneNode()->getChildren())
-	{
-		std::string name = node->getName();
-		if (name == "debris")
+		if (std::string(node->getName()) == "debris")
 		{
-			CHECK(brightest(node) >= 80);
+			video::SColor colour = node->getMaterial(0).DiffuseColor;
+			CHECK(std::max(colour.getRed(), std::max(colour.getGreen(), colour.getBlue())) >= 80);
 			++checked;
 		}
-		if (name == "car")
-			for (ISceneNode* part : node->getChildren())
-				if (std::string(part->getName()) == "car body" || std::string(part->getName()) == "car cabin")
-				{
-					CHECK(brightest(part) >= 80);
-					++checked;
-				}
+	CHECK(checked >= 6);
+}
+
+TEST_CASE("Mike's sedan models replace the box cars at real size, one on its roof, lit with no black faces")
+{
+	Scene scene;
+	auto brightest = [](video::SColor colour) { return std::max(colour.getRed(), std::max(colour.getGreen(), colour.getBlue())); };
+	int cars = 0;
+	for (ISceneNode* car : scene.menu->scene()->getRootSceneNode()->getChildren())
+	{
+		if (std::string(car->getName()) != "car")
+			continue;
+		++cars;
+		REQUIRE(car->getChildren().size() == 1);
+		ISceneNode* model = *car->getChildren().begin();
+		CHECK(std::string(model->getName()) == "car model");
+		CHECK(model->getMaterialCount() >= 5);
+		car->updateAbsolutePosition();
+		model->updateAbsolutePosition();
+		aabbox3df box = model->getTransformedBoundingBox();
+		vector3df size = model->getBoundingBox().getExtent() * model->getScale().X;
+		f32 longest = std::max(size.X, std::max(size.Y, size.Z));
+		CHECK(longest >= 4.3f);
+		CHECK(longest <= 4.7f);
+		CHECK(box.MinEdge.Y > -0.25f);
+		CHECK(box.MinEdge.Y < 0.3f);
+		for (u32 i = 0; i < model->getMaterialCount(); ++i)
+		{
+			const video::SMaterial& material = model->getMaterial(i);
+			INFO(i);
+			CHECK(brightest(material.DiffuseColor) >= 40);
+			CHECK(brightest(material.EmissiveColor) >= brightest(material.DiffuseColor) / 4);
+			CHECK(material.AmbientColor == material.DiffuseColor);
+			CHECK(material.FogEnable);
+			CHECK(material.NormalizeNormals);
+		}
 	}
-	CHECK(checked >= 8);
+	CHECK(cars == 2);
+	CHECK(scene.menu->scene()->getSceneNodeFromName("car body") == nullptr);
+	CHECK(scene.menu->scene()->getSceneNodeFromName("car wheel") == nullptr);
 }
 
 TEST_CASE("the barrel wears Mike's wood on its staves and pitted metal on its hoops")
@@ -326,8 +352,7 @@ TEST_CASE("street primitives keep a floor of their own colour so no face drops t
 	int checked = 0;
 	std::function<void(ISceneNode*)> visit = [&](ISceneNode* node) {
 		std::string name = node->getName();
-		if (name == "car body" || name == "car cabin" || name == "car bumper" || name == "car wheel" || name == "debris" ||
-			name == "curb" || name == "backpack")
+		if (name == "debris" || name == "curb" || name == "backpack")
 		{
 			INFO(name);
 			const video::SMaterial& material = node->getMaterial(0);
@@ -343,5 +368,5 @@ TEST_CASE("street primitives keep a floor of their own colour so no face drops t
 			visit(child);
 	};
 	visit(scene.menu->scene()->getRootSceneNode());
-	CHECK(checked >= 20);
+	CHECK(checked >= 11);
 }

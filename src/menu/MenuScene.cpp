@@ -14,9 +14,6 @@ namespace
 	const SColor zenith(255, 14, 13, 13);
 	const SColor groundColour(255, 24, 21, 19);
 	const SColor ruinColour(255, 22, 20, 19);
-	const SColor rustColour(255, 156, 80, 48);
-	const SColor cabinColour(255, 124, 118, 108);
-	const SColor trimColour(255, 92, 86, 78);
 	const SColor concreteColour(255, 140, 132, 120);
 	const SColor packColour(255, 98, 92, 62);
 	const vector3df eye(0.0f, 1.0f, 0.0f);
@@ -24,6 +21,7 @@ namespace
 	const f32 fieldOfView = 55.0f * DEGTORAD;
 	const vector3df standing(1.35f, 0.0f, 3.0f);
 	const f32 characterHeight = 1.75f;
+	const f32 carLength = 4.5f;
 	const f32 facingCamera = 180.0f;
 	const s32 idleStart = 206;
 	const s32 idleEnd = 250;
@@ -71,25 +69,35 @@ ISceneNode* MenuScene::box(const char* name, const vector3df& position, const ve
 	return node;
 }
 
-ISceneNode* MenuScene::car(const vector3df& position, const vector3df& rotation)
+ISceneNode* MenuScene::car(const char* file, const vector3df& position, const vector3df& rotation)
 {
 	ISceneNode* frame = scene_->addEmptySceneNode(0);
 	frame->setName("car");
 	frame->setPosition(position);
 	frame->setRotation(rotation);
-	box("car body", vector3df(0.0f, 0.62f, 0.0f), vector3df(4.3f, 0.62f, 1.8f), rustColour, vector3df(), frame);
-	box("car cabin", vector3df(-0.25f, 1.18f, 0.0f), vector3df(2.3f, 0.52f, 1.6f), cabinColour, vector3df(), frame);
-	box("car bumper", vector3df(2.2f, 0.5f, 0.0f), vector3df(0.15f, 0.25f, 1.8f), trimColour, vector3df(), frame);
-	box("car bumper", vector3df(-2.2f, 0.5f, 0.0f), vector3df(0.15f, 0.25f, 1.8f), trimColour, vector3df(), frame);
-	IMesh* wheel = scene_->getGeometryCreator()->createCylinderMesh(0.36f, 0.26f, 14, trimColour, true);
-	for (f32 x : { -1.35f, 1.35f })
-		for (f32 z : { -0.78f, 0.78f })
-		{
-			ISceneNode* node = scene_->addMeshSceneNode(wheel, frame, -1, vector3df(x, 0.36f, z), vector3df(z < 0.0f ? -90.0f : 90.0f, 0.0f, 0.0f));
-			node->setName("car wheel");
-			finish(node, SColor(255, 52, 50, 47));
-		}
-	wheel->drop();
+	IAnimatedMesh* mesh = scene_->getMesh(file);
+	if (!mesh)
+		return frame;
+	aabbox3df bounds = mesh->getBoundingBox();
+	vector3df size = bounds.getExtent();
+	f32 scale = carLength / std::max(size.X, std::max(size.Y, size.Z));
+	const vector3df turn(0.0f, 90.0f, 0.0f);
+	matrix4 turning;
+	turning.setRotationDegrees(turn);
+	vector3df base(bounds.getCenter().X, bounds.MinEdge.Y, bounds.getCenter().Z);
+	turning.rotateVect(base);
+	ISceneNode* model = scene_->addMeshSceneNode(mesh->getMesh(0), frame, -1, -base * scale, turn, vector3df(scale, scale, scale));
+	model->setName("car model");
+	for (u32 i = 0; i < model->getMaterialCount(); ++i)
+	{
+		SMaterial& material = model->getMaterial(i);
+		SColor colour = material.DiffuseColor;
+		material.ColorMaterial = ECM_NONE;
+		material.AmbientColor = colour;
+		material.EmissiveColor = SColor(255, colour.getRed() * 3 / 10, colour.getGreen() * 3 / 10, colour.getBlue() * 3 / 10);
+		material.FogEnable = true;
+		material.NormalizeNormals = true;
+	}
 	return frame;
 }
 
@@ -136,8 +144,8 @@ void MenuScene::addCity()
 
 void MenuScene::addProps()
 {
-	car(vector3df(-2.8f, 1.48f, 12.5f), vector3df(0.0f, 24.0f, 174.0f));
-	car(vector3df(6.5f, -0.14f, 24.0f), vector3df(2.0f, -18.0f, 3.0f));
+	car("assets/models/props/car/car.obj", vector3df(-2.8f, 1.56f, 12.5f), vector3df(0.0f, 24.0f, 174.0f));
+	car("assets/models/props/car2/car2.obj", vector3df(6.5f, -0.06f, 24.0f), vector3df(2.0f, -18.0f, 3.0f));
 	box("backpack", vector3df(-1.05f, 0.24f, 11.15f), vector3df(0.34f, 0.46f, 0.22f), packColour, vector3df(-14.0f, -20.0f, 0.0f));
 	box("backpack", vector3df(-1.05f, 0.5f, 11.21f), vector3df(0.3f, 0.08f, 0.2f), packColour, vector3df(-14.0f, -20.0f, 0.0f));
 	box("backpack", vector3df(-1.12f, 0.15f, 11.0f), vector3df(0.22f, 0.18f, 0.08f), packColour, vector3df(-14.0f, -20.0f, 0.0f));
@@ -194,23 +202,32 @@ void MenuScene::addLights()
 
 void MenuScene::showCharacter(const char* model)
 {
-	if (character_)
+	if (character_ && model_ == model)
 		return;
 	IAnimatedMesh* mesh = scene_->getMesh(model);
 	if (!mesh)
 		return;
+	bool swapping = character_ != 0;
+	if (swapping)
+		character_->remove();
 	f32 scale = characterHeight / mesh->getBoundingBox().getExtent().Y;
 	f32 feet = mesh->getMesh(idleStart)->getBoundingBox().MinEdge.Y;
 	character_ = scene_->addAnimatedMeshSceneNode(mesh, 0, -1, standing + vector3df(0.0f, -feet * scale, 0.0f),
 		vector3df(0.0f, facingCamera, 0.0f), vector3df(scale, scale, scale));
 	character_->setName("character");
+	model_ = model;
 	character_->setFrameLoop(idleStart, idleEnd);
 	character_->setAnimationSpeed(12.0f);
 	character_->setLoopMode(true);
 	character_->setMaterialFlag(EMF_FOG_ENABLE, true);
 	character_->setMaterialFlag(EMF_NORMALIZE_NORMALS, true);
-	yaw_ = 0.0f;
-	targetYaw_ = 0.0f;
+	if (swapping)
+		character_->setRotation(vector3df(0.0f, facingCamera + yaw_, 0.0f));
+	else
+	{
+		yaw_ = 0.0f;
+		targetYaw_ = 0.0f;
+	}
 }
 
 bool MenuScene::characterTop(position2d<s32>& at) const
@@ -230,6 +247,7 @@ void MenuScene::hideCharacter()
 	if (character_)
 		character_->remove();
 	character_ = 0;
+	model_.clear();
 }
 
 void MenuScene::turnCharacter(f32 degrees)

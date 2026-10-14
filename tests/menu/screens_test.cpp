@@ -56,6 +56,17 @@ namespace
 			screens->onEvent(event);
 		}
 
+		void press(s32 id)
+		{
+			SEvent event;
+			event.EventType = EET_GUI_EVENT;
+			event.GUIEvent.EventType = gui::EGET_BUTTON_CLICKED;
+			event.GUIEvent.Caller = device->getGUIEnvironment()->getRootGUIElement()->getElementFromId(id, true);
+			event.GUIEvent.Element = nullptr;
+			REQUIRE(event.GUIEvent.Caller != nullptr);
+			screens->onGuiEvent(event);
+		}
+
 		IrrlichtDevice* device;
 		IrrlichtCanvas canvas;
 		std::string directory;
@@ -143,4 +154,65 @@ TEST_CASE("dragging left on the character turns them to their right, and only dr
 	menu.mouse(EMIE_LMOUSE_PRESSED_DOWN, 300, 400);
 	menu.mouse(EMIE_MOUSE_MOVED, 200, 400);
 	CHECK(menu.backdrop->characterTargetYaw() == doctest::Approx(30.0f));
+}
+
+namespace
+{
+	bool endsWith(const std::string& text, const std::string& tail)
+	{
+		return text.size() >= tail.size() && text.compare(text.size() - tail.size(), tail.size(), tail) == 0;
+	}
+}
+
+TEST_CASE("choosing Female on the create screen stands stick Dan in the street, and Male brings stick Mike back, keeping the turn")
+{
+	Menu menu("screens_gender");
+	menu.flow.play();
+	menu.flow.newCharacter();
+	menu.screens->draw();
+	REQUIRE(menu.backdrop->character() != nullptr);
+	CHECK(endsWith(menu.backdrop->characterModel(), "stick_mike.ms3d"));
+	menu.mouse(EMIE_LMOUSE_PRESSED_DOWN, 900, 400);
+	menu.mouse(EMIE_MOUSE_MOVED, 840, 400);
+	menu.mouse(EMIE_LMOUSE_LEFT_UP, 840, 400);
+	REQUIRE(menu.backdrop->characterTargetYaw() == doctest::Approx(30.0f));
+
+	menu.press(MenuScreens::GUI_ID_FEMALE);
+	menu.screens->draw();
+	REQUIRE(menu.backdrop->character() != nullptr);
+	CHECK(endsWith(menu.backdrop->characterModel(), "stick_dan.ms3d"));
+	CHECK(menu.backdrop->character()->getMaterial(0).getTexture(0) != nullptr);
+	CHECK(menu.backdrop->characterTargetYaw() == doctest::Approx(30.0f));
+	CHECK(menu.backdrop->scene()->getSceneNodeFromName("character") == menu.backdrop->character());
+
+	menu.press(MenuScreens::GUI_ID_MALE);
+	menu.screens->draw();
+	CHECK(endsWith(menu.backdrop->characterModel(), "stick_mike.ms3d"));
+	int characters = 0;
+	for (scene::ISceneNode* node : menu.backdrop->scene()->getRootSceneNode()->getChildren())
+		if (std::string(node->getName()) == "character")
+			++characters;
+	CHECK(characters == 1);
+}
+
+TEST_CASE("select and the game screens stand each saved character as their own gender")
+{
+	Menu menu("screens_saved_gender");
+	menu.flow.play();
+	menu.flow.newCharacter();
+	REQUIRE(menu.flow.create("Dana", character::Gender::Female, 0));
+	menu.flow.newCharacter();
+	REQUIRE(menu.flow.create("Eli", character::Gender::Male, 0));
+	int dana = menu.flow.characters()[0].name() == "Dana" ? 0 : 1;
+	menu.flow.highlight(dana);
+	menu.screens->draw();
+	CHECK(endsWith(menu.backdrop->characterModel(), "stick_dan.ms3d"));
+	menu.flow.highlight(1 - dana);
+	menu.screens->draw();
+	CHECK(endsWith(menu.backdrop->characterModel(), "stick_mike.ms3d"));
+	menu.flow.highlight(dana);
+	REQUIRE(menu.flow.select());
+	menu.flow.host();
+	menu.screens->draw();
+	CHECK(endsWith(menu.backdrop->characterModel(), "stick_dan.ms3d"));
 }

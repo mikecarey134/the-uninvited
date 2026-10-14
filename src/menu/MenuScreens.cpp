@@ -14,7 +14,8 @@ using menu::Screen;
 namespace
 {
 	const char* const gameTitle = "GAME NAME";
-	const char* const characterModel = "assets/models/stick_mike.ms3d";
+	const char* const maleModel = "assets/models/stick_mike.ms3d";
+	const char* const femaleModel = "assets/models/stick_dan.ms3d";
 	const s32 turnArea = 480;
 	const f32 degreesPerPixel = 0.5f;
 	const s32 formRight = 448;
@@ -65,8 +66,13 @@ void MenuScreens::showCharacter()
 		(playing && flow_.chosen());
 	if (!backdrop_)
 		return;
+	character::Gender gender = gender_;
+	if (built_ == Screen::CharacterSelect && flow_.highlighted() >= 0)
+		gender = flow_.characters()[flow_.highlighted()].gender();
+	else if (playing && flow_.chosen())
+		gender = flow_.chosen()->gender();
 	if (wanted)
-		backdrop_->showCharacter(characterModel);
+		backdrop_->showCharacter(gender == character::Gender::Female ? femaleModel : maleModel);
 	else
 		backdrop_->hideCharacter();
 }
