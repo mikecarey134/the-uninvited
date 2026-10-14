@@ -299,3 +299,21 @@ TEST_CASE("cars and debris carry real colour instead of reading as black shapes"
 	}
 	CHECK(checked >= 8);
 }
+
+TEST_CASE("the barrel wears Mike's wood on its staves and pitted metal on its hoops")
+{
+	Scene scene;
+	ISceneNode* barrel = scene.menu->scene()->getSceneNodeFromName("barrel");
+	REQUIRE(barrel != nullptr);
+	REQUIRE(barrel->getMaterialCount() == 3);
+	const char* expected[] = { "wood.jpg", "metalpitted.jpg", "wood.jpg" };
+	for (u32 i = 0; i < 3; ++i)
+	{
+		video::ITexture* texture = barrel->getMaterial(i).getTexture(0);
+		REQUIRE(texture != nullptr);
+		std::string name = texture->getName().getPath().c_str();
+		INFO(name);
+		CHECK(name.size() >= std::string(expected[i]).size());
+		CHECK(name.compare(name.size() - std::string(expected[i]).size(), std::string::npos, expected[i]) == 0);
+	}
+}
