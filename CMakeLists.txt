@@ -16,7 +16,7 @@ add_library(uninvited_menu STATIC src/menu/CharacterStore.cpp src/menu/MenuFlow.
 target_include_directories(uninvited_menu PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/menu")
 target_link_libraries(uninvited_menu PUBLIC uninvited_character)
 
-add_executable(game src/main.cpp src/menu/MenuScreens.cpp)
+add_executable(game src/main.cpp src/menu/MenuScreens.cpp src/menu/MenuSkin.cpp)
 target_link_libraries(game PRIVATE uninvited_menu gamecore_engine game_net_session)
 
 enable_testing()
@@ -34,7 +34,13 @@ target_compile_definitions(menu_tests PRIVATE CHARACTER_CONFIG_DIR="${CMAKE_CURR
 target_link_libraries(menu_tests PRIVATE uninvited_menu game_net_session)
 add_test(NAME menu_tests COMMAND menu_tests)
 
-foreach(target uninvited_character uninvited_menu game character_tests menu_tests)
+add_executable(ui_tests tests/menu/main.cpp tests/menu/ui_test.cpp src/menu/MenuSkin.cpp)
+target_include_directories(ui_tests PRIVATE "${DOCTEST_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/include/menu")
+target_compile_definitions(ui_tests PRIVATE ASSETS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets")
+target_link_libraries(ui_tests PRIVATE gamecore_engine)
+add_test(NAME ui_tests COMMAND ui_tests)
+
+foreach(target uninvited_character uninvited_menu game character_tests menu_tests ui_tests)
   if(MSVC)
     target_compile_options(${target} PRIVATE /W4)
     target_compile_definitions(${target} PRIVATE _CRT_SECURE_NO_WARNINGS)

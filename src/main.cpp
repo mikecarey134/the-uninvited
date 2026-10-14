@@ -10,6 +10,7 @@
 #include "IrrlichtCanvas.h"
 #include "MenuFlow.h"
 #include "MenuScreens.h"
+#include "MenuSkin.h"
 #include "SoundEngine.h"
 #include "client/NetSession.h"
 #include "net/EnetTransport.h"
@@ -109,10 +110,14 @@ namespace
 int main(int argc, char** argv)
 {
 	const bool smoke = argc > 1 && std::string(argv[1]) == "--smoke";
-	IrrlichtDevice* device = createDevice(smoke ? video::EDT_NULL : video::EDT_OPENGL, core::dimension2d<u32>(800, 600), 32);
+	IrrlichtDevice* device = createDevice(smoke ? video::EDT_NULL : video::EDT_OPENGL, core::dimension2d<u32>(1280, 720), 32);
 	if (!device)
 		return 1;
 	device->setWindowCaption(L"The Uninvited");
+	gui::IGUIEnvironment* gui = device->getGUIEnvironment();
+	gui::IGUISkin* skin = new MenuSkin(gui, gui->getSkin());
+	gui->setSkin(skin);
+	skin->drop();
 	gamecore::SoundEngine* sound = gamecore::createSoundEngine();
 
 	run(device, sound, smoke);

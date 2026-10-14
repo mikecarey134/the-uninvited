@@ -1,6 +1,8 @@
 #include "MenuScreens.h"
 #include "SoundEngine.h"
+#include "Theme.h"
 #include "UiAnchor.h"
+#include <algorithm>
 
 using namespace irr;
 using namespace core;
@@ -11,15 +13,29 @@ using menu::Screen;
 namespace
 {
 	const char* const gameTitle = "UNTITLED SURVIVAL";
-	const char* const bigFont = "assets/fonts/bigfont.png";
-	const char* const smallFont = "assets/fonts/console.bmp";
-	const SColor white(255,255,255,255);
-	const SColor grey(255,170,170,170);
-	const SColor warning(255,255,120,100);
+	const char* const tagline = "The dead don't rest. Neither can you.";
+	const char* const titleFont = "assets/fonts/title.png";
+	const char* const headingFont = "assets/fonts/heading.png";
+	const char* const buttonFont = "assets/fonts/button.png";
+	const char* const bodyFont = "assets/fonts/body.png";
+	const char* const labelFont = "assets/fonts/label.png";
+	const wchar_t check = L'\x7f';
+
+	const s32 left = 64;
+	const s32 right = 608;
+	const s32 middle = (left + right) / 2;
 
 	std::wstring wide(const std::string& text)
 	{
 		return std::wstring(text.begin(), text.end());
+	}
+
+	std::string bonuses(const character::Profession& profession)
+	{
+		std::string text;
+		for (const std::pair<character::Skill, int>& bonus : profession.skillBonuses)
+			text += (text.empty() ? "" : ", ") + std::string(character::skillName(bonus.first)) + " +" + std::to_string(bonus.second);
+		return text;
 	}
 }
 
@@ -27,13 +43,42 @@ MenuScreens::MenuScreens(IrrlichtDevice* device, Canvas& canvas, menu::MenuFlow&
 	const std::deque<std::string>& status)
 	: device_(device), canvas_(canvas), flow_(flow), sound_(sound), status_(status),
 	panel_(device->getGUIEnvironment(), canvas.screenSize()), built_(Screen::Title), hasBuilt_(false),
-	random_(std::random_device()())
+	gender_(character::Gender::Male), random_(std::random_device()())
 {
+}
+
+rect<s32> MenuScreens::place(const rect<s32>& area) const
+{
+	position2d<s32> offset = panel_.at(rect<s32>(0, 0, 0, 0)).UpperLeftCorner;
+	return rect<s32>(area.UpperLeftCorner - offset, area.LowerRightCorner - offset);
+}
+
+void MenuScreens::addButton(s32 id, const rect<s32>& area, const std::string& label, Style style, const std::string& detail)
+{
+	panel_.button(place(area), id, "");
+	buttons_.push_back(Button{ id, area, label, detail, style });
+}
+
+IGUIEditBox* MenuScreens::addTextBox(s32 id, const rect<s32>& area, const std::string& text, u32 maxLength, bool focus)
+{
+	IGUIEditBox* box = panel_.textBox(place(area), id, text, maxLength, focus);
+	box->setOverrideFont(device_->getGUIEnvironment()->getFont(bodyFont));
+	box->setOverrideColor(theme::text);
+	box->setTextAlignment(EGUIA_UPPERLEFT, EGUIA_CENTER);
+	return box;
+}
+
+void MenuScreens::header(const std::string& title, const std::string& subtitle)
+{
+	addButton(GUI_ID_BACK, rect<s32>(left - 12, 40, left + 100, 72), "<  BACK", Style::Back);
+	title_ = title;
+	subtitle_ = subtitle;
 }
 
 void MenuScreens::hide()
 {
 	panel_.clear();
+	buttons_.clear();
 	hasBuilt_ = false;
 }
 
@@ -42,59 +87,71 @@ void MenuScreens::build()
 	hide();
 	built_ = flow_.screen();
 	hasBuilt_ = true;
+	title_.clear();
+	subtitle_.clear();
+	std::string playing = flow_.chosen() ? flow_.chosen()->name() : std::string();
 
 	switch (built_)
 	{
 	case Screen::Title:
-		panel_.button(rect<s32>(340,250,460,290), GUI_ID_PLAY, "Play");
-		panel_.button(rect<s32>(340,305,460,345), GUI_ID_SETTINGS, "Settings");
-		panel_.button(rect<s32>(340,360,460,400), GUI_ID_QUIT, "Quit");
+		addButton(GUI_ID_PLAY, rect<s32>(left, 448, left + 320, 500), "Play", Style::Primary);
+		addButton(GUI_ID_SETTINGS, rect<s32>(left, 512, left + 320, 556), "Settings", Style::Secondary);
+		addButton(GUI_ID_QUIT, rect<s32>(left, 568, left + 320, 612), "Quit", Style::Secondary);
 		break;
 
 	case Screen::Settings:
-		panel_.button(rect<s32>(340,480,460,520), GUI_ID_BACK, "Back");
+		header("Settings", "Nothing to set yet.");
 		break;
 
 	case Screen::CharacterSelect:
 	{
+		header("Characters", "Choose who you will survive as.");
 		std::vector<std::string> names;
 		for (const character::CharacterSheet& sheet : flow_.characters())
-			names.push_back(sheet.name() + "  -  " + sheet.profession().name);
-		panel_.list(rect<s32>(250,140,550,400), GUI_ID_CHARACTERS, names, flow_.highlighted());
-		panel_.button(rect<s32>(250,420,395,460), GUI_ID_NEW_CHARACTER, "New Character");
-		panel_.button(rect<s32>(405,420,550,460), GUI_ID_SELECT, "Select");
-		panel_.button(rect<s32>(340,480,460,520), GUI_ID_BACK, "Back");
+			names.push_back(sheet.name() + "   -   " + sheet.profession().name);
+		IGUIListBox* list = panel_.list(place(rect<s32>(left, 196, right, 560)), GUI_ID_CHARACTERS, names, flow_.highlighted());
+		list->setItemHeight(48);
+		markCharacters();
+		addButton(GUI_ID_NEW_CHARACTER, rect<s32>(left, 584, middle - 8, 632), "New Character", Style::Secondary);
+		addButton(GUI_ID_SELECT, rect<s32>(middle + 8, 584, right, 632), "Select & Play", Style::Primary);
 		break;
 	}
 
 	case Screen::CharacterCreation:
 	{
-		panel_.textBox(rect<s32>(250,172,550,200), GUI_ID_NAME, "", menu::MAX_NAME_LENGTH, true);
-		panel_.toggle(rect<s32>(250,237,550,267), GUI_ID_GENDER, { "Male", "Female" });
-		panel_.button(rect<s32>(250,480,395,520), GUI_ID_CREATE, "Create");
-		panel_.button(rect<s32>(405,480,550,520), GUI_ID_BACK, "Back");
+		header("New Character", "Your name, and the life you had before.");
+		gender_ = character::Gender::Male;
+		addTextBox(GUI_ID_NAME, rect<s32>(left, 204, right, 248), "", menu::MAX_NAME_LENGTH, true);
+		addButton(GUI_ID_MALE, rect<s32>(left, 292, middle - 8, 332), "Male", Style::Choice);
+		addButton(GUI_ID_FEMALE, rect<s32>(middle + 8, 292, right, 332), "Female", Style::Choice);
 		std::vector<std::string> professions;
 		for (const character::Profession& profession : flow_.professions())
-			professions.push_back(profession.name);
-		panel_.dropdown(rect<s32>(250,304,550,330), GUI_ID_PROFESSION, professions, 7);
+			professions.push_back("  " + profession.name + "   -   " + bonuses(profession));
+		IGUIListBox* list = panel_.list(place(rect<s32>(left, 376, right, 600)), GUI_ID_PROFESSION, professions, 0);
+		list->setItemHeight(34);
+		addButton(GUI_ID_CREATE, rect<s32>(left, 620, right, 668), "Create Character", Style::Primary);
 		break;
 	}
 
 	case Screen::WorldSelect:
-		panel_.button(rect<s32>(325,250,475,290), GUI_ID_HOST, "Host Game");
-		panel_.button(rect<s32>(325,305,475,345), GUI_ID_JOIN, "Join Game");
-		panel_.button(rect<s32>(340,480,460,520), GUI_ID_BACK, "Back");
-		break;
-
 	case Screen::JoinGame:
-		panel_.textBox(rect<s32>(250,222,550,250), GUI_ID_ADDRESS, "", 253, true);
-		panel_.textBox(rect<s32>(250,287,400,315), GUI_ID_PORT, std::to_string(menu::DEFAULT_PORT), 5, false);
-		panel_.button(rect<s32>(250,420,395,460), GUI_ID_CONNECT, "Connect");
-		panel_.button(rect<s32>(405,420,550,460), GUI_ID_BACK, "Back");
+	{
+		header("Host or Join", "Playing as " + playing);
+		addButton(GUI_ID_HOST, rect<s32>(left, 184, middle - 8, 320), "Host Game", Style::Card, "Start a server on this machine");
+		addButton(GUI_ID_JOIN, rect<s32>(middle + 8, 184, right, 320), "Join Game", Style::Card, "Connect to a friend's server");
+		bool joining = built_ == Screen::JoinGame;
+		if (joining)
+		{
+			addTextBox(GUI_ID_ADDRESS, rect<s32>(left, 368, middle + 96, 412), "", 253, true);
+			addTextBox(GUI_ID_PORT, rect<s32>(middle + 112, 368, right, 412), std::to_string(menu::DEFAULT_PORT), 5, false);
+		}
+		addButton(GUI_ID_START, rect<s32>(left, 600, right, 648), joining ? "Connect" : "Start Server", Style::Primary);
 		break;
+	}
 
 	case Screen::Playing:
-		panel_.button(rect<s32>(340,480,460,520), GUI_ID_LEAVE, "Leave");
+		title_ = playing;
+		addButton(GUI_ID_LEAVE, rect<s32>(left, 600, left + 260, 648), "Leave", Style::Secondary);
 		break;
 
 	default:
@@ -102,10 +159,110 @@ void MenuScreens::build()
 	}
 }
 
-void MenuScreens::label(FontHandle font, const std::string& text, s32 x1, s32 y1, s32 x2, s32 y2, SColor colour, bool centred)
+bool MenuScreens::isChosen(s32 id) const
 {
-	canvas_.drawText(font, wide(text).c_str(), anchored(rect<s32>(x1, y1, x2, y2), 0.5f, 0.5f, canvas_.screenSize()),
-		colour, centred, true);
+	switch (id)
+	{
+	case GUI_ID_MALE: return gender_ == character::Gender::Male;
+	case GUI_ID_FEMALE: return gender_ == character::Gender::Female;
+	case GUI_ID_HOST: return built_ == Screen::WorldSelect;
+	case GUI_ID_JOIN: return built_ == Screen::JoinGame;
+	default: return false;
+	}
+}
+
+void MenuScreens::markCharacters()
+{
+	IGUIElement* element = device_->getGUIEnvironment()->getRootGUIElement()->getElementFromId(GUI_ID_CHARACTERS, true);
+	if (!element)
+		return;
+	IGUIListBox* list = static_cast<IGUIListBox*>(element);
+	for (u32 i = 0; i < list->getItemCount() && i < flow_.characters().size(); ++i)
+	{
+		const character::CharacterSheet& sheet = flow_.characters()[i];
+		std::wstring line = (s32)i == flow_.highlighted() ? L"  " + std::wstring(1, check) + L"   " : std::wstring(L"        ");
+		line += wide(sheet.name() + "   -   " + sheet.profession().name);
+		list->setItem(i, line.c_str(), -1);
+	}
+}
+
+void MenuScreens::text(FontHandle font, const std::string& line, s32 x, s32 y, SColor colour)
+{
+	dimension2d<u32> size = canvas_.textSize(font, wide(line).c_str());
+	canvas_.drawText(font, wide(line).c_str(), rect<s32>(x, y, x + (s32)size.Width, y + (s32)size.Height), colour);
+}
+
+void MenuScreens::label(const std::string& line, s32 x, s32 y)
+{
+	text(canvas_.loadFont(labelFont), line, x, y, theme::muted);
+}
+
+void MenuScreens::drawIcon(s32 id, position2d<s32> at, SColor colour)
+{
+	if (id == GUI_ID_HOST)
+		for (s32 row = 0; row < 3; ++row)
+		{
+			rect<s32> unit(at.X, at.Y + row * 10, at.X + 28, at.Y + row * 10 + 7);
+			canvas_.drawRectOutline(unit, colour);
+			canvas_.drawRect(rect<s32>(unit.LowerRightCorner.X - 6, unit.UpperLeftCorner.Y + 3, unit.LowerRightCorner.X - 4, unit.UpperLeftCorner.Y + 5), colour);
+		}
+	else
+	{
+		canvas_.drawRectOutline(rect<s32>(at.X + 12, at.Y, at.X + 28, at.Y + 28), colour);
+		canvas_.drawLine(position2d<s32>(at.X, at.Y + 14), position2d<s32>(at.X + 18, at.Y + 14), colour);
+		canvas_.drawLine(position2d<s32>(at.X + 12, at.Y + 8), position2d<s32>(at.X + 18, at.Y + 14), colour);
+		canvas_.drawLine(position2d<s32>(at.X + 12, at.Y + 20), position2d<s32>(at.X + 18, at.Y + 14), colour);
+	}
+}
+
+void MenuScreens::drawButton(const Button& button)
+{
+	IGUIEnvironment* guienv = device_->getGUIEnvironment();
+	IGUIElement* element = guienv->getRootGUIElement()->getElementFromId(button.id, true);
+	bool hovered = element && guienv->getHovered() == element;
+	bool pressed = element && static_cast<IGUIButton*>(element)->isPressed();
+	bool chosen = isChosen(button.id);
+	const rect<s32>& area = button.area;
+	FontHandle font = canvas_.loadFont(buttonFont);
+	dimension2d<u32> size = canvas_.textSize(font, wide(button.label).c_str());
+	s32 textY = (area.UpperLeftCorner.Y + area.LowerRightCorner.Y - (s32)size.Height) / 2;
+
+	switch (button.style)
+	{
+	case Style::Primary:
+		canvas_.drawRect(area, pressed || hovered ? theme::accentFillHover : theme::accentFill);
+		canvas_.drawRectOutline(area, hovered ? theme::accentBorderHover : theme::accentBorder);
+		canvas_.drawRect(rect<s32>(area.UpperLeftCorner.X, area.UpperLeftCorner.Y, area.UpperLeftCorner.X + 3, area.LowerRightCorner.Y), theme::accent);
+		text(font, button.label, area.UpperLeftCorner.X + 24, textY, theme::text);
+		break;
+	case Style::Secondary:
+		canvas_.drawRect(area, theme::panel);
+		canvas_.drawRectOutline(area, hovered ? theme::borderHover : theme::border);
+		text(font, button.label, area.UpperLeftCorner.X + 24, textY, hovered ? theme::text : theme::muted);
+		break;
+	case Style::Back:
+		font = canvas_.loadFont(labelFont);
+		size = canvas_.textSize(font, wide(button.label).c_str());
+		text(font, button.label, area.UpperLeftCorner.X + 12, (area.UpperLeftCorner.Y + area.LowerRightCorner.Y - (s32)size.Height) / 2,
+			hovered ? theme::text : theme::muted);
+		break;
+	case Style::Choice:
+		canvas_.drawRect(area, chosen ? theme::accentFill : theme::panel);
+		canvas_.drawRectOutline(area, chosen ? theme::accentBorder : (hovered ? theme::borderHover : theme::border));
+		canvas_.drawText(font, wide(button.label).c_str(), area, chosen ? theme::text : (hovered ? theme::muted : theme::dim), true, true);
+		break;
+	case Style::Card:
+	{
+		canvas_.drawRect(area, chosen ? theme::accentFill : theme::panel);
+		canvas_.drawRectOutline(area, chosen ? theme::accentBorder : (hovered ? theme::borderHover : theme::border));
+		SColor strong = chosen ? theme::text : (hovered ? theme::muted : theme::dim);
+		drawIcon(button.id, area.UpperLeftCorner + position2d<s32>(24, 24), chosen ? theme::accent : strong);
+		text(font, button.label, area.UpperLeftCorner.X + 24, area.UpperLeftCorner.Y + 72, strong);
+		text(canvas_.loadFont(bodyFont), button.detail, area.UpperLeftCorner.X + 24, area.UpperLeftCorner.Y + 100,
+			chosen ? theme::muted : theme::dim);
+		break;
+	}
+	}
 }
 
 void MenuScreens::draw()
@@ -114,55 +271,50 @@ void MenuScreens::draw()
 		build();
 
 	IGUIEnvironment* guienv = device_->getGUIEnvironment();
-	if (IGUIFont* skinFont = guienv->getFont(smallFont))
-		guienv->getSkin()->setFont(skinFont);
+	if (IGUIFont* font = guienv->getFont(bodyFont))
+		guienv->getSkin()->setFont(font);
 
 	dimension2d<u32> screen = canvas_.screenSize();
-	canvas_.drawGradientRect(rect<s32>(0, 0, (s32)screen.Width, (s32)screen.Height), SColor(255,34,36,40), SColor(255,6,6,8));
-	FontHandle big = canvas_.loadFont(bigFont);
-	FontHandle small = canvas_.loadFont(smallFont);
-	std::string playing = flow_.chosen() ? flow_.chosen()->name() : std::string();
+	canvas_.drawGradientRect(rect<s32>(0, 0, (s32)screen.Width, (s32)screen.Height), theme::backgroundTop, theme::backgroundBottom);
+
+	if (built_ == Screen::Title)
+	{
+		text(canvas_.loadFont(titleFont), gameTitle, left - 4, 150, theme::text);
+		canvas_.drawRect(rect<s32>(left, 232, left + 96, 236), theme::accent);
+		text(canvas_.loadFont(bodyFont), tagline, left, 254, theme::muted);
+	}
+	else if (!title_.empty())
+	{
+		text(canvas_.loadFont(headingFont), title_, left - 2, 92, theme::text);
+		if (!subtitle_.empty())
+			text(canvas_.loadFont(bodyFont), subtitle_, left, 140, theme::muted);
+	}
 
 	switch (built_)
 	{
-	case Screen::Title:
-		label(big, gameTitle, 0,120,800,180, white, true);
-		break;
-	case Screen::Settings:
-		label(big, "Settings", 0,60,800,110, white, true);
-		label(small, "Nothing to set yet.", 0,250,800,280, grey, true);
-		break;
 	case Screen::CharacterSelect:
-		label(big, "Characters", 0,60,800,110, white, true);
-		if (flow_.characters().empty())
-			label(small, "No characters yet. Make one with New Character.", 0,400,800,415, grey, true);
+		label("YOUR CHARACTERS", left, 176);
 		break;
 	case Screen::CharacterCreation:
-		label(big, "New Character", 0,60,800,110, white, true);
-		label(small, "Name", 250,150,550,170, white, false);
-		label(small, "Gender", 250,215,550,235, white, false);
-		label(small, "Profession", 250,282,550,302, white, false);
-		break;
-	case Screen::WorldSelect:
-		label(big, "Playing as " + playing, 0,60,800,110, white, true);
+		label("NAME", left, 186);
+		label("GENDER", left, 274);
+		label("PROFESSION", left, 358);
 		break;
 	case Screen::JoinGame:
-		label(big, "Join Game", 0,60,800,110, white, true);
-		label(small, "Server address", 250,200,550,220, white, false);
-		label(small, "Port", 250,265,550,285, white, false);
+		label("SERVER ADDRESS", left, 350);
+		label("PORT", middle + 112, 350);
 		break;
 	case Screen::Playing:
 	{
-		label(big, playing, 0,60,800,110, white, true);
 		std::string where = flow_.session() == menu::Session::Host
 			? "Hosting on port " + std::to_string(flow_.port())
 			: "Joining " + flow_.address() + ":" + std::to_string(flow_.port());
-		label(small, where, 0,150,800,170, grey, true);
+		text(canvas_.loadFont(bodyFont), where, left, 140, theme::muted);
 		s32 y = 200;
 		for (const std::string& line : status_)
 		{
-			label(small, line, 0,y,800,y + 20, white, true);
-			y += 24;
+			text(canvas_.loadFont(bodyFont), line, left, y, theme::text);
+			y += 26;
 		}
 		break;
 	}
@@ -170,11 +322,19 @@ void MenuScreens::draw()
 		break;
 	}
 
-	if (!flow_.message().empty())
-		label(small, flow_.message(), 100,530,700,560, warning, true);
-	canvas_.drawText(small, L"v0.1 (early development)", anchored(rect<s32>(20,570,20,590), 0.0f, 1.0f, screen), white);
-
 	guienv->drawAll();
+	for (const Button& button : buttons_)
+		drawButton(button);
+
+	if (built_ == Screen::CharacterSelect && flow_.characters().empty())
+		text(canvas_.loadFont(bodyFont), "No one yet. Make a new character to begin.", left + 24, 216, theme::muted);
+	s32 below = 0;
+	for (const Button& button : buttons_)
+		below = std::max(below, button.area.LowerRightCorner.Y);
+	if (!flow_.message().empty())
+		text(canvas_.loadFont(bodyFont), flow_.message(), left, below + 14, theme::accent);
+	if (built_ == Screen::Title)
+		text(canvas_.loadFont(labelFont), "V0.1   EARLY DEVELOPMENT", left, (s32)screen.Height - 40, theme::dim);
 }
 
 void MenuScreens::click()
@@ -190,23 +350,34 @@ bool MenuScreens::clicked(s32 id)
 	case GUI_ID_PLAY: flow_.play(); break;
 	case GUI_ID_SETTINGS: flow_.settings(); break;
 	case GUI_ID_QUIT: flow_.quit(); break;
-	case GUI_ID_BACK: flow_.back(); break;
+	case GUI_ID_BACK:
+		if (flow_.screen() == Screen::JoinGame)
+			flow_.back();
+		flow_.back();
+		break;
 	case GUI_ID_NEW_CHARACTER: flow_.newCharacter(); break;
 	case GUI_ID_SELECT:
 		flow_.highlight(panel_.selected(GUI_ID_CHARACTERS));
 		flow_.select();
 		break;
+	case GUI_ID_MALE: gender_ = character::Gender::Male; break;
+	case GUI_ID_FEMALE: gender_ = character::Gender::Female; break;
 	case GUI_ID_NAME:
 	case GUI_ID_CREATE:
-		flow_.create(panel_.text(GUI_ID_NAME), panel_.selected(GUI_ID_GENDER) == 1 ? character::Gender::Female : character::Gender::Male,
-			panel_.selected(GUI_ID_PROFESSION), random_);
+		flow_.create(panel_.text(GUI_ID_NAME), gender_, panel_.selected(GUI_ID_PROFESSION), random_);
 		break;
-	case GUI_ID_HOST: flow_.host(); break;
+	case GUI_ID_HOST:
+		if (flow_.screen() == Screen::JoinGame)
+			flow_.back();
+		break;
 	case GUI_ID_JOIN: flow_.join(); break;
 	case GUI_ID_ADDRESS:
 	case GUI_ID_PORT:
-	case GUI_ID_CONNECT:
-		flow_.connect(panel_.text(GUI_ID_ADDRESS), panel_.text(GUI_ID_PORT));
+	case GUI_ID_START:
+		if (flow_.screen() == Screen::WorldSelect)
+			flow_.host();
+		else
+			flow_.connect(panel_.text(GUI_ID_ADDRESS), panel_.text(GUI_ID_PORT));
 		break;
 	case GUI_ID_LEAVE: flow_.returnToTitle(); break;
 	default:
@@ -219,27 +390,25 @@ bool MenuScreens::clicked(s32 id)
 void MenuScreens::back()
 {
 	if (flow_.screen() != Screen::Title && flow_.screen() != Screen::Playing)
-		click();
-	flow_.back();
+		clicked(GUI_ID_BACK);
 }
 
 bool MenuScreens::onGuiEvent(const SEvent& event)
 {
-	if (panel_.handle(event))
-	{
-		click();
-		return true;
-	}
 	switch (event.GUIEvent.EventType)
 	{
 	case EGET_BUTTON_CLICKED:
 	case EGET_EDITBOX_ENTER:
 		return clicked(event.GUIEvent.Caller ? event.GUIEvent.Caller->getID() : -1);
 	case EGET_LISTBOX_CHANGED:
-		flow_.highlight(panel_.selected(GUI_ID_CHARACTERS));
+		if (event.GUIEvent.Caller && event.GUIEvent.Caller->getID() == GUI_ID_CHARACTERS)
+		{
+			flow_.highlight(panel_.selected(GUI_ID_CHARACTERS));
+			markCharacters();
+		}
 		return true;
 	case EGET_LISTBOX_SELECTED_AGAIN:
-		return clicked(GUI_ID_SELECT);
+		return event.GUIEvent.Caller && event.GUIEvent.Caller->getID() == GUI_ID_CHARACTERS ? clicked(GUI_ID_SELECT) : true;
 	default:
 		return false;
 	}
