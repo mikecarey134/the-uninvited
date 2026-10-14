@@ -19,6 +19,8 @@ namespace
 	const s32 aegisLeft = 480;
 	const s32 aegisRight = 832;
 	const s32 formRight = 448;
+	const s32 aegisTop = 380;
+	const s32 aegisRow = 44;
 	const char* const tagline = "The dead don't rest. Neither can you.";
 	const char* const titleFont = "assets/fonts/title.png";
 	const char* const headingFont = "assets/fonts/heading.png";
@@ -192,7 +194,7 @@ void MenuScreens::build()
 
 	case Screen::CharacterCreation:
 	{
-		header("New Character", "Your name, and the life you had before.");
+		title_ = "New Character";
 		gender_ = character::Gender::Male;
 		addTextBox(GUI_ID_NAME, rect<s32>(left, 204, formRight, 248), "", menu::MAX_NAME_LENGTH, true);
 		addButton(GUI_ID_MALE, rect<s32>(left, 292, (left + formRight) / 2 - 8, 332), "Male", Style::Choice);
@@ -202,14 +204,15 @@ void MenuScreens::build()
 			professions.push_back("  " + profession.name + "   -   " + bonuses(profession));
 		IGUIListBox* list = panel_.list(place(rect<s32>(left, 376, formRight, 600)), GUI_ID_PROFESSION, professions, 0);
 		list->setItemHeight(34);
-		addButton(GUI_ID_CREATE, rect<s32>(left, 620, formRight, 668), "Create Character", Style::Primary);
+		addButton(GUI_ID_BACK, rect<s32>(left, 620, left + 136, 668), "Back", Style::Secondary);
+		addButton(GUI_ID_CREATE, rect<s32>(left + 152, 620, formRight, 668), "Create Character", Style::Primary);
 		for (s32 i = 0; i < character::ATTRIBUTE_COUNT; ++i)
 		{
-			s32 y = 204 + i * 50;
-			addButton(GUI_ID_MINUS_FIRST + i, rect<s32>(aegisRight - 120, y + 6, aegisRight - 88, y + 38), "-", Style::Step);
-			addButton(GUI_ID_PLUS_FIRST + i, rect<s32>(aegisRight - 48, y + 6, aegisRight - 16, y + 38), "+", Style::Step);
+			s32 y = aegisTop + i * aegisRow;
+			addButton(GUI_ID_MINUS_FIRST + i, rect<s32>(aegisRight - 108, y + 8, aegisRight - 80, y + 36), "-", Style::Step);
+			addButton(GUI_ID_PLUS_FIRST + i, rect<s32>(aegisRight - 40, y + 8, aegisRight - 12, y + 36), "+", Style::Step);
 		}
-		addButton(GUI_ID_REROLL, rect<s32>(aegisLeft, 532, aegisRight, 572), "Re-roll AEGIS", Style::Secondary);
+		addButton(GUI_ID_REROLL, rect<s32>(aegisRight - 160, 620, aegisRight, 668), "Re-roll", Style::Secondary);
 		showPreview();
 		break;
 	}
@@ -253,54 +256,37 @@ bool MenuScreens::isEnabled(s32 id) const
 void MenuScreens::drawAegis()
 {
 	const character::Aegis& draft = flow_.draft();
-	label("AEGIS", aegisLeft, 186);
 	FontHandle buttonType = canvas_.loadFont(buttonFont);
 	FontHandle bodyType = canvas_.loadFont(bodyFont);
+
+	if (draft.hasBloodline)
+	{
+		rect<s32> card(aegisLeft, 204, aegisRight, 248);
+		canvas_.drawRect(card, theme::accentFill);
+		canvas_.drawRectOutline(card, theme::accentBorderHover);
+		canvas_.drawRect(rect<s32>(card.UpperLeftCorner.X, card.UpperLeftCorner.Y, card.UpperLeftCorner.X + 3, card.LowerRightCorner.Y), theme::accent);
+		canvas_.drawText(buttonType, wide("Bloodline: " + draft.bloodline).c_str(),
+			rect<s32>(aegisLeft + 20, 204, aegisRight, 248), theme::text, false, true);
+	}
+
+	label("AEGIS", aegisLeft, 358);
+	rect<s32> box(aegisLeft, 376, aegisRight, 600);
+	canvas_.drawRect(box, theme::panel);
+	canvas_.drawRectOutline(box, theme::border);
 	for (s32 i = 0; i < character::ATTRIBUTE_COUNT; ++i)
 	{
 		character::Attribute attribute = (character::Attribute)i;
-		bool blessed = draft.hasBloodline && draft.bloodlineAttribute == attribute;
-		s32 y = 204 + i * 50;
-		rect<s32> row(aegisLeft, y, aegisRight, y + 44);
-		canvas_.drawRect(row, blessed ? theme::accentFill : theme::panel);
-		canvas_.drawRectOutline(row, blessed ? theme::accentBorder : theme::border);
-		text(buttonType, character::attributeName(attribute), aegisLeft + 16, y + 10, theme::text);
-		std::string breakdown = std::to_string(draft.rolled[i]);
-		if (draft.placed[i] > 0)
-			breakdown += " + " + std::to_string(draft.placed[i]);
-		if (blessed)
-			breakdown += "  x" + std::to_string(character::Aegis::BLOODLINE_MULTIPLIER);
-		text(bodyType, breakdown, aegisLeft + 150, y + 12, blessed ? theme::accent : theme::muted);
+		s32 y = aegisTop + i * aegisRow;
+		if (i > 0)
+			canvas_.drawRect(rect<s32>(aegisLeft + 1, y, aegisRight - 1, y + 1), theme::border);
+		canvas_.drawText(bodyType, wide(std::string("  ") + character::attributeName(attribute)).c_str(),
+			rect<s32>(aegisLeft + 8, y, aegisRight - 120, y + aegisRow), theme::muted, false, true);
 		canvas_.drawText(buttonType, wide(std::to_string(draft.value(attribute))).c_str(),
-			rect<s32>(aegisRight - 88, y, aegisRight - 48, y + 44), draft.placed[i] > 0 || blessed ? theme::text : theme::muted, true, true);
+			rect<s32>(aegisRight - 80, y, aegisRight - 40, y + aegisRow), theme::text, true, true);
 	}
 
-	label("POINTS TO PLACE", aegisLeft, 462);
-	std::string remaining = std::to_string(draft.unplaced()) + " of " + std::to_string(draft.pool());
-	text(buttonType, remaining, aegisLeft, 478, draft.unplaced() > 0 ? theme::accent : theme::text);
-	s32 bonus = draft.pool() - character::Aegis::BASE_POOL;
-	text(bodyType, std::to_string(character::Aegis::BASE_POOL) + " base + " + std::to_string(bonus) + " from Intelligence " +
-		std::to_string(draft.rolled[(int)character::Attribute::Intelligence]), aegisLeft + 96, 482, theme::muted);
-
-	rect<s32> slot(aegisLeft, 588, aegisRight, 668);
-	if (draft.hasBloodline)
-	{
-		canvas_.drawRect(slot, theme::accentFill);
-		canvas_.drawRectOutline(slot, theme::accentBorderHover);
-		canvas_.drawRect(rect<s32>(slot.UpperLeftCorner.X, slot.UpperLeftCorner.Y, slot.UpperLeftCorner.X + 3, slot.LowerRightCorner.Y), theme::accent);
-		text(canvas_.loadFont(labelFont), "BLOODLINE", aegisLeft + 20, 600, theme::accent);
-		text(buttonType, draft.bloodline, aegisLeft + 20, 616, theme::text);
-		text(bodyType, std::string(character::attributeName(draft.bloodlineAttribute)) + " x" +
-			std::to_string(character::Aegis::BLOODLINE_MULTIPLIER), aegisLeft + 20, 642, theme::muted);
-	}
-	else
-	{
-		canvas_.drawRect(slot, theme::panel);
-		canvas_.drawRectOutline(slot, theme::border);
-		text(canvas_.loadFont(labelFont), "BLOODLINE", aegisLeft + 20, 600, theme::dim);
-		text(bodyType, "None. About 1 in " + std::to_string(character::Aegis::BLOODLINE_ONE_IN) + " are born with one.",
-			aegisLeft + 20, 624, theme::dim);
-	}
+	canvas_.drawText(buttonType, wide("Points: " + std::to_string(draft.unplaced())).c_str(),
+		rect<s32>(aegisLeft + 4, 620, aegisRight - 176, 668), draft.unplaced() > 0 ? theme::accent : theme::muted, false, true);
 }
 
 bool MenuScreens::isChosen(s32 id) const
