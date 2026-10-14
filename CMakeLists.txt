@@ -12,9 +12,12 @@ add_library(uninvited_character STATIC src/character/Profession.cpp src/characte
 target_include_directories(uninvited_character PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/character")
 target_link_libraries(uninvited_character PUBLIC gamecore_engine)
 
-add_executable(game src/main.cpp)
-target_include_directories(game PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
-target_link_libraries(game PRIVATE gamecore_engine game_net_session)
+add_library(uninvited_menu STATIC src/menu/CharacterStore.cpp src/menu/MenuFlow.cpp)
+target_include_directories(uninvited_menu PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/menu")
+target_link_libraries(uninvited_menu PUBLIC uninvited_character)
+
+add_executable(game src/main.cpp src/menu/MenuScreens.cpp)
+target_link_libraries(game PRIVATE uninvited_menu gamecore_engine game_net_session)
 
 enable_testing()
 add_executable(character_tests tests/character/main.cpp tests/character/profession_test.cpp tests/character/attributes_test.cpp
@@ -24,12 +27,22 @@ target_compile_definitions(character_tests PRIVATE CHARACTER_CONFIG_DIR="${CMAKE
 target_link_libraries(character_tests PRIVATE uninvited_character)
 add_test(NAME character_tests COMMAND character_tests)
 
-foreach(target uninvited_character character_tests)
+add_executable(menu_tests tests/menu/main.cpp tests/menu/store_test.cpp tests/menu/flow_test.cpp)
+target_include_directories(menu_tests PRIVATE "${DOCTEST_DIR}")
+target_compile_definitions(menu_tests PRIVATE CHARACTER_CONFIG_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/config"
+  MENU_TEST_DIR="${CMAKE_CURRENT_BINARY_DIR}/menu_tests_data")
+target_link_libraries(menu_tests PRIVATE uninvited_menu game_net_session)
+add_test(NAME menu_tests COMMAND menu_tests)
+
+foreach(target uninvited_character uninvited_menu game character_tests menu_tests)
   if(MSVC)
     target_compile_options(${target} PRIVATE /W4)
     target_compile_definitions(${target} PRIVATE _CRT_SECURE_NO_WARNINGS)
   else()
     target_compile_options(${target} PRIVATE -Wall -Wextra -pedantic)
+  endif()
+  if(APPLE)
+    target_compile_definitions(${target} PRIVATE GL_SILENCE_DEPRECATION)
   endif()
   set_target_properties(${target} PROPERTIES COMPILE_WARNING_AS_ERROR ON)
 endforeach()
