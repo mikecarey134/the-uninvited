@@ -276,8 +276,8 @@ void MenuScreens::drawAegis()
 	}
 
 	label("POINTS TO PLACE", aegisLeft, 462);
-	std::string left = std::to_string(draft.unplaced()) + " of " + std::to_string(draft.pool());
-	text(buttonType, left, aegisLeft, 478, draft.unplaced() > 0 ? theme::accent : theme::text);
+	std::string remaining = std::to_string(draft.unplaced()) + " of " + std::to_string(draft.pool());
+	text(buttonType, remaining, aegisLeft, 478, draft.unplaced() > 0 ? theme::accent : theme::text);
 	s32 bonus = draft.pool() - character::Aegis::BASE_POOL;
 	text(bodyType, std::to_string(character::Aegis::BASE_POOL) + " base + " + std::to_string(bonus) + " from Intelligence " +
 		std::to_string(draft.rolled[(int)character::Attribute::Intelligence]), aegisLeft + 96, 482, theme::muted);
