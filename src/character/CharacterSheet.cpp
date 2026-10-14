@@ -1,4 +1,5 @@
 #include "CharacterSheet.h"
+#include <cstdio>
 
 namespace character
 {
@@ -83,6 +84,39 @@ namespace character
 			return false;
 		placed[(int)attribute] -= amount;
 		return true;
+	}
+
+	std::vector<std::string> describe(const CharacterSheet& sheet)
+	{
+		std::vector<std::string> lines;
+		lines.push_back("Name: " + sheet.name());
+		lines.push_back(std::string("Gender: ") + (sheet.gender() == Gender::Female ? "Female" : "Male"));
+		std::string bonuses;
+		for (const std::pair<Skill, int>& bonus : sheet.profession().skillBonuses)
+			bonuses += (bonuses.empty() ? "" : ", ") + std::string(skillName(bonus.first)) + " +" + std::to_string(bonus.second);
+		lines.push_back("Profession: " + sheet.profession().name + " (" + bonuses + ")");
+		for (int i = 0; i < ATTRIBUTE_COUNT; ++i)
+		{
+			Attribute attribute = (Attribute)i;
+			bool boosted = sheet.hasBloodline() && sheet.bloodlineAttribute() == attribute;
+			lines.push_back(std::string(attributeName(attribute)) + ": " + std::to_string(sheet.attribute(attribute)) + " (rolled " +
+				std::to_string(sheet.rolledPoints(attribute)) + " + placed " + std::to_string(sheet.placedPoints(attribute)) +
+				(boosted ? ", x" + std::to_string(CharacterSheet::BLOODLINE_MULTIPLIER) + " bloodline)" : ")"));
+		}
+		lines.push_back("Points: " + std::to_string(sheet.unplacedPoints()) + " to place of " + std::to_string(sheet.pointPool()));
+		lines.push_back(sheet.hasBloodline() ? "Bloodline: " + sheet.bloodlineName() + ", " + attributeName(sheet.bloodlineAttribute()) + " x" +
+			std::to_string(CharacterSheet::BLOODLINE_MULTIPLIER) : "Bloodline: none");
+		std::string skills;
+		for (int i = 0; i < SKILL_COUNT; ++i)
+			skills += (i ? ", " : "") + std::string(skillName((Skill)i)) + " " + std::to_string(sheet.skill((Skill)i));
+		lines.push_back("Skills: " + skills);
+		char gain[64];
+		std::snprintf(gain, sizeof(gain), "Experience gain: x%.2f from Intelligence %d", experienceMultiplier(sheet.attribute(Attribute::Intelligence)),
+			sheet.attribute(Attribute::Intelligence));
+		lines.push_back(gain);
+		lines.push_back("Water " + std::to_string((int)sheet.water()) + ", Hunger " + std::to_string((int)sheet.hunger()) + ", Sanity " +
+			std::to_string((int)sheet.sanity()));
+		return lines;
 	}
 
 	double experienceMultiplier(int intelligence)
