@@ -299,21 +299,21 @@ TEST_CASE("Mike's sedan models replace the box cars at real size, one on its roo
 			continue;
 		++cars;
 		REQUIRE(car->getChildren().size() == 1);
-		ISceneNode* model = *car->getChildren().begin();
-		CHECK(std::string(model->getName()) == "car model");
-		CHECK(model->getMaterialCount() >= 5);
+		ISceneNode* sedan = *car->getChildren().begin();
+		CHECK(std::string(sedan->getName()) == "car model");
+		CHECK(sedan->getMaterialCount() >= 5);
 		car->updateAbsolutePosition();
-		model->updateAbsolutePosition();
-		aabbox3df box = model->getTransformedBoundingBox();
-		vector3df size = model->getBoundingBox().getExtent() * model->getScale().X;
+		sedan->updateAbsolutePosition();
+		aabbox3df box = sedan->getTransformedBoundingBox();
+		vector3df size = sedan->getBoundingBox().getExtent() * sedan->getScale().X;
 		f32 longest = std::max(size.X, std::max(size.Y, size.Z));
 		CHECK(longest >= 4.3f);
 		CHECK(longest <= 4.7f);
 		CHECK(box.MinEdge.Y > -0.25f);
 		CHECK(box.MinEdge.Y < 0.3f);
-		for (u32 i = 0; i < model->getMaterialCount(); ++i)
+		for (u32 i = 0; i < sedan->getMaterialCount(); ++i)
 		{
-			const video::SMaterial& material = model->getMaterial(i);
+			const video::SMaterial& material = sedan->getMaterial(i);
 			INFO(i);
 			CHECK(brightest(material.DiffuseColor) >= 40);
 			CHECK(brightest(material.EmissiveColor) >= brightest(material.DiffuseColor) / 4);
