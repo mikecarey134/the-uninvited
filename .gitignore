@@ -1,0 +1,10 @@
+build/
+*.o
+*.d
+*.exe
+.cache/
+compile_commands.json
+.vscode/
+.idea/
+*.swp
+*~
