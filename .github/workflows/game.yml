@@ -1,0 +1,63 @@
+name: Game
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            install: sudo apt-get update && sudo apt-get install -y libirrlicht-dev libgl-dev libx11-dev libxext-dev libxxf86vm-dev
+            configure: -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+            exe: ./build/game
+          - os: macos-14
+            install: brew install irrlicht
+            configure: ""
+            exe: ./build/game
+          - os: windows-2022
+            install: vcpkg install irrlicht:x64-windows
+            configure: -DCMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows
+            exe: ./build/Release/game.exe
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Fetch the engine sources
+        run: |
+          engine=$(git ls-tree HEAD engine | awk '{print $3}')
+          rm -rf engine
+          git clone --quiet --filter=blob:none --no-checkout https://github.com/mikecarey134/GameCore.git engine
+          git -C engine sparse-checkout set --no-cone \
+            /gamecorev0.1.1/gamecorev0.1.1/CMakeLists.txt \
+            /gamecorev0.1.1/gamecorev0.1.1/engine/ \
+            /gamecorev0.1.1/gamecorev0.1.1/protocol/ \
+            /gamecorev0.1.1/gamecorev0.1.1/server/ \
+            /gamecorev0.1.1/gamecorev0.1.1/client/ \
+            /gamecorev0.1.1/gamecorev0.1.1/inventory/ \
+            /gamecorev0.1.1/gamecorev0.1.1/inventory_ui/ \
+            /gamecorev0.1.1/gamecorev0.1.1/third_party/
+          git -C engine checkout --quiet "$engine"
+
+      - name: Install Irrlicht
+        run: ${{ matrix.install }}
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release ${{ matrix.configure }}
+
+      - name: Build
+        run: cmake --build build --config Release --parallel 4
+
+      - name: Run unit tests
+        run: ctest --test-dir build --build-config Release --output-on-failure
+
+      - name: Smoke run
+        timeout-minutes: 2
+        run: ${{ matrix.exe }} --smoke
