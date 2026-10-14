@@ -15,7 +15,6 @@ namespace
 {
 	const char* const gameTitle = "GAME NAME";
 	const char* const characterModel = "assets/models/stick_mike.ms3d";
-	const rect<s32> captionArea(648, 568, 1216, 680);
 	const s32 turnArea = 480;
 	const f32 degreesPerPixel = 0.5f;
 	const s32 formRight = 448;
@@ -61,7 +60,9 @@ MenuScreens::MenuScreens(IrrlichtDevice* device, Canvas& canvas, menu::MenuFlow&
 
 void MenuScreens::showCharacter()
 {
-	bool wanted = built_ == Screen::CharacterCreation || (built_ == Screen::CharacterSelect && flow_.highlighted() >= 0);
+	bool playing = built_ == Screen::WorldSelect || built_ == Screen::JoinGame || built_ == Screen::Playing;
+	bool wanted = built_ == Screen::CharacterCreation || (built_ == Screen::CharacterSelect && flow_.highlighted() >= 0) ||
+		(playing && flow_.chosen());
 	if (!backdrop_)
 		return;
 	if (wanted)
@@ -70,17 +71,24 @@ void MenuScreens::showCharacter()
 		backdrop_->hideCharacter();
 }
 
-void MenuScreens::drawCaption(const std::string& name, character::Gender gender, const character::Profession* profession)
+void MenuScreens::drawNameplate()
 {
-	s32 x = captionArea.UpperLeftCorner.X;
-	s32 y = captionArea.UpperLeftCorner.Y;
-	canvas_.drawRect(rect<s32>(x, y, x + 48, y + 2), theme::accent);
-	text(canvas_.loadFont(headingFont), name.empty() ? "Unnamed" : name, x - 2, y + 12, name.empty() ? theme::dim : theme::text);
-	if (!profession)
+	const character::CharacterSheet* chosen = flow_.chosen();
+	position2d<s32> top;
+	if (!chosen || !backdrop_ || !backdrop_->characterTop(top))
 		return;
-	std::string who = std::string(gender == character::Gender::Female ? "Female" : "Male") + "   " + profession->name;
-	text(canvas_.loadFont(bodyFont), who, x, y + 60, theme::muted);
-	text(canvas_.loadFont(bodyFont), bonuses(*profession), x, y + 84, theme::accent);
+	FontHandle nameFont = canvas_.loadFont(buttonFont);
+	FontHandle detailFont = canvas_.loadFont(bodyFont);
+	canvas_.drawText(nameFont, wide(chosen->name()).c_str(), rect<s32>(top.X - 200, top.Y - 42, top.X + 200, top.Y - 18), theme::text, true, true);
+	canvas_.drawText(detailFont, wide(chosen->profession().name).c_str(), rect<s32>(top.X - 200, top.Y - 18, top.X + 200, top.Y + 2),
+		theme::muted, true, true);
+}
+
+bool MenuScreens::onScene(position2d<s32> point) const
+{
+	IGUIElement* root = device_->getGUIEnvironment()->getRootGUIElement();
+	IGUIElement* under = root->getElementFromPoint(point);
+	return !under || under == root || under->getType() == EGUIET_TAB;
 }
 
 bool MenuScreens::onEvent(const SEvent& event)
@@ -94,7 +102,7 @@ bool MenuScreens::onEvent(const SEvent& event)
 	switch (mouse.Event)
 	{
 	case EMIE_LMOUSE_PRESSED_DOWN:
-		if (mouse.X < turnArea)
+		if (mouse.X < turnArea || !onScene(position2d<s32>(mouse.X, mouse.Y)))
 			return false;
 		turning_ = true;
 		turnFromX_ = mouse.X;
@@ -396,17 +404,9 @@ void MenuScreens::draw()
 
 	showCharacter();
 	if (built_ == Screen::CharacterCreation)
-	{
-		s32 chosen = panel_.selected(GUI_ID_PROFESSION);
-		drawCaption(panel_.text(GUI_ID_NAME), gender_,
-			chosen >= 0 && chosen < (s32)flow_.professions().size() ? &flow_.professions()[chosen] : nullptr);
 		drawAegis();
-	}
-	if (built_ == Screen::CharacterSelect && flow_.highlighted() >= 0 && flow_.highlighted() < (s32)flow_.characters().size())
-	{
-		const character::CharacterSheet& sheet = flow_.characters()[flow_.highlighted()];
-		drawCaption(sheet.name(), sheet.gender(), &sheet.profession());
-	}
+	if (built_ == Screen::WorldSelect || built_ == Screen::JoinGame || built_ == Screen::Playing)
+		drawNameplate();
 
 	if (built_ == Screen::Title)
 	{

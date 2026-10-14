@@ -213,6 +213,23 @@ TEST_CASE("turning eases toward the dragged angle and stays where it was left")
 	CHECK(scene.menu->character()->getRotation().Y == doctest::Approx(270.0f).epsilon(0.01));
 }
 
+TEST_CASE("the nameplate point sits just above the character's head")
+{
+	Scene scene;
+	position2d<s32> at;
+	CHECK_FALSE(scene.menu->characterTop(at));
+	scene.menu->showCharacter(model);
+	scene.menu->draw();
+	REQUIRE(scene.menu->characterTop(at));
+	IAnimatedMeshSceneNode* character = scene.menu->character();
+	aabbox3df body = character->getMesh()->getMesh(206)->getBoundingBox();
+	character->getAbsoluteTransformation().transformBoxEx(body);
+	position2d<s32> head = onScreen(scene, vector3df(body.getCenter().X, body.MaxEdge.Y, body.getCenter().Z));
+	CHECK(at.Y < head.Y);
+	CHECK(head.Y - at.Y < 40);
+	CHECK(std::abs(at.X - head.X) < 4);
+}
+
 TEST_CASE("showing twice keeps one character, and hiding removes it")
 {
 	Scene scene;

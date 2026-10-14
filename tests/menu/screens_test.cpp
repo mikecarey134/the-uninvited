@@ -67,7 +67,7 @@ namespace
 	};
 }
 
-TEST_CASE("the character stands in the scene on create and on select with a highlighted character, and nowhere else")
+TEST_CASE("the character stands in the scene from create or select onward, and never on the title or settings")
 {
 	Menu menu("screens_where");
 	menu.screens->draw();
@@ -88,7 +88,40 @@ TEST_CASE("the character stands in the scene on create and on select with a high
 	menu.flow.highlight(0);
 	REQUIRE(menu.flow.select());
 	menu.screens->draw();
+	CHECK(menu.flow.screen() == menu::Screen::WorldSelect);
+	CHECK(menu.backdrop->character() != nullptr);
+	menu.flow.join();
+	menu.screens->draw();
+	CHECK(menu.backdrop->character() != nullptr);
+	menu.flow.back();
+	menu.flow.host();
+	menu.screens->draw();
+	CHECK(menu.flow.screen() == menu::Screen::Playing);
+	CHECK(menu.backdrop->character() != nullptr);
+	menu.flow.returnToTitle();
+	menu.screens->draw();
 	CHECK(menu.backdrop->character() == nullptr);
+	menu.flow.settings();
+	menu.screens->draw();
+	CHECK(menu.backdrop->character() == nullptr);
+}
+
+TEST_CASE("a click on a widget never starts turning the character, even on the scene side")
+{
+	Menu menu("screens_widget");
+	menu.flow.play();
+	menu.flow.newCharacter();
+	REQUIRE(menu.flow.create("Dana", character::Gender::Female, 0));
+	menu.flow.highlight(0);
+	menu.screens->draw();
+	REQUIRE(menu.backdrop->character() != nullptr);
+	menu.mouse(EMIE_LMOUSE_PRESSED_DOWN, 560, 300);
+	menu.mouse(EMIE_MOUSE_MOVED, 500, 300);
+	CHECK(menu.backdrop->characterTargetYaw() == doctest::Approx(0.0f));
+	menu.mouse(EMIE_LMOUSE_LEFT_UP, 500, 300);
+	menu.mouse(EMIE_LMOUSE_PRESSED_DOWN, 900, 300);
+	menu.mouse(EMIE_MOUSE_MOVED, 860, 300);
+	CHECK(menu.backdrop->characterTargetYaw() == doctest::Approx(20.0f));
 }
 
 TEST_CASE("dragging left on the character turns them to their right, and only drags on the scene side count")

@@ -55,7 +55,8 @@ private:
 	bool clicked(irr::s32 id);
 	void click();
 	void showCharacter();
-	void drawCaption(const std::string& name, character::Gender gender, const character::Profession* profession);
+	void drawNameplate();
+	bool onScene(irr::core::position2d<irr::s32> point) const;
 	void drawAegis();
 	bool isEnabled(irr::s32 id) const;
 

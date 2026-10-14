@@ -16,6 +16,7 @@ public:
 	irr::scene::IAnimatedMeshSceneNode* character() const { return character_; }
 	irr::f32 characterYaw() const { return yaw_; }
 	irr::f32 characterTargetYaw() const { return targetYaw_; }
+	bool characterTop(irr::core::position2d<irr::s32>& at) const;
 	irr::scene::ISceneManager* scene() const { return scene_; }
 	irr::scene::ICameraSceneNode* camera() const { return camera_; }
 

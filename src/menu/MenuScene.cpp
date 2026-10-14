@@ -176,6 +176,18 @@ void MenuScene::showCharacter(const char* model)
 	targetYaw_ = 0.0f;
 }
 
+bool MenuScene::characterTop(position2d<s32>& at) const
+{
+	if (!character_)
+		return false;
+	character_->updateAbsolutePosition();
+	aabbox3df body = character_->getMesh()->getMesh(idleStart)->getBoundingBox();
+	character_->getAbsoluteTransformation().transformBoxEx(body);
+	vector3df top(body.getCenter().X, body.MaxEdge.Y + 0.12f, body.getCenter().Z);
+	at = scene_->getSceneCollisionManager()->getScreenCoordinatesFrom3DPosition(top, camera_);
+	return true;
+}
+
 void MenuScene::hideCharacter()
 {
 	if (character_)
