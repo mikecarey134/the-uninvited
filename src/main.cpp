@@ -5,6 +5,8 @@
 #include <sstream>
 #include <string>
 #include <irrlicht.h>
+#include "ActionMap.h"
+#include "ConsoleLayer.h"
 #include "GuiInputLayer.h"
 #include "InputRouter.h"
 #include "IrrlichtCanvas.h"
@@ -12,6 +14,7 @@
 #include "MenuScreens.h"
 #include "MenuScene.h"
 #include "MenuSkin.h"
+#include "PlayerStatsCommand.h"
 #include "SoundEngine.h"
 #include "client/NetSession.h"
 #include "net/EnetTransport.h"
@@ -66,6 +69,18 @@ namespace
 			[&screens] { screens.back(); }, [] { return true; });
 		router.push(&layer);
 		router.push(&screens);
+
+		IC_Console console;
+		console.loadDefaultCommands(device);
+		console.registerCommand(new PlayerStatsCommand([&flow] { return flow.chosen(); }));
+		console.getConfig().fontName = "assets/fonts/label.png";
+		core::dimension2d<u32> screen = device->getVideoDriver()->getScreenSize();
+		console.initializeConsole(canvas, core::dimension2d<s32>((s32)screen.Width, (s32)screen.Height));
+		console.setVisible(false);
+		ActionMap actions;
+		actions.bind("console", KEY_OEM_3);
+		ConsoleLayer consoleLayer(console, actions, [&flow] { return flow.screen() == menu::Screen::Playing; });
+		router.push(&consoleLayer);
 		device->setEventReceiver(&router);
 
 		bool playing = false;
@@ -86,6 +101,7 @@ namespace
 			}
 			else if (playing && flow.screen() != menu::Screen::Playing)
 			{
+				console.setVisible(false);
 				session.leave();
 				playing = false;
 			}
@@ -95,6 +111,7 @@ namespace
 
 			device->getVideoDriver()->beginScene(true, true, video::SColor(255,0,0,0));
 			screens.draw();
+			console.renderConsole(0);
 			device->getVideoDriver()->endScene();
 
 			if (smoke)

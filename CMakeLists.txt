@@ -12,7 +12,7 @@ add_library(uninvited_character STATIC src/character/Profession.cpp src/characte
 target_include_directories(uninvited_character PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/character")
 target_link_libraries(uninvited_character PUBLIC gamecore_engine)
 
-add_library(uninvited_menu STATIC src/menu/CharacterStore.cpp src/menu/MenuFlow.cpp)
+add_library(uninvited_menu STATIC src/menu/CharacterStore.cpp src/menu/MenuFlow.cpp src/menu/PlayerStatsCommand.cpp)
 target_include_directories(uninvited_menu PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/menu")
 target_link_libraries(uninvited_menu PUBLIC uninvited_character)
 

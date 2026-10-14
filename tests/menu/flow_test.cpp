@@ -1,5 +1,6 @@
 #include "doctest.h"
 #include "MenuFlow.h"
+#include "PlayerStatsCommand.h"
 #include "server/GameServer.h"
 #include <filesystem>
 #include <fstream>
@@ -374,4 +375,82 @@ TEST_CASE("the creation screen offers every shipped profession")
 	CHECK(fixture.flow.professions()[26].name == "Paramedic");
 	CHECK(fixture.flow.professions()[27].name == "Blacksmith");
 	CHECK(fixture.professionNamed("Construction Worker") >= 0);
+}
+
+namespace
+{
+	struct Lines : IC_MessageSink
+	{
+		void appendMessage(const WideString message) override { text.push_back(irr::core::stringc(message).c_str()); }
+		void clearMessages() override { text.clear(); }
+		void toggleVisible() override {}
+		std::vector<std::string> text;
+	};
+}
+
+TEST_CASE("player_stats in a hosted session prints the created character exactly as it was made, after a restart")
+{
+	Fixture fixture("stats_session", shippedProfessions(), 1);
+	fixture.flow.play();
+	fixture.flow.newCharacter();
+	REQUIRE(fixture.flow.adjust(Attribute::Strength, 1));
+	REQUIRE(fixture.flow.adjust(Attribute::Strength, 1));
+	REQUIRE(fixture.flow.adjust(Attribute::Agility, 1));
+	Aegis draft = fixture.flow.draft();
+	REQUIRE(draft.hasBloodline);
+	REQUIRE(fixture.flow.create("Dana", Gender::Female, fixture.professionNamed("Blacksmith")));
+
+	MenuFlow session(fixture.store, shippedProfessions());
+	session.play();
+	session.highlight(0);
+	REQUIRE(session.select());
+	session.host();
+	REQUIRE(session.screen() == Screen::Playing);
+
+	PlayerStatsCommand command([&session] { return session.chosen(); });
+	CHECK(command.getName() == L"player_stats");
+	Lines out;
+	CHECK(command.invoke(array<WideString>(), nullptr, &out));
+	REQUIRE(out.text.size() == 13);
+	CHECK(out.text[0] == "Name: Dana");
+	CHECK(out.text[1] == "Gender: Female");
+	CHECK(out.text[2] == "Profession: Blacksmith (Smithing +30)");
+	for (int i = 0; i < ATTRIBUTE_COUNT; ++i)
+	{
+		Attribute attribute = (Attribute)i;
+		int plain = draft.rolled[i] + draft.placed[i];
+		bool boosted = draft.bloodlineAttribute == attribute;
+		INFO(attributeName(attribute));
+		CHECK(out.text[3 + i] == std::string(attributeName(attribute)) + ": " + std::to_string(boosted ? plain * 10 : plain) + " (rolled " +
+			std::to_string(draft.rolled[i]) + " + placed " + std::to_string(draft.placed[i]) + (boosted ? ", x10 bloodline)" : ")"));
+	}
+	CHECK(out.text[8] == "Points: " + std::to_string(draft.unplaced()) + " to place of " + std::to_string(draft.pool()));
+	CHECK(out.text[9] == "Bloodline: [Placeholder], " + std::string(attributeName(draft.bloodlineAttribute)) + " x10");
+	CHECK(out.text[10].find("Skills: Smithing 30, Chemistry 0,") == 0);
+}
+
+TEST_CASE("player_stats with no chosen character says so instead of printing garbage")
+{
+	PlayerStatsCommand command([] { return (const CharacterSheet*)nullptr; });
+	Lines out;
+	CHECK(command.invoke(array<WideString>(), nullptr, &out));
+	REQUIRE(out.text.size() == 1);
+	CHECK(out.text[0] == "No character is in play");
+}
+
+TEST_CASE("a character without a bloodline reports none after a restart")
+{
+	Fixture fixture("stats_plain");
+	fixture.createAndSelect("Eli");
+	MenuFlow session(fixture.store, shippedProfessions());
+	session.play();
+	session.highlight(0);
+	REQUIRE(session.select());
+	session.host();
+	PlayerStatsCommand command([&session] { return session.chosen(); });
+	Lines out;
+	command.invoke(array<WideString>(), nullptr, &out);
+	REQUIRE(out.text.size() == 13);
+	CHECK(out.text[9] == "Bloodline: none");
+	CHECK(out.text[2] == "Profession: Doctor (Medicine +30)");
 }

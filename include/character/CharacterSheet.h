@@ -2,6 +2,7 @@
 #include "Profession.h"
 #include <random>
 #include <string>
+#include <vector>
 
 namespace character
 {
@@ -98,6 +99,7 @@ namespace character
 	const float HUNGER_HOURS = 144.0f;
 	const float SANITY_HOURS = 336.0f;
 
+	std::vector<std::string> describe(const CharacterSheet& sheet);
 	double experienceMultiplier(int intelligence);
 	float drainSlowdown(int attribute);
 }
