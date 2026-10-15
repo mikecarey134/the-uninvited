@@ -1,6 +1,7 @@
 #include "MenuScreens.h"
 #include "Outfits.h"
 #include "World.h"
+#include "Hud.h"
 #include "MenuScene.h"
 #include "SoundEngine.h"
 #include "Theme.h"
@@ -449,6 +450,11 @@ void MenuScreens::draw()
 		text(canvas_.loadFont(titleFont), gameTitle, left - 4, 150, theme::text);
 		canvas_.drawRect(rect<s32>(left, 232, left + 96, 236), theme::accent);
 		text(canvas_.loadFont(bodyFont), tagline, left, 254, theme::muted);
+	}
+	else if (world_ && built_ == Screen::Playing)
+	{
+		if (const character::CharacterSheet* chosen = flow_.chosen())
+			drawVitals(canvas_, *chosen);
 	}
 	else if (!title_.empty())
 		text(canvas_.loadFont(headingFont), title_, left - 2, headingY, theme::text);

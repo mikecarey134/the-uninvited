@@ -141,3 +141,26 @@ TEST_CASE("the chosen outfit round trips, saves from before outfits load as the 
 	CharacterSheet::fromText(negative, problem);
 	CHECK(problem == "bad outfit: -1");
 }
+
+TEST_CASE("a character starts at full health, keeps it through a save, and saves from before health load at full")
+{
+	CharacterSheet sheet = CharacterSheet::create("Ada", Gender::Female, bartender);
+	CHECK(sheet.maxHealth() == 100);
+	CHECK(sheet.health() == 100);
+	std::string text = sheet.toText();
+	std::string::size_type at = text.find("health = 100");
+	REQUIRE(at != std::string::npos);
+	std::string hurt = text;
+	hurt.replace(at, 12, "health = 37");
+	std::string problem;
+	CHECK(CharacterSheet::fromText(hurt, problem).health() == 37);
+	CHECK(problem.empty());
+	std::string old = text;
+	old.erase(at, std::string("health = 100\n").size());
+	CHECK(CharacterSheet::fromText(old, problem).health() == 100);
+	CHECK(problem.empty());
+	std::string broken = text;
+	broken.replace(at, 12, "health = 150");
+	CharacterSheet::fromText(broken, problem);
+	CHECK(problem == "bad health: 150");
+}

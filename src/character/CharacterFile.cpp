@@ -84,6 +84,7 @@ namespace character
 			out.add(std::string("skill.") + skillName((Skill)i), startingSkills_[i]);
 			out.add(std::string("experience.") + skillName((Skill)i), experience_[i], 17);
 		}
+		out.add("health", health_);
 		out.add("water", water_, 9);
 		out.add("hunger", hunger_, 9);
 		out.add("sanity", sanity_, 9);
@@ -120,6 +121,12 @@ namespace character
 
 		if (read && gender != "Male" && gender != "Female")
 			read = fields.fail("bad gender: " + gender);
+		if (read && mentions(text, "health"))
+		{
+			read = fields.whole("health", sheet.health_);
+			if (read && (sheet.health_ < 0 || sheet.health_ > MAX_HEALTH))
+				read = fields.fail("bad health: " + std::to_string(sheet.health_));
+		}
 		if (read && mentions(text, "outfit"))
 		{
 			read = fields.whole("outfit", sheet.outfit_);

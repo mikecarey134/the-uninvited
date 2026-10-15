@@ -11,6 +11,7 @@ namespace character
 	const int CharacterSheet::RANDOM_POINTS;
 	const int CharacterSheet::BLOODLINE_MULTIPLIER;
 	const int CharacterSheet::BLOODLINE_ONE_IN;
+	const int CharacterSheet::MAX_HEALTH;
 	const int CharacterSheet::EXPERIENCE_PER_LEVEL;
 
 	namespace

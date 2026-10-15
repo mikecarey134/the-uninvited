@@ -38,6 +38,7 @@ namespace character
 		static const int BLOODLINE_MULTIPLIER = Aegis::BLOODLINE_MULTIPLIER;
 		static const int BLOODLINE_ONE_IN = Aegis::BLOODLINE_ONE_IN;
 		static const int EXPERIENCE_PER_LEVEL = 100;
+		static const int MAX_HEALTH = 100;
 
 		static CharacterSheet create(const std::string& name, Gender gender, const Profession& profession);
 		static CharacterSheet create(const std::string& name, Gender gender, const Profession& profession,
@@ -71,6 +72,8 @@ namespace character
 		double experience(Skill skill) const { return experience_[(int)skill]; }
 		void addExperience(Skill skill, double amount);
 
+		int health() const { return health_; }
+		int maxHealth() const { return MAX_HEALTH; }
 		float water() const { return water_; }
 		float hunger() const { return hunger_; }
 		float sanity() const { return sanity_; }
@@ -90,6 +93,7 @@ namespace character
 		Aegis aegis_;
 		int startingSkills_[SKILL_COUNT] = {};
 		double experience_[SKILL_COUNT] = {};
+		int health_ = MAX_HEALTH;
 		float water_ = 100.0f;
 		float hunger_ = 100.0f;
 		float sanity_ = 100.0f;

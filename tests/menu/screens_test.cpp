@@ -6,6 +6,8 @@
 #include "MenuScreens.h"
 #include "Outfits.h"
 #include "World.h"
+#include "Hud.h"
+#include "RecordingCanvas.h"
 #include <deque>
 #include <filesystem>
 #include <fstream>
@@ -363,4 +365,60 @@ TEST_CASE("once a world is attached the game screen hands the scene over to it, 
 	CHECK(menu.backdrop->character() == nullptr);
 	CHECK(std::string(menu::characterModel(character::Gender::Male)) == "assets/models/stick_mike.ms3d");
 	CHECK(std::string(menu::characterModel(character::Gender::Female)) == "assets/models/stick_dan.ms3d");
+}
+
+TEST_CASE("the vitals HUD shows only in the world, replacing the big name heading there, and never on the menus")
+{
+	IrrlichtDevice* device = createDevice(video::EDT_NULL, core::dimension2d<u32>(1280, 720));
+	RecordingCanvas canvas;
+	canvas.screenDimension = core::dimension2d<u32>(1280, 720);
+	std::string directory = (std::filesystem::temp_directory_path() / "screens_hud").string();
+	std::filesystem::remove_all(directory);
+	{
+		menu::CharacterStore store(directory);
+		menu::MenuFlow flow(store, professions(), 3);
+		std::deque<std::string> status;
+		MenuScene backdrop(device);
+		MenuScreens screens(device, canvas, flow, nullptr, status, &backdrop);
+		auto hud = [&canvas] {
+			for (const RecordingCanvas::Call& call : canvas.calls)
+				if (call.kind == RecordingCanvas::RECT && call.colour == hudHealth)
+					return true;
+			return false;
+		};
+		auto heading = [&canvas](const std::wstring& text) {
+			for (const RecordingCanvas::Call& call : canvas.calls)
+				if (call.kind == RecordingCanvas::TEXT && call.text == text && canvas.pathOf(call.font).find("heading") != std::string::npos)
+					return true;
+			return false;
+		};
+		screens.draw();
+		CHECK_FALSE(hud());
+		flow.play();
+		flow.newCharacter();
+		REQUIRE(flow.create("Rook", character::Gender::Male, 0));
+		flow.highlight(0);
+		REQUIRE(flow.select());
+		canvas.calls.clear();
+		screens.draw();
+		CHECK_FALSE(hud());
+		flow.host();
+		canvas.calls.clear();
+		screens.draw();
+		CHECK_FALSE(hud());
+		CHECK(heading(L"Rook"));
+		World world(device, menu::characterModel(character::Gender::Male), menu::outfitSkin(character::Gender::Male, 0).c_str(), [] {});
+		screens.setWorld(&world);
+		canvas.calls.clear();
+		screens.draw();
+		CHECK(hud());
+		CHECK_FALSE(heading(L"Rook"));
+		flow.returnToTitle();
+		screens.setWorld(nullptr);
+		canvas.calls.clear();
+		screens.draw();
+		CHECK_FALSE(hud());
+	}
+	std::filesystem::remove_all(directory);
+	device->drop();
 }
