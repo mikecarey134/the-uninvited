@@ -2,6 +2,7 @@
 #define WORLD_H
 
 #include <functional>
+#include <vector>
 #include <irrlicht.h>
 #include "InputRouter.h"
 
@@ -20,11 +21,16 @@ public:
 	irr::scene::IAnimatedMeshSceneNode* player() const { return player_; }
 	irr::scene::ICameraSceneNode* camera() const { return camera_; }
 	irr::f32 cameraDistance() const;
+	irr::f32 playerRadius() const;
 
 private:
 	void addGround();
 	void addPlayer(const char* model, const char* skin);
 	void addLights();
+	void addProps();
+	void addProp(const char* name, const char* file, irr::f32 x, irr::f32 z, const irr::core::vector3df& rotation, irr::f32 length);
+	bool blocked(const irr::core::vector3df& at) const;
+	void move(const irr::core::vector3df& step);
 	void follow();
 	void animate(bool walking);
 
@@ -37,6 +43,7 @@ private:
 	bool walking_;
 	irr::f32 yaw_;
 	irr::f32 feet_;
+	std::vector<irr::core::aabbox3df> obstacles_;
 };
 
 #endif

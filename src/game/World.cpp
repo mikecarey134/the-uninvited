@@ -1,4 +1,5 @@
 #include "World.h"
+#include <algorithm>
 #include <cmath>
 
 using namespace irr;
@@ -15,6 +16,9 @@ namespace
 	const f32 fogEnd = 100.0f;
 	const f32 characterHeight = 1.75f;
 	const f32 walkSpeed = 3.5f;
+	const f32 radius = 0.35f;
+	const f32 edge = groundSize / 2.0f - radius;
+	const f32 longestStep = 0.1f;
 	const f32 followDistance = 4.5f;
 	const f32 eyeHeight = 2.6f;
 	const f32 lookHeight = 1.4f;
@@ -38,6 +42,7 @@ World::World(IrrlichtDevice* device, const char* model, const char* skin, std::f
 	camera_->setFarValue(4000.0f);
 	camera_->setFOV(55.0f * DEGTORAD);
 	addGround();
+	addProps();
 	addPlayer(model, skin);
 	addLights();
 	follow();
@@ -57,6 +62,78 @@ void World::addGround()
 	ground->setName("ground");
 	ground->setMaterialTexture(0, device_->getVideoDriver()->getTexture("assets/textures/ground_brown.jpg"));
 	ground->getMaterial(0).FogEnable = true;
+}
+
+void World::addProps()
+{
+	addProp("prop barrel", "assets/models/props/barrel/barrel.obj", -4.0f, 7.0f, vector3df(), 0.9f);
+	addProp("prop crate", "assets/models/props/crate/crate.obj", 4.0f, 9.0f, vector3df(0.0f, 20.0f, 0.0f), 0.6f);
+	addProp("prop chest", "assets/models/props/chest/chest.obj", 7.0f, -5.0f, vector3df(0.0f, 60.0f, 0.0f), 0.8f);
+	addProp("prop log", "assets/models/props/log/log.obj", -7.0f, -6.0f, vector3df(0.0f, 30.0f, 90.0f), 1.6f);
+	addProp("prop car", "assets/models/props/car/car.obj", 10.0f, 20.0f, vector3df(0.0f, 35.0f, 0.0f), 4.5f);
+	addProp("prop car2", "assets/models/props/car2/car2.obj", -16.0f, 8.0f, vector3df(0.0f, -70.0f, 0.0f), 4.5f);
+	addProp("prop crate", "assets/models/props/crate/crate.obj", -12.0f, -14.0f, vector3df(0.0f, 45.0f, 0.0f), 0.6f);
+	addProp("prop barrel", "assets/models/props/barrel/barrel.obj", 15.0f, -12.0f, vector3df(), 0.9f);
+	addProp("prop car", "assets/models/props/car/car.obj", -7.0f, 24.0f, vector3df(0.0f, 100.0f, 0.0f), 4.5f);
+	addProp("prop chest", "assets/models/props/chest/chest.obj", 20.0f, 4.0f, vector3df(0.0f, 10.0f, 0.0f), 0.8f);
+}
+
+void World::addProp(const char* name, const char* file, f32 x, f32 z, const vector3df& rotation, f32 length)
+{
+	IAnimatedMesh* mesh = scene_->getMesh(file);
+	if (!mesh)
+		return;
+	vector3df size = mesh->getBoundingBox().getExtent();
+	f32 scale = length / std::max(size.X, std::max(size.Y, size.Z));
+	ISceneNode* node = scene_->addMeshSceneNode(mesh->getMesh(0), 0, -1, vector3df(x, 0.0f, z), rotation, vector3df(scale, scale, scale));
+	node->setName(name);
+	node->updateAbsolutePosition();
+	node->setPosition(vector3df(x, -node->getTransformedBoundingBox().MinEdge.Y, z));
+	node->updateAbsolutePosition();
+	obstacles_.push_back(node->getTransformedBoundingBox());
+	for (u32 i = 0; i < node->getMaterialCount(); ++i)
+	{
+		SMaterial& material = node->getMaterial(i);
+		SColor colour = material.DiffuseColor;
+		if (material.getTexture(0))
+			material.AmbientColor = SColor(255, 255, 255, 255);
+		else
+		{
+			material.ColorMaterial = ECM_NONE;
+			material.AmbientColor = colour;
+			material.EmissiveColor = SColor(255, colour.getRed() * 3 / 10, colour.getGreen() * 3 / 10, colour.getBlue() * 3 / 10);
+		}
+		material.FogEnable = true;
+		material.NormalizeNormals = true;
+	}
+}
+
+bool World::blocked(const vector3df& at) const
+{
+	for (const aabbox3df& box : obstacles_)
+	{
+		f32 dx = std::max(std::max(box.MinEdge.X - at.X, 0.0f), at.X - box.MaxEdge.X);
+		f32 dz = std::max(std::max(box.MinEdge.Z - at.Z, 0.0f), at.Z - box.MaxEdge.Z);
+		if (dx * dx + dz * dz < radius * radius)
+			return true;
+	}
+	return false;
+}
+
+void World::move(const vector3df& step)
+{
+	s32 steps = std::max(1, (s32)std::ceil(step.getLength() / longestStep));
+	vector3df at = player_->getPosition();
+	for (s32 i = 0; i < steps; ++i)
+	{
+		vector3df across(clamp(at.X + step.X / steps, -edge, edge), at.Y, at.Z);
+		if (!blocked(across))
+			at = across;
+		vector3df along(at.X, at.Y, clamp(at.Z + step.Z / steps, -edge, edge));
+		if (!blocked(along))
+			at = along;
+	}
+	player_->setPosition(at);
 }
 
 void World::addPlayer(const char* model, const char* skin)
@@ -117,7 +194,7 @@ void World::update(f32 seconds)
 		if (walking)
 		{
 			step.normalize();
-			player_->setPosition(player_->getPosition() + step * walkSpeed * seconds);
+			move(step * walkSpeed * seconds);
 			player_->setRotation(vector3df(0.0f, step.getHorizontalAngle().Y, 0.0f));
 		}
 		animate(walking);
@@ -128,6 +205,11 @@ void World::update(f32 seconds)
 f32 World::cameraDistance() const
 {
 	return followDistance;
+}
+
+f32 World::playerRadius() const
+{
+	return radius;
 }
 
 void World::follow()

@@ -1,7 +1,9 @@
 #include "doctest.h"
 #include "World.h"
 #include <cmath>
+#include <algorithm>
 #include <string>
+#include <vector>
 
 using namespace irr;
 using namespace core;
@@ -200,4 +202,140 @@ TEST_CASE("Escape leaves the world, and other keys pass through to the layers be
 	w.KeyInput.Key = KEY_KEY_W;
 	CHECK_FALSE(fixture.world->onEvent(w));
 	CHECK(fixture.left == 1);
+}
+
+namespace
+{
+	std::vector<aabbox3df> props(World* world)
+	{
+		std::vector<aabbox3df> boxes;
+		for (ISceneNode* node : world->scene()->getRootSceneNode()->getChildren())
+			if (std::string(node->getName()).compare(0, 5, "prop ") == 0)
+			{
+				node->updateAbsolutePosition();
+				boxes.push_back(node->getTransformedBoundingBox());
+			}
+		return boxes;
+	}
+
+	f32 gap(const vector3df& at, const aabbox3df& box)
+	{
+		f32 dx = std::max(std::max(box.MinEdge.X - at.X, 0.0f), at.X - box.MaxEdge.X);
+		f32 dz = std::max(std::max(box.MinEdge.Z - at.Z, 0.0f), at.Z - box.MaxEdge.Z);
+		return std::sqrt(dx * dx + dz * dz);
+	}
+
+	void aimAt(World* world, const vector3df& at, f32& yaw)
+	{
+		vector3df from = world->player()->getPosition();
+		f32 wanted = vector3df(at.X - from.X, 0.0f, at.Z - from.Z).getHorizontalAngle().Y;
+		world->look(wanted - yaw);
+		yaw = wanted;
+	}
+}
+
+TEST_CASE("the world has eight to twelve of the game's own props standing on the ground, clear of the spawn point")
+{
+	Fixture fixture;
+	std::vector<aabbox3df> boxes = props(fixture.world);
+	CHECK(boxes.size() >= 8);
+	CHECK(boxes.size() <= 12);
+	for (const aabbox3df& box : boxes)
+	{
+		CHECK(box.MinEdge.Y == doctest::Approx(0.0f).epsilon(0.05));
+		CHECK(box.getExtent().Y > 0.2f);
+		CHECK(std::fabs(box.getCenter().X) < 90.0f);
+		CHECK(std::fabs(box.getCenter().Z) < 90.0f);
+		CHECK(gap(vector3df(), box) > 2.0f);
+	}
+	int kinds = 0;
+	for (const char* kind : { "prop crate", "prop barrel", "prop chest", "prop log", "prop car", "prop car2" })
+		kinds += fixture.world->scene()->getSceneNodeFromName(kind) != nullptr;
+	CHECK(kinds == 6);
+}
+
+TEST_CASE("walking at the edge of the world stops the player there, in every direction")
+{
+	Fixture fixture;
+	const f32 edge = 100.0f - fixture.world->playerRadius();
+	for (int side = 0; side < 4; ++side)
+	{
+		fixture.world->look(side == 0 ? 0.0f : 90.0f);
+		f32 yaw = 90.0f * side;
+		f32 radians = yaw * DEGTORAD;
+		vector3df heading(std::sin(radians), 0.0f, std::cos(radians));
+		fixture.key(KEY_KEY_W, true);
+		for (int i = 0; i < 1200; ++i)
+			fixture.world->update(0.1f);
+		fixture.key(KEY_KEY_W, false);
+		vector3df at = fixture.world->player()->getPosition();
+		INFO(side);
+		CHECK(std::fabs(at.X) <= edge + 0.001f);
+		CHECK(std::fabs(at.Z) <= edge + 0.001f);
+		CHECK(at.dotProduct(heading) >= edge - 0.5f);
+	}
+}
+
+TEST_CASE("the player never ends a frame inside a prop, however they wander, even across long frames")
+{
+	Fixture fixture;
+	std::vector<aabbox3df> boxes = props(fixture.world);
+	REQUIRE_FALSE(boxes.empty());
+	const f32 radius = fixture.world->playerRadius();
+	const EKEY_CODE keys[] = { KEY_KEY_W, KEY_KEY_D, KEY_KEY_S, KEY_KEY_A };
+	for (int leg = 0; leg < 40; ++leg)
+	{
+		fixture.world->look(37.0f * (f32)(leg % 7) + 11.0f);
+		fixture.key(keys[leg % 4], true);
+		for (int i = 0; i < 30; ++i)
+		{
+			fixture.world->update(leg % 5 == 0 ? 0.7f : 0.05f);
+			for (const aabbox3df& box : boxes)
+				REQUIRE(gap(fixture.world->player()->getPosition(), box) >= radius - 0.001f);
+		}
+		fixture.key(keys[leg % 4], false);
+	}
+}
+
+TEST_CASE("walking straight at a prop brings the player right up against it, then slides them along it")
+{
+	Fixture fixture;
+	std::vector<aabbox3df> boxes = props(fixture.world);
+	REQUIRE_FALSE(boxes.empty());
+	const aabbox3df* nearest = &boxes[0];
+	for (const aabbox3df& box : boxes)
+		if (gap(vector3df(), box) < gap(vector3df(), *nearest))
+			nearest = &box;
+	f32 yaw = 0.0f;
+	aimAt(fixture.world, nearest->getCenter(), yaw);
+	f32 closest = 1000.0f;
+	vector3df touching;
+	fixture.key(KEY_KEY_W, true);
+	for (int i = 0; i < 200; ++i)
+	{
+		fixture.world->update(0.05f);
+		f32 now = gap(fixture.world->player()->getPosition(), *nearest);
+		if (now < closest)
+		{
+			closest = now;
+			touching = fixture.world->player()->getPosition();
+		}
+	}
+	fixture.key(KEY_KEY_W, false);
+	CHECK(closest == doctest::Approx(fixture.world->playerRadius()).epsilon(0.05));
+	CHECK(fixture.world->player()->getPosition().getDistanceFrom(touching) > 1.0f);
+}
+
+TEST_CASE("one long frame walking head-on at a prop stops the player at it instead of passing through")
+{
+	Fixture fixture;
+	ISceneNode* barrel = fixture.world->scene()->getSceneNodeFromName("prop barrel");
+	REQUIRE(barrel != nullptr);
+	barrel->updateAbsolutePosition();
+	aabbox3df box = barrel->getTransformedBoundingBox();
+	fixture.walk(KEY_KEY_A, -box.getCenter().X / 3.5f);
+	REQUIRE(fixture.world->player()->getPosition().X == doctest::Approx(box.getCenter().X));
+	REQUIRE(box.MinEdge.Z > 1.0f);
+	fixture.walk(KEY_KEY_W, 5.0f);
+	CHECK(fixture.world->player()->getPosition().Z == doctest::Approx(box.MinEdge.Z - fixture.world->playerRadius()).epsilon(0.03));
 }
