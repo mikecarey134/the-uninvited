@@ -1,5 +1,6 @@
 #include "MenuScreens.h"
 #include "Outfits.h"
+#include "World.h"
 #include "MenuScene.h"
 #include "SoundEngine.h"
 #include "Theme.h"
@@ -15,8 +16,6 @@ using menu::Screen;
 namespace
 {
 	const char* const gameTitle = "GAME NAME";
-	const char* const maleModel = "assets/models/stick_mike.ms3d";
-	const char* const femaleModel = "assets/models/stick_dan.ms3d";
 	const s32 turnArea = 480;
 	const f32 degreesPerPixel = 0.5f;
 	const s32 formRight = 448;
@@ -70,7 +69,7 @@ MenuScreens::MenuScreens(IrrlichtDevice* device, Canvas& canvas, menu::MenuFlow&
 	const std::deque<std::string>& status, MenuScene* backdrop)
 	: device_(device), canvas_(canvas), flow_(flow), sound_(sound), status_(status),
 	panel_(device->getGUIEnvironment(), canvas.screenSize()), built_(Screen::Title), hasBuilt_(false),
-	gender_(character::Gender::Male), outfit_(0), backdrop_(backdrop), turning_(false), turnFromX_(0)
+	gender_(character::Gender::Male), outfit_(0), backdrop_(backdrop), world_(nullptr), turning_(false), turnFromX_(0)
 {
 }
 
@@ -78,7 +77,7 @@ void MenuScreens::showCharacter()
 {
 	bool playing = built_ == Screen::WorldSelect || built_ == Screen::JoinGame || built_ == Screen::Playing;
 	bool wanted = built_ == Screen::CharacterCreation || (built_ == Screen::CharacterSelect && flow_.highlighted() >= 0) ||
-		(playing && flow_.chosen());
+		(playing && flow_.chosen() && !(world_ && built_ == Screen::Playing));
 	if (!backdrop_)
 		return;
 	character::Gender gender = gender_;
@@ -91,7 +90,7 @@ void MenuScreens::showCharacter()
 		outfit = shown->outfit();
 	}
 	if (wanted)
-		backdrop_->showCharacter(gender == character::Gender::Female ? femaleModel : maleModel, menu::outfitSkin(gender, outfit).c_str());
+		backdrop_->showCharacter(menu::characterModel(gender), menu::outfitSkin(gender, outfit).c_str());
 	else
 		backdrop_->hideCharacter();
 }
@@ -428,7 +427,9 @@ void MenuScreens::draw()
 		guienv->getSkin()->setFont(font);
 
 	dimension2d<u32> screen = canvas_.screenSize();
-	if (backdrop_)
+	if (world_ && built_ == Screen::Playing)
+		world_->draw();
+	else if (backdrop_)
 	{
 		backdrop_->draw();
 		for (s32 x = 0; x < 720; x += 4)

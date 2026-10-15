@@ -5,6 +5,7 @@
 #include "MenuScene.h"
 #include "MenuScreens.h"
 #include "Outfits.h"
+#include "World.h"
 #include <deque>
 #include <filesystem>
 #include <fstream>
@@ -337,4 +338,29 @@ TEST_CASE("switching to female after picking a male outfit saves her on her own 
 	REQUIRE(menu.flow.characters().size() == 1);
 	CHECK(menu.flow.characters()[0].gender() == character::Gender::Female);
 	CHECK(menu.flow.characters()[0].outfit() == 0);
+}
+
+TEST_CASE("once a world is attached the game screen hands the scene over to it, and the menus keep the backdrop")
+{
+	Menu menu("screens_world");
+	menu.flow.play();
+	menu.flow.newCharacter();
+	REQUIRE(menu.flow.create("Dana", character::Gender::Female, 0));
+	menu.flow.highlight(0);
+	REQUIRE(menu.flow.select());
+	menu.flow.host();
+	menu.screens->draw();
+	REQUIRE(menu.backdrop->character() != nullptr);
+	World world(menu.device, menu::characterModel(character::Gender::Female), menu::outfitSkin(character::Gender::Female, 0).c_str(), [] {});
+	menu.screens->setWorld(&world);
+	menu.screens->draw();
+	CHECK(menu.backdrop->character() == nullptr);
+	CHECK(world.player() != nullptr);
+	menu.flow.returnToTitle();
+	menu.screens->setWorld(nullptr);
+	menu.screens->draw();
+	CHECK(menu.flow.screen() == menu::Screen::Title);
+	CHECK(menu.backdrop->character() == nullptr);
+	CHECK(std::string(menu::characterModel(character::Gender::Male)) == "assets/models/stick_mike.ms3d");
+	CHECK(std::string(menu::characterModel(character::Gender::Female)) == "assets/models/stick_dan.ms3d");
 }

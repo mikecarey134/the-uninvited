@@ -13,6 +13,7 @@
 
 namespace gamecore { class SoundEngine; }
 class MenuScene;
+class World;
 
 class MenuScreens : public InputLayer
 {
@@ -30,6 +31,7 @@ public:
 	void back();
 	void draw();
 	void hide();
+	void setWorld(World* world) { world_ = world; }
 
 private:
 	enum class Style { Primary, Secondary, Link, Choice, Card, Step };
@@ -78,6 +80,7 @@ private:
 	character::Gender gender_;
 	int outfit_;
 	MenuScene* backdrop_;
+	World* world_;
 	bool turning_;
 	irr::s32 turnFromX_;
 };

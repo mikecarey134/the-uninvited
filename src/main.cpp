@@ -2,6 +2,7 @@
 #include <deque>
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <irrlicht.h>
@@ -14,8 +15,11 @@
 #include "MenuScreens.h"
 #include "MenuScene.h"
 #include "MenuSkin.h"
+#include "MouseCapture.h"
+#include "Outfits.h"
 #include "PlayerStatsCommand.h"
 #include "SoundEngine.h"
+#include "World.h"
 #include "client/NetSession.h"
 #include "net/EnetTransport.h"
 
@@ -83,6 +87,9 @@ namespace
 		router.push(&consoleLayer);
 		device->setEventReceiver(&router);
 
+		MouseCapture capture(device->getCursorControl());
+		std::unique_ptr<World> world;
+		u32 lastFrame = device->getTimer()->getTime();
 		bool playing = false;
 		while (device->run())
 		{
@@ -98,12 +105,38 @@ namespace
 					status.push_back(hosting ? "Port " + std::to_string(flow.port()) + " is already in use"
 						: "Unable to reach " + flow.address() + ":" + std::to_string(flow.port()));
 				playing = true;
+				if (const character::CharacterSheet* chosen = flow.chosen())
+				{
+					world.reset(new World(device, menu::characterModel(chosen->gender()),
+						menu::outfitSkin(chosen->gender(), chosen->outfit()).c_str(), [&flow] { flow.returnToTitle(); }));
+					screens.setWorld(world.get());
+					router.push(world.get());
+					capture.setCaptured(true);
+				}
 			}
 			else if (playing && flow.screen() != menu::Screen::Playing)
 			{
 				console.setVisible(false);
 				session.leave();
 				playing = false;
+				if (world)
+				{
+					capture.setCaptured(false);
+					router.remove(world.get());
+					screens.setWorld(nullptr);
+					world.reset();
+				}
+			}
+
+			u32 now = device->getTimer()->getTime();
+			f32 seconds = now > lastFrame ? (now - lastFrame) / 1000.0f : 0.0f;
+			lastFrame = now;
+			if (world)
+			{
+				capture.setCaptured(!console.isVisible());
+				capture.beginFrame();
+				world->look(capture.delta().X * 0.25f);
+				world->update(console.isVisible() ? 0.0f : seconds);
 			}
 
 			session.tick();
