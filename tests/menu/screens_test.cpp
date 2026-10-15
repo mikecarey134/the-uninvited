@@ -382,7 +382,7 @@ TEST_CASE("the vitals HUD shows only in the world, replacing the big name headin
 		MenuScreens screens(device, canvas, flow, nullptr, status, &backdrop);
 		auto hud = [&canvas] {
 			for (const RecordingCanvas::Call& call : canvas.calls)
-				if (call.kind == RecordingCanvas::RECT && call.colour == hudHealth)
+				if (call.kind == RecordingCanvas::IMAGE && canvas.pathOf(call.texture) == "assets/hud/fill_hp.png")
 					return true;
 			return false;
 		};

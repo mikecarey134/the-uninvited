@@ -2,6 +2,7 @@
 #include "Hud.h"
 #include "RecordingCanvas.h"
 #include "Theme.h"
+#include <cstdlib>
 #include <string>
 
 using namespace irr;
@@ -29,14 +30,6 @@ namespace
 		return sheet;
 	}
 
-	const RecordingCanvas::Call* filled(const RecordingCanvas& canvas, video::SColor colour)
-	{
-		for (const RecordingCanvas::Call& call : canvas.calls)
-			if (call.kind == RecordingCanvas::RECT && call.colour == colour)
-				return &call;
-		return nullptr;
-	}
-
 	bool within(const rect<s32>& outer, const rect<s32>& inner)
 	{
 		return outer.isPointInside(inner.UpperLeftCorner) && inner.LowerRightCorner.X <= outer.LowerRightCorner.X &&
@@ -50,9 +43,30 @@ namespace
 				return true;
 		return false;
 	}
+	const RecordingCanvas::Call* image(const RecordingCanvas& canvas, const std::string& file)
+	{
+		for (const RecordingCanvas::Call& call : canvas.calls)
+			if (call.kind == RecordingCanvas::IMAGE && canvas.pathOf(call.texture) == "assets/hud/" + file)
+				return &call;
+		return nullptr;
+	}
+
+	int images(const RecordingCanvas& canvas, const std::string& file)
+	{
+		int count = 0;
+		for (const RecordingCanvas::Call& call : canvas.calls)
+			if (call.kind == RecordingCanvas::IMAGE && canvas.pathOf(call.texture) == "assets/hud/" + file)
+				++count;
+		return count;
+	}
+
+	int order(const RecordingCanvas& canvas, const RecordingCanvas::Call* call)
+	{
+		return (int)(call - canvas.calls.data());
+	}
 }
 
-TEST_CASE("the vitals cluster sits tight in the top-left corner on a dark see-through panel")
+TEST_CASE("the vitals cluster sits tight in the top-left corner on a dark see-through panel while there is no backing art")
 {
 	RecordingCanvas canvas;
 	canvas.screenDimension = dimension2d<u32>(1280, 720);
@@ -66,64 +80,95 @@ TEST_CASE("the vitals cluster sits tight in the top-left corner on a dark see-th
 	CHECK(panel.area.UpperLeftCorner.Y <= 16);
 	CHECK(panel.area.LowerRightCorner.X <= 320);
 	CHECK(panel.area.LowerRightCorner.Y <= 96);
+	CHECK(image(canvas, "backing_panel.png") == nullptr);
 	for (const RecordingCanvas::Call& call : canvas.calls)
 		if (call.kind != RecordingCanvas::TEXT)
 			CHECK(within(panel.area, call.area));
 }
 
-TEST_CASE("a burnt-orange framed square portrait shows a head and shoulders")
+TEST_CASE("the rusted frame art is drawn over a square portrait, on top of the head-and-shoulders silhouette")
 {
 	RecordingCanvas canvas;
 	drawVitals(canvas, hurt(100, 100, 100));
-	const RecordingCanvas::Call* frame = nullptr;
-	for (const RecordingCanvas::Call& call : canvas.calls)
-		if (call.kind == RecordingCanvas::RECT_OUTLINE && call.colour == theme::accent)
-			frame = &call;
+	const RecordingCanvas::Call* frame = image(canvas, "portrait_frame.png");
 	REQUIRE(frame != nullptr);
 	CHECK(frame->area.getWidth() == frame->area.getHeight());
 	CHECK(frame->area.getWidth() >= 40);
+	CHECK(frame->source.getWidth() > 0);
 	int inside = 0;
 	for (const RecordingCanvas::Call& call : canvas.calls)
 		if (call.kind == RecordingCanvas::RECT && call.colour == theme::dim && within(frame->area, call.area))
+		{
 			++inside;
+			CHECK(order(canvas, &call) < order(canvas, frame));
+		}
 	CHECK(inside >= 2);
+	for (const RecordingCanvas::Call& call : canvas.calls)
+		CHECK_FALSE(call.kind == RecordingCanvas::RECT_OUTLINE);
 }
 
-TEST_CASE("HP, food and water bars fill red, amber and blue in proportion to the character's values, each with its number")
+TEST_CASE("each bar draws the metal track art with its liquid art cut back from the right to the character's value, and its number")
 {
 	RecordingCanvas canvas;
 	drawVitals(canvas, hurt(50, 25, 100));
-	const RecordingCanvas::Call* health = filled(canvas, hudHealth);
-	const RecordingCanvas::Call* food = filled(canvas, hudFood);
-	const RecordingCanvas::Call* water = filled(canvas, hudWater);
+	CHECK(images(canvas, "bar_track.png") == 3);
+	const RecordingCanvas::Call* health = image(canvas, "fill_hp.png");
+	const RecordingCanvas::Call* food = image(canvas, "fill_food.png");
+	const RecordingCanvas::Call* water = image(canvas, "fill_h2o.png");
 	REQUIRE(health != nullptr);
 	REQUIRE(food != nullptr);
 	REQUIRE(water != nullptr);
-	CHECK(health->colour.getRed() > health->colour.getBlue());
-	CHECK(food->colour.getRed() > food->colour.getBlue());
-	CHECK(food->colour.getGreen() > health->colour.getGreen());
-	CHECK(water->colour.getBlue() > water->colour.getRed());
-	CHECK(water->area.getWidth() == 2 * health->area.getWidth());
-	CHECK(water->area.getWidth() == 4 * food->area.getWidth());
-	CHECK(health->area.getHeight() <= 8);
+	CHECK(health->area.getWidth() * 2 == doctest::Approx(water->area.getWidth()).epsilon(0.03));
+	CHECK(food->area.getWidth() * 4 == doctest::Approx(water->area.getWidth()).epsilon(0.06));
+	CHECK(health->source.getWidth() * 2 == doctest::Approx(water->source.getWidth()).epsilon(0.03));
+	CHECK(health->area.UpperLeftCorner.X == water->area.UpperLeftCorner.X);
 	CHECK(health->area.UpperLeftCorner.Y < food->area.UpperLeftCorner.Y);
 	CHECK(food->area.UpperLeftCorner.Y < water->area.UpperLeftCorner.Y);
-	CHECK(health->area.UpperLeftCorner.X == water->area.UpperLeftCorner.X);
+	for (const RecordingCanvas::Call& call : canvas.calls)
+		if (call.kind == RecordingCanvas::IMAGE && canvas.pathOf(call.texture) == "assets/hud/bar_track.png" &&
+			call.area.UpperLeftCorner.Y <= water->area.UpperLeftCorner.Y && call.area.LowerRightCorner.Y >= water->area.LowerRightCorner.Y)
+		{
+			CHECK(within(call.area, water->area));
+			CHECK(call.area.getHeight() <= 16);
+			CHECK(order(canvas, &call) < order(canvas, water));
+		}
 	CHECK(says(canvas, L"50"));
 	CHECK(says(canvas, L"25"));
 	CHECK(says(canvas, L"100"));
-	CHECK(says(canvas, L"HP"));
-	CHECK(says(canvas, L"FOOD"));
-	CHECK(says(canvas, L"H2O"));
+	CHECK_FALSE(says(canvas, L"HP"));
+	CHECK_FALSE(says(canvas, L"FOOD"));
+	CHECK_FALSE(says(canvas, L"H2O"));
 }
 
-TEST_CASE("an empty meter draws no fill at all, and a full one fills the whole track")
+TEST_CASE("a heart, a tin and a drop sit left of their bars in place of the old labels")
+{
+	RecordingCanvas canvas;
+	drawVitals(canvas, hurt(100, 100, 100));
+	const char* icons[] = { "icon_hp.png", "icon_food.png", "icon_h2o.png" };
+	const char* fills[] = { "fill_hp.png", "fill_food.png", "fill_h2o.png" };
+	for (int i = 0; i < 3; ++i)
+	{
+		INFO(icons[i]);
+		const RecordingCanvas::Call* icon = image(canvas, icons[i]);
+		const RecordingCanvas::Call* fill = image(canvas, fills[i]);
+		REQUIRE(icon != nullptr);
+		REQUIRE(fill != nullptr);
+		CHECK(icon->area.LowerRightCorner.X <= fill->area.UpperLeftCorner.X);
+		CHECK(icon->area.getHeight() >= 10);
+		CHECK(icon->area.getHeight() <= 18);
+		s32 iconMiddle = (icon->area.UpperLeftCorner.Y + icon->area.LowerRightCorner.Y) / 2;
+		s32 fillMiddle = (fill->area.UpperLeftCorner.Y + fill->area.LowerRightCorner.Y) / 2;
+		CHECK(std::abs(iconMiddle - fillMiddle) <= 2);
+	}
+}
+
+TEST_CASE("an empty meter draws no liquid at all, and a full one fills the whole groove")
 {
 	RecordingCanvas canvas;
 	drawVitals(canvas, hurt(100, 0, 100));
-	CHECK(filled(canvas, hudFood) == nullptr);
+	CHECK(image(canvas, "fill_food.png") == nullptr);
 	CHECK(says(canvas, L"0"));
-	const RecordingCanvas::Call* health = filled(canvas, hudHealth);
+	const RecordingCanvas::Call* health = image(canvas, "fill_hp.png");
 	REQUIRE(health != nullptr);
 	CHECK(health->area.getWidth() >= 100);
 }
