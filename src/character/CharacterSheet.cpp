@@ -1,4 +1,5 @@
 #include "CharacterSheet.h"
+#include <algorithm>
 #include <cstdio>
 
 namespace character
@@ -164,6 +165,15 @@ namespace character
 	{
 		if (amount > 0.0)
 			experience_[(int)skill] += amount * experienceMultiplier(attribute(Attribute::Intelligence));
+	}
+
+	void CharacterSheet::survivalTick()
+	{
+		float drain = SURVIVAL_BASE_DRAIN / (1.0f + attribute(Attribute::Endurance) * 0.02f);
+		int empty = (water_ <= 0.0f) + (hunger_ <= 0.0f);
+		water_ = std::max(water_ - drain, 0.0f);
+		hunger_ = std::max(hunger_ - drain, 0.0f);
+		health_ = std::max(health_ - empty * SURVIVAL_HEALTH_DRAIN, 0);
 	}
 
 	void CharacterSheet::tick(float deltaSeconds, float timeCompression)

@@ -108,7 +108,7 @@ namespace
 				if (const character::CharacterSheet* chosen = flow.chosen())
 				{
 					world.reset(new World(device, menu::characterModel(chosen->gender()),
-						menu::outfitSkin(chosen->gender(), chosen->outfit()).c_str(), [&flow] { flow.returnToTitle(); }));
+						menu::outfitSkin(chosen->gender(), chosen->outfit()).c_str(), [&flow] { flow.returnToTitle(); }, *chosen));
 					screens.setWorld(world.get());
 					router.push(world.get());
 					capture.setCaptured(true);

@@ -22,6 +22,11 @@ namespace
 			  world(new World(device, model, skin, [this] { ++left; }))
 		{
 		}
+		explicit Fixture(const character::CharacterSheet& sheet)
+			: device(createDevice(video::EDT_NULL, dimension2d<u32>(1280, 720))), left(0),
+			  world(new World(device, mike, greenKnit, [this] { ++left; }, sheet))
+		{
+		}
 		~Fixture()
 		{
 			delete world;
@@ -338,4 +343,75 @@ TEST_CASE("one long frame walking head-on at a prop stops the player at it inste
 	REQUIRE(box.MinEdge.Z > 1.0f);
 	fixture.walk(KEY_KEY_W, 5.0f);
 	CHECK(fixture.world->player()->getPosition().Z == doctest::Approx(box.MinEdge.Z - fixture.world->playerRadius()).epsilon(0.03));
+}
+
+namespace
+{
+	character::CharacterSheet survivor(int water, int hunger, int health)
+	{
+		const character::Profession nobody{ "Nobody", {}, {} };
+		character::Aegis aegis;
+		for (int i = 0; i < character::ATTRIBUTE_COUNT; ++i)
+			aegis.rolled[i] = 20;
+		std::string text = character::CharacterSheet::create("Cal", character::Gender::Male, nobody, aegis).toText();
+		auto set = [&text](const std::string& key, int value) {
+			std::string::size_type at = text.find("\n" + key + " = ");
+			REQUIRE(at != std::string::npos);
+			std::string::size_type end = text.find('\n', at + 1);
+			text.replace(at + 1, end - at - 1, key + " = " + std::to_string(value));
+		};
+		set("water", water);
+		set("hunger", hunger);
+		set("health", health);
+		std::string problem;
+		character::CharacterSheet sheet = character::CharacterSheet::fromText(text, problem);
+		REQUIRE(problem.empty());
+		return sheet;
+	}
+}
+
+TEST_CASE("the world drains its player's meters once per whole second of frame time added up")
+{
+	Fixture fixture(survivor(100, 100, 100));
+	const f32 drain = character::SURVIVAL_BASE_DRAIN / (1.0f + 20 * 0.02f);
+	fixture.world->update(0.4f);
+	fixture.world->update(0.4f);
+	CHECK(fixture.world->sheet().water() == doctest::Approx(100.0f));
+	fixture.world->update(0.4f);
+	CHECK(fixture.world->sheet().water() == doctest::Approx(100.0f - drain));
+	CHECK(fixture.world->sheet().hunger() == doctest::Approx(100.0f - drain));
+	fixture.world->update(2.5f);
+	CHECK(fixture.world->sheet().water() == doctest::Approx(100.0f - 3.0f * drain));
+	fixture.world->update(0.0f);
+	CHECK(fixture.world->sheet().water() == doctest::Approx(100.0f - 3.0f * drain));
+}
+
+TEST_CASE("at zero health the player is dead and frozen: no walking, no looking round, and Escape does not leave")
+{
+	Fixture fixture(survivor(0, 50, 2));
+	CHECK_FALSE(fixture.world->dead());
+	fixture.world->update(2.0f);
+	CHECK(fixture.world->sheet().health() == 0);
+	CHECK(fixture.world->dead());
+	vector3df at = fixture.world->player()->getPosition();
+	vector3df eye = fixture.world->camera()->getPosition();
+	fixture.walk(KEY_KEY_W, 2.0f);
+	fixture.world->look(90.0f);
+	fixture.world->update(1.0f);
+	CHECK(fixture.world->player()->getPosition() == at);
+	CHECK(fixture.world->camera()->getPosition() == eye);
+	f32 food = fixture.world->sheet().hunger();
+	REQUIRE(food > 0.0f);
+	fixture.world->update(5.0f);
+	CHECK(fixture.world->sheet().hunger() == food);
+	CHECK(fixture.world->player()->getAnimationSpeed() == 0.0f);
+	SEvent escape;
+	escape.EventType = EET_KEY_INPUT_EVENT;
+	escape.KeyInput.Key = KEY_ESCAPE;
+	escape.KeyInput.PressedDown = true;
+	escape.KeyInput.Char = 0;
+	escape.KeyInput.Shift = false;
+	escape.KeyInput.Control = false;
+	CHECK(fixture.world->onEvent(escape));
+	CHECK(fixture.left == 0);
 }

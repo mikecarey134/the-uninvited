@@ -6,6 +6,10 @@
 
 namespace character
 {
+	// 100 / (0.26 / (1 + 20 * 0.02)) = 538 one-second ticks, about 9 minutes for a full bar at Endurance 20
+	const float SURVIVAL_BASE_DRAIN = 0.26f;
+	const int SURVIVAL_HEALTH_DRAIN = 1;
+
 	enum class Gender { Male, Female };
 
 	struct Aegis
@@ -74,6 +78,8 @@ namespace character
 
 		int health() const { return health_; }
 		int maxHealth() const { return MAX_HEALTH; }
+		bool isDead() const { return health_ <= 0; }
+		void survivalTick();
 		float water() const { return water_; }
 		float hunger() const { return hunger_; }
 		float sanity() const { return sanity_; }

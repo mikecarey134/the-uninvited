@@ -4,12 +4,14 @@
 #include <functional>
 #include <vector>
 #include <irrlicht.h>
+#include "CharacterSheet.h"
 #include "InputRouter.h"
 
 class World : public InputLayer
 {
 public:
-	World(irr::IrrlichtDevice* device, const char* model, const char* skin, std::function<void()> leave);
+	World(irr::IrrlichtDevice* device, const char* model, const char* skin, std::function<void()> leave,
+		const character::CharacterSheet& sheet = character::CharacterSheet::create("", character::Gender::Male, character::Profession()));
 	~World();
 
 	bool onEvent(const irr::SEvent& event) override;
@@ -22,6 +24,8 @@ public:
 	irr::scene::ICameraSceneNode* camera() const { return camera_; }
 	irr::f32 cameraDistance() const;
 	irr::f32 playerRadius() const;
+	const character::CharacterSheet& sheet() const { return sheet_; }
+	bool dead() const { return sheet_.isDead(); }
 
 private:
 	void addGround();
@@ -44,6 +48,8 @@ private:
 	irr::f32 yaw_;
 	irr::f32 feet_;
 	std::vector<irr::core::aabbox3df> obstacles_;
+	character::CharacterSheet sheet_;
+	irr::f32 unticked_;
 };
 
 #endif
