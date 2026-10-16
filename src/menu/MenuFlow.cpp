@@ -26,8 +26,48 @@ namespace menu
 		characters_ = store_.loadAll(problems);
 		highlighted_ = -1;
 		chosen_ = -1;
+		for (const std::string& problem : problems)
+			if (warn_)
+				warn_("Skipped character file " + problem);
 		if (!problems.empty())
 			message_ = "Skipped " + std::to_string(problems.size()) + " unreadable character file(s)";
+	}
+
+	bool MenuFlow::deleteHighlighted()
+	{
+		if (screen() != Screen::CharacterSelect)
+			return false;
+		if (highlighted_ < 0 || highlighted_ >= (int)characters_.size())
+		{
+			message_ = "Pick a character to delete";
+			return false;
+		}
+		std::string name = characters_[highlighted_].name();
+		if (deleting_ != highlighted_)
+		{
+			deleting_ = highlighted_;
+			message_ = "Press Delete again to delete " + name + " for good";
+			return false;
+		}
+		std::string problem;
+		if (!store_.remove(name, problem))
+		{
+			message_ = problem;
+			return false;
+		}
+		reload();
+		message_ = "Deleted " + name;
+		return true;
+	}
+
+	bool MenuFlow::keep(const character::CharacterSheet& played)
+	{
+		const character::CharacterSheet* current = chosen();
+		std::string problem;
+		if (!current || current->name() != played.name() || !store_.save(played, problem))
+			return false;
+		characters_[chosen_] = played;
+		return true;
 	}
 
 	void MenuFlow::play()
@@ -63,8 +103,12 @@ namespace menu
 
 	void MenuFlow::highlight(int index)
 	{
-		if (screen() == Screen::CharacterSelect)
-			highlighted_ = index >= 0 && index < (int)characters_.size() ? index : -1;
+		if (screen() != Screen::CharacterSelect)
+			return;
+		int wanted = index >= 0 && index < (int)characters_.size() ? index : -1;
+		if (wanted != highlighted_)
+			deleting_ = -1;
+		highlighted_ = wanted;
 	}
 
 	bool MenuFlow::select()

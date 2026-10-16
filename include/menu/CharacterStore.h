@@ -18,6 +18,7 @@ namespace menu
 		std::string pathFor(const std::string& name) const;
 		bool isTaken(const std::string& name) const;
 		bool save(const character::CharacterSheet& sheet, std::string& problem) const;
+		bool remove(const std::string& name, std::string& problem) const;
 		std::vector<character::CharacterSheet> loadAll(std::vector<std::string>& problems) const;
 
 	private:

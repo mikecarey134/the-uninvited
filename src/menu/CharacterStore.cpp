@@ -71,6 +71,17 @@ namespace menu
 		return true;
 	}
 
+	bool CharacterStore::remove(const std::string& name, std::string& problem) const
+	{
+		std::error_code error;
+		if (!validName(name, problem) || !fs::remove(pathFor(name), error))
+		{
+			problem = "There is no character called " + name;
+			return false;
+		}
+		return true;
+	}
+
 	std::vector<character::CharacterSheet> CharacterStore::loadAll(std::vector<std::string>& problems) const
 	{
 		std::vector<fs::path> files;
@@ -90,6 +101,8 @@ namespace menu
 			text << in.rdbuf();
 			std::string problem;
 			character::CharacterSheet sheet = character::CharacterSheet::fromText(text.str(), problem);
+			if (problem.empty() && lower(sheet.name()) != lower(file.stem().string()))
+				problem = "holds " + sheet.name() + ", so it should be called " + sheet.name() + extension;
 			if (problem.empty())
 				sheets.push_back(sheet);
 			else

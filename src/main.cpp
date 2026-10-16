@@ -23,6 +23,7 @@
 #include "World.h"
 #include "client/NetSession.h"
 #include "Multiplayer.h"
+#include "Autosave.h"
 #include "CharacterProfile.h"
 #include "RemoteStatsCommand.h"
 #include "net/EnetTransport.h"
@@ -53,6 +54,8 @@ namespace
 		IrrlichtCanvas canvas(device);
 		menu::CharacterStore store("saves/characters");
 		menu::MenuFlow flow(store, loadProfessionList());
+		flow.setWarning([](const std::string& line) { std::cerr << line << std::endl; });
+		menu::Autosave autosave;
 
 		std::deque<std::string> status;
 		std::chrono::steady_clock::time_point started = std::chrono::steady_clock::now();
@@ -134,6 +137,7 @@ namespace
 				playing = false;
 				if (world)
 				{
+					flow.keep(world->sheet());
 					capture.setCaptured(false);
 					notebook.close();
 					router.remove(&notebook);
@@ -155,6 +159,8 @@ namespace
 				capture.beginFrame();
 				world->look(capture.delta().X * 0.25f);
 				world->update(paused ? 0.0f : seconds);
+				if (autosave.due(seconds))
+					flow.keep(world->sheet());
 			}
 
 			session.tick();
@@ -179,6 +185,8 @@ namespace
 			}
 		}
 
+		if (world)
+			flow.keep(world->sheet());
 		session.leave();
 		screens.hide();
 		device->setEventReceiver(0);

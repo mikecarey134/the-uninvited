@@ -2,6 +2,7 @@
 #include "CharacterStore.h"
 #include "ScreenStack.h"
 #include <cstdint>
+#include <functional>
 #include <random>
 #include <string>
 #include <vector>
@@ -38,6 +39,9 @@ namespace menu
 		int highlighted() const { return highlighted_; }
 		bool select();
 		void newCharacter();
+		bool deleteHighlighted();
+		bool keep(const character::CharacterSheet& played);
+		void setWarning(std::function<void(const std::string&)> warn) { warn_ = warn; }
 
 		const std::vector<character::Profession>& professions() const { return professions_; }
 		const character::Aegis& draft() const { return draft_; }
@@ -79,6 +83,8 @@ namespace menu
 		int maxPlayers_ = DEFAULT_MAX_PLAYERS;
 		std::mt19937 random_;
 		int bloodlineOneIn_;
+		int deleting_ = -1;
+		std::function<void(const std::string&)> warn_;
 		character::Aegis draft_;
 	};
 }

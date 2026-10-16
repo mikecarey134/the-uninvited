@@ -224,7 +224,8 @@ void MenuScreens::build()
 		std::vector<std::string> names;
 		for (const character::CharacterSheet& sheet : flow_.characters())
 			names.push_back(sheet.name() + "   -   " + sheet.profession().name);
-		panel_.list(place(rect<s32>(left, contentY, right, 612)), GUI_ID_CHARACTERS, names, flow_.highlighted());
+		panel_.list(place(rect<s32>(left, contentY, right, 584)), GUI_ID_CHARACTERS, names, flow_.highlighted());
+		addButton(GUI_ID_DELETE, rect<s32>(right - 88, 592, right, 616), "DELETE", Style::Link);
 		markCharacters();
 		addButton(GUI_ID_NEW_CHARACTER, rect<s32>(left + 128, bottomTop, left + 328, bottomBottom), "New Character", Style::Secondary);
 		addButton(GUI_ID_SELECT, rect<s32>(left + 336, bottomTop, right, bottomBottom), "Select & Play", Style::Primary);
@@ -586,6 +587,11 @@ bool MenuScreens::clicked(s32 id)
 	case GUI_ID_SELECT:
 		flow_.highlight(panel_.selected(GUI_ID_CHARACTERS));
 		flow_.select();
+		break;
+	case GUI_ID_DELETE:
+		flow_.highlight(panel_.selected(GUI_ID_CHARACTERS));
+		if (flow_.deleteHighlighted())
+			hasBuilt_ = false;
 		break;
 	case GUI_ID_MALE: gender_ = character::Gender::Male; outfit_ = 0; break;
 	case GUI_ID_FEMALE: gender_ = character::Gender::Female; outfit_ = 0; break;

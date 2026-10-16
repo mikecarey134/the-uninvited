@@ -196,6 +196,37 @@ TEST_CASE("the host and join cards switch between world settings and the address
 	CHECK(menu.flow.screen() == menu::Screen::CharacterSelect);
 }
 
+TEST_CASE("the delete button under the character list removes the selected character on its second press")
+{
+	Menu menu("screens_delete");
+	menu.flow.play();
+	for (const char* name : { "Ada", "Bo" })
+	{
+		menu.flow.newCharacter();
+		REQUIRE(menu.flow.create(name, character::Gender::Male, 0));
+	}
+	menu.screens->draw();
+	IGUIElement* root = menu.device->getGUIEnvironment()->getRootGUIElement();
+	IGUIListBox* list = static_cast<IGUIListBox*>(root->getElementFromId(MenuScreens::GUI_ID_CHARACTERS, true));
+	IGUIElement* remove = root->getElementFromId(MenuScreens::GUI_ID_DELETE, true);
+	REQUIRE(list != nullptr);
+	REQUIRE(remove != nullptr);
+	CHECK(remove->getAbsolutePosition().UpperLeftCorner.Y >= list->getAbsolutePosition().LowerRightCorner.Y);
+	CHECK(remove->getAbsolutePosition().LowerRightCorner.Y <= root->getElementFromId(MenuScreens::GUI_ID_SELECT, true)->getAbsolutePosition().UpperLeftCorner.Y);
+	REQUIRE(list->getItemCount() == 2);
+	list->setSelected(0);
+	menu.press(MenuScreens::GUI_ID_DELETE);
+	CHECK(std::filesystem::exists(menu.store.pathFor("Ada")));
+	menu.screens->draw();
+	menu.press(MenuScreens::GUI_ID_DELETE);
+	CHECK_FALSE(std::filesystem::exists(menu.store.pathFor("Ada")));
+	menu.screens->draw();
+	list = static_cast<IGUIListBox*>(root->getElementFromId(MenuScreens::GUI_ID_CHARACTERS, true));
+	REQUIRE(list != nullptr);
+	CHECK(list->getItemCount() == 1);
+	CHECK(menu.flow.screen() == menu::Screen::CharacterSelect);
+}
+
 TEST_CASE("a click on a widget never starts turning the character, even on the scene side")
 {
 	Menu menu("screens_widget");
@@ -438,7 +469,7 @@ TEST_CASE("every profession fits on the select screen beside the longest possibl
 	s32 room = list->getAbsolutePosition().getWidth() - skin->getSize(EGDS_SCROLLBAR_SIZE) - 2 * skin->getSize(EGDS_TEXT_DISTANCE_X);
 	REQUIRE(list->getItemCount() == menu.flow.professions().size());
 	core::rect<s32> box = list->getAbsolutePosition();
-	CHECK(box == core::rect<s32>(64, 104, 608, 612));
+	CHECK(box == core::rect<s32>(64, 104, 608, 584));
 	s32 rowHeight = 0;
 	while (rowHeight < box.getHeight() && list->getItemAt(box.UpperLeftCorner.X + 4, box.UpperLeftCorner.Y + rowHeight) != 1)
 		++rowHeight;

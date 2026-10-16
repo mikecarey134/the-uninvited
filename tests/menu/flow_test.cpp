@@ -1,4 +1,5 @@
 #include "doctest.h"
+#include "Autosave.h"
 #include "MenuFlow.h"
 #include "PlayerStatsCommand.h"
 #include "server/GameServer.h"
@@ -538,4 +539,132 @@ TEST_CASE("creating a character saves the chosen outfit")
 	reopened.play();
 	REQUIRE(reopened.characters().size() == 1);
 	CHECK(reopened.characters()[0].outfit() == 2);
+}
+
+TEST_CASE("keep writes the played character back to its file, so drained meters are still drained after a restart")
+{
+	Fixture fixture("keep");
+	fixture.createAndSelect("Eli");
+	CharacterSheet played = *fixture.flow.chosen();
+	played.survivalTick(2.0 * GAME_DAY_SECONDS);
+	REQUIRE(played.water() < 50.0f);
+	REQUIRE(fixture.flow.keep(played));
+	CHECK(fixture.flow.chosen()->water() == played.water());
+
+	MenuFlow later(fixture.store, shippedProfessions());
+	later.play();
+	REQUIRE(later.characters().size() == 1);
+	CHECK(later.characters()[0].water() == doctest::Approx(played.water()));
+	CHECK(later.characters()[0].hunger() == doctest::Approx(played.hunger()));
+	CHECK(later.characters()[0].health() == played.health());
+	CHECK(later.characters()[0].toText() == played.toText());
+
+	CharacterSheet stranger = CharacterSheet::create("Zed", Gender::Male, fixture.flow.professions()[0]);
+	CHECK_FALSE(fixture.flow.keep(stranger));
+	CHECK_FALSE(std::filesystem::exists(fixture.store.pathFor("Zed")));
+	MenuFlow nobody(fixture.store, shippedProfessions());
+	CHECK_FALSE(nobody.keep(played));
+}
+
+TEST_CASE("delete asks for a second press, then removes the highlighted character's file and drops it from the list")
+{
+	Fixture fixture("delete");
+	fixture.flow.play();
+	for (const char* name : { "Ada", "Bo" })
+	{
+		fixture.flow.newCharacter();
+		REQUIRE(fixture.flow.create(name, Gender::Male, 0));
+	}
+	REQUIRE(fixture.flow.characters().size() == 2);
+	fixture.flow.highlight(-1);
+	CHECK_FALSE(fixture.flow.deleteHighlighted());
+	CHECK(fixture.flow.message() == "Pick a character to delete");
+
+	fixture.flow.highlight(0);
+	CHECK_FALSE(fixture.flow.deleteHighlighted());
+	CHECK(fixture.flow.message() == "Press Delete again to delete Ada for good");
+	CHECK(std::filesystem::exists(fixture.store.pathFor("Ada")));
+	fixture.flow.highlight(1);
+	CHECK_FALSE(fixture.flow.deleteHighlighted());
+	CHECK(fixture.flow.message() == "Press Delete again to delete Bo for good");
+	fixture.flow.highlight(0);
+	CHECK_FALSE(fixture.flow.deleteHighlighted());
+	CHECK(std::filesystem::exists(fixture.store.pathFor("Ada")));
+
+	CHECK(fixture.flow.deleteHighlighted());
+	CHECK_FALSE(std::filesystem::exists(fixture.store.pathFor("Ada")));
+	CHECK(std::filesystem::exists(fixture.store.pathFor("Bo")));
+	REQUIRE(fixture.flow.characters().size() == 1);
+	CHECK(fixture.flow.characters()[0].name() == "Bo");
+	CHECK(fixture.flow.highlighted() == -1);
+	CHECK(fixture.flow.message() == "Deleted Ada");
+
+	fixture.flow.highlight(0);
+	CHECK_FALSE(fixture.flow.deleteHighlighted());
+	fixture.flow.back();
+	fixture.flow.play();
+	fixture.flow.highlight(0);
+	CHECK_FALSE(fixture.flow.deleteHighlighted());
+	CHECK(std::filesystem::exists(fixture.store.pathFor("Bo")));
+}
+
+TEST_CASE("a character file missing a field or full of junk is left out of the list and named in a warning")
+{
+	Fixture fixture("corrupt");
+	fixture.flow.play();
+	fixture.flow.newCharacter();
+	REQUIRE(fixture.flow.create("Ada", Gender::Male, 0));
+	fixture.flow.newCharacter();
+	REQUIRE(fixture.flow.create("Bo", Gender::Male, 0));
+	std::string text = fixture.flow.characters()[1].toText();
+	std::string::size_type at = text.find("rolled.Agility = ");
+	REQUIRE(at != std::string::npos);
+	text.erase(at, text.find('\n', at) - at + 1);
+	{
+		std::ofstream(fixture.store.pathFor("Bo"), std::ios::binary) << text;
+		std::ofstream(fixture.store.pathFor("Junk"), std::ios::binary) << "\x01\x02 not a character";
+	}
+	std::vector<std::string> warnings;
+	MenuFlow later(fixture.store, shippedProfessions());
+	later.setWarning([&warnings](const std::string& line) { warnings.push_back(line); });
+	later.play();
+	REQUIRE(later.characters().size() == 1);
+	CHECK(later.characters()[0].name() == "Ada");
+	REQUIRE(warnings.size() == 2);
+	CHECK(warnings[0].find("Bo.character") != std::string::npos);
+	CHECK(warnings[0].find("rolled.Agility") != std::string::npos);
+	CHECK(warnings[1].find("Junk.character") != std::string::npos);
+	CHECK(later.message() == "Skipped 2 unreadable character file(s)");
+}
+
+TEST_CASE("the autosave comes due once a minute of play has added up")
+{
+	Autosave autosave;
+	CHECK(Autosave::INTERVAL_SECONDS == 60.0f);
+	CHECK_FALSE(autosave.due(59.0f));
+	CHECK(autosave.due(1.0f));
+	CHECK_FALSE(autosave.due(30.0f));
+	CHECK(autosave.due(30.5f));
+	CHECK_FALSE(autosave.due(0.0f));
+	CHECK(autosave.due(200.0f));
+	CHECK_FALSE(autosave.due(59.0f));
+}
+
+TEST_CASE("moving the highlight away and back cancels a delete that was waiting for its second press")
+{
+	Fixture fixture("delete_cancel");
+	fixture.flow.play();
+	for (const char* name : { "Ada", "Bo" })
+	{
+		fixture.flow.newCharacter();
+		REQUIRE(fixture.flow.create(name, Gender::Male, 0));
+	}
+	fixture.flow.highlight(0);
+	CHECK_FALSE(fixture.flow.deleteHighlighted());
+	fixture.flow.highlight(1);
+	fixture.flow.highlight(0);
+	CHECK_FALSE(fixture.flow.deleteHighlighted());
+	CHECK(std::filesystem::exists(fixture.store.pathFor("Ada")));
+	fixture.flow.highlight(0);
+	CHECK(fixture.flow.deleteHighlighted());
 }

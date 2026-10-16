@@ -133,3 +133,44 @@ TEST_CASE("the store refuses to save an invalid name")
 	CHECK(problem == "Use only letters, numbers, spaces, - and _");
 	CHECK_FALSE(fs::exists(directory));
 }
+
+TEST_CASE("remove deletes a character's file and reports a character that is not there")
+{
+	CharacterStore store(freshDirectory("store_remove"));
+	std::string problem;
+	REQUIRE(store.save(sheetNamed("Old Tom"), problem));
+	REQUIRE(store.save(sheetNamed("Ivy"), problem));
+	REQUIRE(fs::exists(store.pathFor("Old Tom")));
+	CHECK(store.remove("Old Tom", problem));
+	CHECK_FALSE(fs::exists(store.pathFor("Old Tom")));
+	CHECK(fs::exists(store.pathFor("Ivy")));
+	CHECK_FALSE(store.remove("Old Tom", problem));
+	CHECK(problem == "There is no character called Old Tom");
+	fs::path outside = fs::path(store.directory()).parent_path() / "Ivy.character";
+	fs::copy_file(store.pathFor("Ivy"), outside);
+	CHECK_FALSE(store.remove("../Ivy", problem));
+	CHECK(fs::exists(outside));
+	CHECK(fs::exists(store.pathFor("Ivy")));
+}
+
+TEST_CASE("a file whose name does not match the character inside is skipped, so saving and deleting never touch the wrong file")
+{
+	CharacterStore store(freshDirectory("store_mismatch"));
+	std::string problem;
+	REQUIRE(store.save(sheetNamed("Ivy"), problem));
+	fs::copy_file(store.pathFor("Ivy"), store.pathFor("Copy of Ivy"));
+	fs::copy_file(store.pathFor("Ivy"), fs::path(store.directory()) / "ivy2.character");
+	std::vector<std::string> problems;
+	std::vector<CharacterSheet> sheets = store.loadAll(problems);
+	REQUIRE(sheets.size() == 1);
+	CHECK(sheets[0].name() == "Ivy");
+	REQUIRE(problems.size() == 2);
+	CHECK(problems[0].find("Copy of Ivy.character") != std::string::npos);
+	CHECK(problems[0].find("holds Ivy") != std::string::npos);
+	CHECK(problems[1].find("ivy2.character") != std::string::npos);
+
+	fs::rename(store.pathFor("Ivy"), fs::path(store.directory()) / "IVY.character");
+	problems.clear();
+	CHECK(store.loadAll(problems).size() == 1);
+	CHECK(problems.size() == 2);
+}
