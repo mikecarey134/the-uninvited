@@ -33,10 +33,10 @@ TEST_CASE("professions load their skill bonuses and starting items")
 
 	REQUIRE(professions.size() == 2);
 	CHECK(professions[0].name == "Doctor");
-	CHECK(professions[0].skillBonuses == std::vector<std::pair<Skill, int> >{ { Skill::Medicine, 30 } });
+	CHECK(professions[0].skillBonuses == std::vector<std::pair<int, int> >{ { MEDICINE, 30 } });
 	CHECK(professions[0].startingItems.empty());
 	CHECK(professions[1].name == "Nurse");
-	CHECK(professions[1].skillBonuses == std::vector<std::pair<Skill, int> >{ { Skill::Medicine, 20 }, { Skill::Chemistry, 10 } });
+	CHECK(professions[1].skillBonuses == std::vector<std::pair<int, int> >{ { MEDICINE, 20 }, { CHEMISTRY, 10 } });
 	CHECK(professions[1].startingItems == std::vector<std::string>{ "bandage", "aspirin" });
 }
 
@@ -88,11 +88,11 @@ TEST_CASE("every skill name round trips")
 {
 	for (int i = 0; i < SKILL_COUNT; ++i)
 	{
-		Skill skill = Skill::Smithing;
-		REQUIRE(skillFromName(skillName((Skill)i), skill));
-		CHECK((int)skill == i);
+		int skill = SMITHING;
+		REQUIRE(skillFromName(skillName(i), skill));
+		CHECK(skill == i);
 	}
-	Skill unused = Skill::Smithing;
+	int unused = SMITHING;
 	CHECK_FALSE(skillFromName("medicine", unused));
 }
 
@@ -112,37 +112,37 @@ TEST_CASE("the shipped professions file holds all 28 professions with their bonu
 	struct Expected
 	{
 		const char* name;
-		std::vector<std::pair<Skill, int> > bonuses;
+		std::vector<std::pair<int, int> > bonuses;
 	};
 	const Expected expected[] = {
-		{ "Doctor", { { Skill::Medicine, 30 } } },
-		{ "Chef", { { Skill::Cooking, 30 } } },
-		{ "Locksmith", { { Skill::Lockpicking, 30 } } },
-		{ "Hacker", { { Skill::Electronics, 30 } } },
-		{ "Pharmacist", { { Skill::Chemistry, 30 } } },
-		{ "Construction Worker", { { Skill::Construction, 30 } } },
-		{ "Park Ranger", { { Skill::Survivalism, 30 } } },
-		{ "Soldier", { { Skill::Smithing, 15 }, { Skill::Survivalism, 15 } } },
-		{ "Hunter", { { Skill::Survivalism, 20 }, { Skill::Smithing, 10 } } },
-		{ "Mechanic", { { Skill::Engineering, 20 }, { Skill::Smithing, 10 } } },
-		{ "Engineer", { { Skill::Engineering, 15 }, { Skill::Electronics, 15 } } },
-		{ "Sailor", { { Skill::Survivalism, 15 }, { Skill::Engineering, 15 } } },
-		{ "Politician", { { Skill::Speech, 20 }, { Skill::Survivalism, 10 } } },
-		{ "Police Officer", { { Skill::Lockpicking, 15 }, { Skill::Speech, 15 } } },
-		{ "Firefighter", { { Skill::Survivalism, 15 }, { Skill::Construction, 15 } } },
-		{ "Electrician", { { Skill::Electronics, 20 }, { Skill::Construction, 10 } } },
-		{ "Nurse", { { Skill::Medicine, 20 }, { Skill::Chemistry, 10 } } },
-		{ "Farmer", { { Skill::Cooking, 15 }, { Skill::Survivalism, 15 } } },
-		{ "Veterinarian", { { Skill::Medicine, 15 }, { Skill::Chemistry, 15 } } },
-		{ "Welder", { { Skill::Smithing, 20 }, { Skill::Engineering, 10 } } },
-		{ "Prepper", { { Skill::Survivalism, 20 }, { Skill::Smithing, 10 } } },
-		{ "Journalist", { { Skill::Speech, 15 }, { Skill::Electronics, 15 } } },
-		{ "Salesman", { { Skill::Speech, 15 }, { Skill::Survivalism, 10 }, { Skill::Cooking, 5 } } },
-		{ "Bartender", { { Skill::Speech, 10 }, { Skill::Cooking, 10 }, { Skill::Chemistry, 10 } } },
-		{ "Entrepreneur", { { Skill::Speech, 10 }, { Skill::Electronics, 10 }, { Skill::Construction, 10 } } },
-		{ "Accountant", { { Skill::Electronics, 10 }, { Skill::Speech, 10 }, { Skill::Lockpicking, 10 } } },
-		{ "Paramedic", { { Skill::Medicine, 15 }, { Skill::Electronics, 10 }, { Skill::Survivalism, 5 } } },
-		{ "Blacksmith", { { Skill::Smithing, 30 } } },
+		{ "Doctor", { { MEDICINE, 30 } } },
+		{ "Chef", { { COOKING, 30 } } },
+		{ "Locksmith", { { LOCKPICKING, 30 } } },
+		{ "Hacker", { { ELECTRONICS, 30 } } },
+		{ "Pharmacist", { { CHEMISTRY, 30 } } },
+		{ "Construction Worker", { { CONSTRUCTION, 30 } } },
+		{ "Park Ranger", { { SURVIVALISM, 30 } } },
+		{ "Soldier", { { SMITHING, 15 }, { SURVIVALISM, 15 } } },
+		{ "Hunter", { { SURVIVALISM, 20 }, { SMITHING, 10 } } },
+		{ "Mechanic", { { ENGINEERING, 20 }, { SMITHING, 10 } } },
+		{ "Engineer", { { ENGINEERING, 15 }, { ELECTRONICS, 15 } } },
+		{ "Sailor", { { SURVIVALISM, 15 }, { ENGINEERING, 15 } } },
+		{ "Politician", { { SPEECH, 20 }, { SURVIVALISM, 10 } } },
+		{ "Police Officer", { { LOCKPICKING, 15 }, { SPEECH, 15 } } },
+		{ "Firefighter", { { SURVIVALISM, 15 }, { CONSTRUCTION, 15 } } },
+		{ "Electrician", { { ELECTRONICS, 20 }, { CONSTRUCTION, 10 } } },
+		{ "Nurse", { { MEDICINE, 20 }, { CHEMISTRY, 10 } } },
+		{ "Farmer", { { COOKING, 15 }, { SURVIVALISM, 15 } } },
+		{ "Veterinarian", { { MEDICINE, 15 }, { CHEMISTRY, 15 } } },
+		{ "Welder", { { SMITHING, 20 }, { ENGINEERING, 10 } } },
+		{ "Prepper", { { SURVIVALISM, 20 }, { SMITHING, 10 } } },
+		{ "Journalist", { { SPEECH, 15 }, { ELECTRONICS, 15 } } },
+		{ "Salesman", { { SPEECH, 15 }, { SURVIVALISM, 10 }, { COOKING, 5 } } },
+		{ "Bartender", { { SPEECH, 10 }, { COOKING, 10 }, { CHEMISTRY, 10 } } },
+		{ "Entrepreneur", { { SPEECH, 10 }, { ELECTRONICS, 10 }, { CONSTRUCTION, 10 } } },
+		{ "Accountant", { { ELECTRONICS, 10 }, { SPEECH, 10 }, { LOCKPICKING, 10 } } },
+		{ "Paramedic", { { MEDICINE, 15 }, { ELECTRONICS, 10 }, { SURVIVALISM, 5 } } },
+		{ "Blacksmith", { { SMITHING, 30 } } },
 	};
 
 	std::vector<Profession> professions = loaded(readConfigFile("professions.csv"));

@@ -106,7 +106,7 @@ TEST_CASE("creating a character saves it, returns to select and highlights it")
 	CHECK(dana.name() == "Dana");
 	CHECK(dana.gender() == Gender::Female);
 	CHECK(dana.profession().name == "Paramedic");
-	CHECK(dana.skill(Skill::Medicine) == 15);
+	CHECK(dana.skill(MEDICINE) == 15);
 	CHECK(dana.unplacedPoints() == dana.pointPool());
 	CHECK(fixture.flow.highlighted() == 0);
 	CHECK(fs::is_regular_file(fs::path(fixture.directory) / "Dana.character"));
@@ -150,14 +150,14 @@ TEST_CASE("re-rolling gives a new draft and forgets placed points, as often as t
 	Fixture fixture("reroll");
 	fixture.flow.play();
 	fixture.flow.newCharacter();
-	REQUIRE(fixture.flow.adjust(Attribute::Strength, 1));
+	REQUIRE(fixture.flow.adjust(STRENGTH, 1));
 	std::set<std::vector<int> > seen;
 	for (int roll = 0; roll < 20; ++roll)
 	{
 		const Aegis& draft = fixture.flow.draft();
 		seen.insert(std::vector<int>(draft.rolled, draft.rolled + ATTRIBUTE_COUNT));
 		fixture.flow.reroll();
-		CHECK(fixture.flow.draft().placed[(int)Attribute::Strength] == 0);
+		CHECK(fixture.flow.draft().placed[(int)STRENGTH] == 0);
 	}
 	CHECK(seen.size() > 15);
 	CHECK(fixture.flow.screen() == Screen::CharacterCreation);
@@ -169,27 +169,27 @@ TEST_CASE("plus and minus move points between the pool and an attribute, within 
 	fixture.flow.play();
 	fixture.flow.newCharacter();
 	int pool = fixture.flow.draft().pool();
-	CHECK_FALSE(fixture.flow.adjust(Attribute::Guile, -1));
+	CHECK_FALSE(fixture.flow.adjust(GUILE, -1));
 	for (int point = 0; point < pool; ++point)
-		REQUIRE(fixture.flow.adjust(Attribute::Guile, 1));
-	CHECK_FALSE(fixture.flow.adjust(Attribute::Agility, 1));
+		REQUIRE(fixture.flow.adjust(GUILE, 1));
+	CHECK_FALSE(fixture.flow.adjust(AGILITY, 1));
 	CHECK(fixture.flow.draft().unplaced() == 0);
-	CHECK(fixture.flow.adjust(Attribute::Guile, -1));
-	CHECK(fixture.flow.adjust(Attribute::Agility, 1));
-	CHECK(fixture.flow.draft().placed[(int)Attribute::Guile] == pool - 1);
-	CHECK(fixture.flow.draft().placed[(int)Attribute::Agility] == 1);
+	CHECK(fixture.flow.adjust(GUILE, -1));
+	CHECK(fixture.flow.adjust(AGILITY, 1));
+	CHECK(fixture.flow.draft().placed[(int)GUILE] == pool - 1);
+	CHECK(fixture.flow.draft().placed[(int)AGILITY] == 1);
 }
 
 TEST_CASE("the draft can only be changed while creating a character")
 {
 	Fixture fixture("adjust_elsewhere");
 	fixture.flow.play();
-	CHECK_FALSE(fixture.flow.adjust(Attribute::Guile, 1));
+	CHECK_FALSE(fixture.flow.adjust(GUILE, 1));
 	fixture.flow.newCharacter();
 	std::vector<int> rolled(fixture.flow.draft().rolled, fixture.flow.draft().rolled + ATTRIBUTE_COUNT);
 	fixture.flow.back();
 	fixture.flow.reroll();
-	CHECK_FALSE(fixture.flow.adjust(Attribute::Guile, 1));
+	CHECK_FALSE(fixture.flow.adjust(GUILE, 1));
 	CHECK(std::vector<int>(fixture.flow.draft().rolled, fixture.flow.draft().rolled + ATTRIBUTE_COUNT) == rolled);
 }
 
@@ -198,9 +198,9 @@ TEST_CASE("creating a character saves exactly the draft's roll, placements and b
 	Fixture fixture("create_draft", shippedProfessions(), 1);
 	fixture.flow.play();
 	fixture.flow.newCharacter();
-	REQUIRE(fixture.flow.adjust(Attribute::Strength, 1));
-	REQUIRE(fixture.flow.adjust(Attribute::Strength, 1));
-	REQUIRE(fixture.flow.adjust(Attribute::Intelligence, 1));
+	REQUIRE(fixture.flow.adjust(STRENGTH, 1));
+	REQUIRE(fixture.flow.adjust(STRENGTH, 1));
+	REQUIRE(fixture.flow.adjust(INTELLIGENCE, 1));
 	Aegis draft = fixture.flow.draft();
 	REQUIRE(fixture.flow.create("Dana", Gender::Female, fixture.professionNamed("Doctor")));
 
@@ -210,10 +210,10 @@ TEST_CASE("creating a character saves exactly the draft's roll, placements and b
 	const CharacterSheet& dana = reopened.characters()[0];
 	for (int i = 0; i < ATTRIBUTE_COUNT; ++i)
 	{
-		CHECK(dana.rolledPoints((Attribute)i) == draft.rolled[i]);
-		CHECK(dana.placedPoints((Attribute)i) == draft.placed[i]);
+		CHECK(dana.rolledPoints(i) == draft.rolled[i]);
+		CHECK(dana.placedPoints(i) == draft.placed[i]);
 	}
-	CHECK(dana.placedPoints(Attribute::Strength) == 2);
+	CHECK(dana.placedPoints(STRENGTH) == 2);
 	CHECK(dana.hasBloodline());
 	CHECK(dana.bloodlineName() == "[Placeholder]");
 	CHECK(dana.bloodlineAttribute() == draft.bloodlineAttribute);
@@ -393,9 +393,9 @@ TEST_CASE("player_stats in a hosted session prints the created character exactly
 	Fixture fixture("stats_session", shippedProfessions(), 1);
 	fixture.flow.play();
 	fixture.flow.newCharacter();
-	REQUIRE(fixture.flow.adjust(Attribute::Strength, 1));
-	REQUIRE(fixture.flow.adjust(Attribute::Strength, 1));
-	REQUIRE(fixture.flow.adjust(Attribute::Agility, 1));
+	REQUIRE(fixture.flow.adjust(STRENGTH, 1));
+	REQUIRE(fixture.flow.adjust(STRENGTH, 1));
+	REQUIRE(fixture.flow.adjust(AGILITY, 1));
 	Aegis draft = fixture.flow.draft();
 	REQUIRE(draft.hasBloodline);
 	REQUIRE(fixture.flow.create("Dana", Gender::Female, fixture.professionNamed("Blacksmith")));
@@ -417,7 +417,7 @@ TEST_CASE("player_stats in a hosted session prints the created character exactly
 	CHECK(out.text[2] == "Profession: Blacksmith (Smithing +30)");
 	for (int i = 0; i < ATTRIBUTE_COUNT; ++i)
 	{
-		Attribute attribute = (Attribute)i;
+		int attribute = i;
 		int plain = draft.rolled[i] + draft.placed[i];
 		bool boosted = draft.bloodlineAttribute == attribute;
 		INFO(attributeName(attribute));

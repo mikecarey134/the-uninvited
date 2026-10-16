@@ -60,7 +60,7 @@ namespace
 	std::string bonuses(const character::Profession& profession)
 	{
 		std::string text;
-		for (const std::pair<character::Skill, int>& bonus : profession.skillBonuses)
+		for (const std::pair<int, int>& bonus : profession.skillBonuses)
 			text += (text.empty() ? "" : ", ") + std::string(character::skillName(bonus.first)) + " +" + std::to_string(bonus.second);
 		return text;
 	}
@@ -294,7 +294,7 @@ void MenuScreens::drawAegis()
 	FontHandle bodyType = canvas_.loadFont(bodyFont);
 	for (s32 i = 0; i < character::ATTRIBUTE_COUNT; ++i)
 	{
-		character::Attribute attribute = (character::Attribute)i;
+		int attribute = i;
 		s32 y = statTop + i * statRow;
 		canvas_.drawText(bodyType, wide(character::attributeName(attribute)).c_str(), rect<s32>(left, y, left + 200, y + statRow),
 			theme::muted, false, true);
@@ -565,9 +565,9 @@ bool MenuScreens::clicked(s32 id)
 	case GUI_ID_LEAVE: flow_.returnToTitle(); break;
 	default:
 		if (id >= GUI_ID_MINUS_FIRST && id < GUI_ID_MINUS_FIRST + character::ATTRIBUTE_COUNT)
-			flow_.adjust((character::Attribute)(id - GUI_ID_MINUS_FIRST), -1);
+			flow_.adjust(id - GUI_ID_MINUS_FIRST, -1);
 		else if (id >= GUI_ID_PLUS_FIRST && id < GUI_ID_PLUS_FIRST + character::ATTRIBUTE_COUNT)
-			flow_.adjust((character::Attribute)(id - GUI_ID_PLUS_FIRST), 1);
+			flow_.adjust(id - GUI_ID_PLUS_FIRST, 1);
 		else
 			return false;
 	}

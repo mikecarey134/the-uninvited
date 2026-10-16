@@ -97,7 +97,7 @@ namespace menu
 			draft_ = character::Aegis::roll(random_, bloodlineOneIn_);
 	}
 
-	bool MenuFlow::adjust(character::Attribute attribute, int change)
+	bool MenuFlow::adjust(int attribute, int change)
 	{
 		if (screen() != Screen::CharacterCreation)
 			return false;

@@ -24,14 +24,14 @@ namespace character
 
 		int pool() const;
 		int unplaced() const;
-		int value(Attribute attribute) const;
-		bool place(Attribute attribute, int amount);
-		bool remove(Attribute attribute, int amount);
+		int value(int attribute) const;
+		bool place(int attribute, int amount);
+		bool remove(int attribute, int amount);
 
 		int rolled[ATTRIBUTE_COUNT] = {};
 		int placed[ATTRIBUTE_COUNT] = {};
 		bool hasBloodline = false;
-		Attribute bloodlineAttribute = Attribute::Agility;
+		int bloodlineAttribute = AGILITY;
 		std::string bloodline;
 	};
 
@@ -60,21 +60,51 @@ namespace character
 		const Profession& profession() const { return profession_; }
 
 		const Aegis& aegis() const { return aegis_; }
-		int attribute(Attribute attribute) const { return aegis_.value(attribute); }
-		int rolledPoints(Attribute attribute) const { return aegis_.rolled[(int)attribute]; }
-		int placedPoints(Attribute attribute) const { return aegis_.placed[(int)attribute]; }
+		int attribute(int attribute) const { return aegis_.value(attribute); }
+		int rolledPoints(int attribute) const { return aegis_.rolled[attribute]; }
+		int placedPoints(int attribute) const { return aegis_.placed[attribute]; }
 		int pointPool() const { return aegis_.pool(); }
 		int unplacedPoints() const { return aegis_.unplaced(); }
-		bool placePoints(Attribute attribute, int amount) { return aegis_.place(attribute, amount); }
-		bool removePoints(Attribute attribute, int amount) { return aegis_.remove(attribute, amount); }
+		bool placePoints(int attribute, int amount) { return aegis_.place(attribute, amount); }
+		bool removePoints(int attribute, int amount) { return aegis_.remove(attribute, amount); }
 
 		bool hasBloodline() const { return aegis_.hasBloodline; }
-		Attribute bloodlineAttribute() const { return aegis_.bloodlineAttribute; }
+		int bloodlineAttribute() const { return aegis_.bloodlineAttribute; }
+		int getAgility() const { return attribute(AGILITY); }
+		void setAgility(int value) { aegis_.rolled[AGILITY] = value; }
+		int getEndurance() const { return attribute(ENDURANCE); }
+		void setEndurance(int value) { aegis_.rolled[ENDURANCE] = value; }
+		int getGuile() const { return attribute(GUILE); }
+		void setGuile(int value) { aegis_.rolled[GUILE] = value; }
+		int getIntelligence() const { return attribute(INTELLIGENCE); }
+		void setIntelligence(int value) { aegis_.rolled[INTELLIGENCE] = value; }
+		int getStrength() const { return attribute(STRENGTH); }
+		void setStrength(int value) { aegis_.rolled[STRENGTH] = value; }
 		const std::string& bloodlineName() const { return aegis_.bloodline; }
 
-		int skill(Skill skill) const;
-		double experience(Skill skill) const { return experience_[(int)skill]; }
-		void addExperience(Skill skill, double amount);
+		int skill(int skill) const;
+		int getSmithing() const { return skill(SMITHING); }
+		void setSmithing(int value) { startingSkills_[SMITHING] = value; }
+		int getChemistry() const { return skill(CHEMISTRY); }
+		void setChemistry(int value) { startingSkills_[CHEMISTRY] = value; }
+		int getMedicine() const { return skill(MEDICINE); }
+		void setMedicine(int value) { startingSkills_[MEDICINE] = value; }
+		int getCooking() const { return skill(COOKING); }
+		void setCooking(int value) { startingSkills_[COOKING] = value; }
+		int getSurvivalism() const { return skill(SURVIVALISM); }
+		void setSurvivalism(int value) { startingSkills_[SURVIVALISM] = value; }
+		int getLockpicking() const { return skill(LOCKPICKING); }
+		void setLockpicking(int value) { startingSkills_[LOCKPICKING] = value; }
+		int getElectronics() const { return skill(ELECTRONICS); }
+		void setElectronics(int value) { startingSkills_[ELECTRONICS] = value; }
+		int getEngineering() const { return skill(ENGINEERING); }
+		void setEngineering(int value) { startingSkills_[ENGINEERING] = value; }
+		int getSpeech() const { return skill(SPEECH); }
+		void setSpeech(int value) { startingSkills_[SPEECH] = value; }
+		int getConstruction() const { return skill(CONSTRUCTION); }
+		void setConstruction(int value) { startingSkills_[CONSTRUCTION] = value; }
+		double experience(int skill) const { return experience_[skill]; }
+		void addExperience(int skill, double amount);
 
 		int health() const { return health_; }
 		int maxHealth() const { return MAX_HEALTH; }

@@ -62,7 +62,7 @@ namespace character
 			{
 				std::string::size_type colon = entry.find(':');
 				std::string name = trim(entry.substr(0, colon));
-				Skill skill = Skill::Smithing;
+				int skill = SMITHING;
 				if (!skillFromName(name, skill))
 				{
 					problem = "unknown skill '" + name + "'";
@@ -80,7 +80,7 @@ namespace character
 					problem = "bad points '" + points + "' for skill '" + name + "'";
 					return false;
 				}
-				for (const std::pair<Skill, int>& existing : profession.skillBonuses)
+				for (const std::pair<int, int>& existing : profession.skillBonuses)
 					if (existing.first == skill)
 					{
 						problem = "skill '" + name + "' listed twice";
@@ -92,42 +92,42 @@ namespace character
 		}
 	}
 
-	const char* attributeName(Attribute attribute)
+	const char* attributeName(int attribute)
 	{
-		return attributeNames[(int)attribute];
+		return attributeNames[attribute];
 	}
 
-	const char* skillName(Skill skill)
+	const char* skillName(int skill)
 	{
-		return skillNames[(int)skill];
+		return skillNames[skill];
 	}
 
-	bool skillFromName(const std::string& name, Skill& skill)
+	bool skillFromName(const std::string& name, int& skill)
 	{
 		for (int i = 0; i < SKILL_COUNT; ++i)
 			if (name == skillNames[i])
 			{
-				skill = (Skill)i;
+				skill = i;
 				return true;
 			}
 		return false;
 	}
 
-	const std::vector<Attribute>& governingAttributes(Skill skill)
+	const std::vector<int>& governingAttributes(int skill)
 	{
-		static const std::vector<Attribute> table[SKILL_COUNT] = {
-			{ Attribute::Strength },
-			{ Attribute::Intelligence },
-			{ Attribute::Intelligence },
+		static const std::vector<int> table[SKILL_COUNT] = {
+			{ STRENGTH },
+			{ INTELLIGENCE },
+			{ INTELLIGENCE },
 			{},
-			{ Attribute::Agility, Attribute::Endurance, Attribute::Guile },
-			{ Attribute::Agility, Attribute::Guile },
-			{ Attribute::Intelligence },
-			{ Attribute::Intelligence, Attribute::Strength },
-			{ Attribute::Guile },
-			{ Attribute::Strength, Attribute::Endurance },
+			{ AGILITY, ENDURANCE, GUILE },
+			{ AGILITY, GUILE },
+			{ INTELLIGENCE },
+			{ INTELLIGENCE, STRENGTH },
+			{ GUILE },
+			{ STRENGTH, ENDURANCE },
 		};
-		return table[(int)skill];
+		return table[skill];
 	}
 
 	bool loadProfessions(const std::string& csv, std::vector<Profession>& professions, LoadError& error)

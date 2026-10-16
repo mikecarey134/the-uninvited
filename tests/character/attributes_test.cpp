@@ -5,7 +5,7 @@
 
 using namespace character;
 
-static const Profession nurse{ "Nurse", { { Skill::Medicine, 20 }, { Skill::Chemistry, 10 } }, {} };
+static const Profession nurse{ "Nurse", { { MEDICINE, 20 }, { CHEMISTRY, 10 } }, {} };
 
 static CharacterSheet rolled(unsigned seed, int bloodlineOneIn = 1000000)
 {
@@ -21,8 +21,8 @@ TEST_CASE("the random attribute points always sum to exactly 100")
 		int total = 0;
 		for (int i = 0; i < ATTRIBUTE_COUNT; ++i)
 		{
-			CHECK(sheet.rolledPoints((Attribute)i) >= 1);
-			total += sheet.rolledPoints((Attribute)i);
+			CHECK(sheet.rolledPoints(i) >= 1);
+			total += sheet.rolledPoints(i);
 		}
 		CHECK(total == 100);
 	}
@@ -36,12 +36,12 @@ TEST_CASE("the random points spread across all five attributes")
 	{
 		CharacterSheet sheet = rolled(seed);
 		for (int i = 0; i < ATTRIBUTE_COUNT; ++i)
-			totals[i] += sheet.rolledPoints((Attribute)i);
-		strengths.insert(sheet.rolledPoints(Attribute::Strength));
+			totals[i] += sheet.rolledPoints(i);
+		strengths.insert(sheet.rolledPoints(STRENGTH));
 	}
 	for (int i = 0; i < ATTRIBUTE_COUNT; ++i)
 	{
-		INFO(attributeName((Attribute)i));
+		INFO(attributeName(i));
 		CHECK(totals[i] / 300.0 == doctest::Approx(20.0).epsilon(0.1));
 	}
 	CHECK(strengths.size() > 5);
@@ -57,8 +57,8 @@ TEST_CASE("rolls are uneven, so characters differ in what they are good at")
 		int high = 0;
 		for (int i = 0; i < ATTRIBUTE_COUNT; ++i)
 		{
-			low = std::min(low, sheet.rolledPoints((Attribute)i));
-			high = std::max(high, sheet.rolledPoints((Attribute)i));
+			low = std::min(low, sheet.rolledPoints(i));
+			high = std::max(high, sheet.rolledPoints(i));
 		}
 		spread += high - low;
 	}
@@ -69,35 +69,35 @@ TEST_CASE("the point pool is 20 plus one for every 5 rolled Intelligence")
 {
 	Aegis aegis;
 	CHECK(aegis.pool() == 20);
-	aegis.rolled[(int)Attribute::Intelligence] = 4;
+	aegis.rolled[(int)INTELLIGENCE] = 4;
 	CHECK(aegis.pool() == 20);
-	aegis.rolled[(int)Attribute::Intelligence] = 23;
+	aegis.rolled[(int)INTELLIGENCE] = 23;
 	CHECK(aegis.pool() == 24);
-	aegis.rolled[(int)Attribute::Intelligence] = 50;
+	aegis.rolled[(int)INTELLIGENCE] = 50;
 	CHECK(aegis.pool() == 30);
-	aegis.rolled[(int)Attribute::Strength] = 60;
+	aegis.rolled[(int)STRENGTH] = 60;
 	CHECK(aegis.pool() == 30);
 }
 
 TEST_CASE("points placed in Intelligence do not grow the pool")
 {
 	Aegis aegis;
-	aegis.rolled[(int)Attribute::Intelligence] = 23;
-	REQUIRE(aegis.place(Attribute::Intelligence, 10));
+	aegis.rolled[(int)INTELLIGENCE] = 23;
+	REQUIRE(aegis.place(INTELLIGENCE, 10));
 	CHECK(aegis.pool() == 24);
 	CHECK(aegis.unplaced() == 14);
-	CHECK(aegis.value(Attribute::Intelligence) == 33);
+	CHECK(aegis.value(INTELLIGENCE) == 33);
 }
 
 TEST_CASE("a new character has its whole pool left to place and none placed")
 {
 	CharacterSheet sheet = rolled(1);
 	CHECK(sheet.unplacedPoints() == sheet.pointPool());
-	CHECK(sheet.pointPool() == 20 + sheet.rolledPoints(Attribute::Intelligence) / 5);
+	CHECK(sheet.pointPool() == 20 + sheet.rolledPoints(INTELLIGENCE) / 5);
 	for (int i = 0; i < ATTRIBUTE_COUNT; ++i)
 	{
-		CHECK(sheet.placedPoints((Attribute)i) == 0);
-		CHECK(sheet.attribute((Attribute)i) == sheet.rolledPoints((Attribute)i));
+		CHECK(sheet.placedPoints(i) == 0);
+		CHECK(sheet.attribute(i) == sheet.rolledPoints(i));
 	}
 }
 
@@ -105,12 +105,12 @@ TEST_CASE("placed points add to the attribute and come out of the pool")
 {
 	CharacterSheet sheet = rolled(2);
 	int pool = sheet.pointPool();
-	int before = sheet.attribute(Attribute::Strength);
-	CHECK(sheet.placePoints(Attribute::Strength, 12));
-	CHECK(sheet.placedPoints(Attribute::Strength) == 12);
-	CHECK(sheet.attribute(Attribute::Strength) == before + 12);
+	int before = sheet.attribute(STRENGTH);
+	CHECK(sheet.placePoints(STRENGTH, 12));
+	CHECK(sheet.placedPoints(STRENGTH) == 12);
+	CHECK(sheet.attribute(STRENGTH) == before + 12);
 	CHECK(sheet.unplacedPoints() == pool - 12);
-	CHECK(sheet.placePoints(Attribute::Guile, pool - 12));
+	CHECK(sheet.placePoints(GUILE, pool - 12));
 	CHECK(sheet.unplacedPoints() == 0);
 }
 
@@ -118,40 +118,40 @@ TEST_CASE("placing more points than are left is refused and changes nothing")
 {
 	CharacterSheet sheet = rolled(3);
 	int pool = sheet.pointPool();
-	REQUIRE(sheet.placePoints(Attribute::Agility, pool - 5));
-	int agility = sheet.attribute(Attribute::Agility);
-	int endurance = sheet.attribute(Attribute::Endurance);
-	CHECK_FALSE(sheet.placePoints(Attribute::Endurance, 6));
-	CHECK(sheet.attribute(Attribute::Endurance) == endurance);
-	CHECK(sheet.attribute(Attribute::Agility) == agility);
+	REQUIRE(sheet.placePoints(AGILITY, pool - 5));
+	int agility = sheet.attribute(AGILITY);
+	int endurance = sheet.attribute(ENDURANCE);
+	CHECK_FALSE(sheet.placePoints(ENDURANCE, 6));
+	CHECK(sheet.attribute(ENDURANCE) == endurance);
+	CHECK(sheet.attribute(AGILITY) == agility);
 	CHECK(sheet.unplacedPoints() == 5);
-	CHECK(sheet.placePoints(Attribute::Endurance, 5));
-	CHECK_FALSE(sheet.placePoints(Attribute::Endurance, 1));
+	CHECK(sheet.placePoints(ENDURANCE, 5));
+	CHECK_FALSE(sheet.placePoints(ENDURANCE, 1));
 	CHECK(sheet.unplacedPoints() == 0);
 }
 
 TEST_CASE("placing zero or negative points is refused")
 {
 	CharacterSheet sheet = rolled(4);
-	CHECK_FALSE(sheet.placePoints(Attribute::Guile, 0));
-	CHECK_FALSE(sheet.placePoints(Attribute::Guile, -5));
+	CHECK_FALSE(sheet.placePoints(GUILE, 0));
+	CHECK_FALSE(sheet.placePoints(GUILE, -5));
 	CHECK(sheet.unplacedPoints() == sheet.pointPool());
-	CHECK(sheet.placedPoints(Attribute::Guile) == 0);
+	CHECK(sheet.placedPoints(GUILE) == 0);
 }
 
 TEST_CASE("removing placed points gives them back, but never below the rolled value")
 {
 	CharacterSheet sheet = rolled(6);
-	int rolledGuile = sheet.rolledPoints(Attribute::Guile);
-	REQUIRE(sheet.placePoints(Attribute::Guile, 3));
-	CHECK(sheet.removePoints(Attribute::Guile, 2));
-	CHECK(sheet.placedPoints(Attribute::Guile) == 1);
+	int rolledGuile = sheet.rolledPoints(GUILE);
+	REQUIRE(sheet.placePoints(GUILE, 3));
+	CHECK(sheet.removePoints(GUILE, 2));
+	CHECK(sheet.placedPoints(GUILE) == 1);
 	CHECK(sheet.unplacedPoints() == sheet.pointPool() - 1);
-	CHECK_FALSE(sheet.removePoints(Attribute::Guile, 2));
-	CHECK_FALSE(sheet.removePoints(Attribute::Guile, 0));
-	CHECK(sheet.removePoints(Attribute::Guile, 1));
-	CHECK_FALSE(sheet.removePoints(Attribute::Guile, 1));
-	CHECK(sheet.attribute(Attribute::Guile) == rolledGuile);
+	CHECK_FALSE(sheet.removePoints(GUILE, 2));
+	CHECK_FALSE(sheet.removePoints(GUILE, 0));
+	CHECK(sheet.removePoints(GUILE, 1));
+	CHECK_FALSE(sheet.removePoints(GUILE, 1));
+	CHECK(sheet.attribute(GUILE) == rolledGuile);
 	CHECK(sheet.unplacedPoints() == sheet.pointPool());
 }
 
@@ -169,12 +169,12 @@ TEST_CASE("a bloodline multiplies one attribute by ten after every point is plac
 {
 	CharacterSheet sheet = rolled(5, 1);
 	REQUIRE(sheet.hasBloodline());
-	Attribute boosted = sheet.bloodlineAttribute();
+	int boosted = sheet.bloodlineAttribute();
 	REQUIRE(sheet.placePoints(boosted, 7));
 	CHECK(sheet.attribute(boosted) == (sheet.rolledPoints(boosted) + 7) * 10);
 	for (int i = 0; i < ATTRIBUTE_COUNT; ++i)
 	{
-		Attribute other = (Attribute)i;
+		int other = i;
 		if (other == boosted)
 			continue;
 		REQUIRE(sheet.placePoints(other, 1));
@@ -207,6 +207,6 @@ TEST_CASE("without a bloodline every attribute is just rolled plus placed")
 {
 	CharacterSheet sheet = rolled(6);
 	CHECK_FALSE(sheet.hasBloodline());
-	REQUIRE(sheet.placePoints(Attribute::Intelligence, 20));
-	CHECK(sheet.attribute(Attribute::Intelligence) == sheet.rolledPoints(Attribute::Intelligence) + 20);
+	REQUIRE(sheet.placePoints(INTELLIGENCE, 20));
+	CHECK(sheet.attribute(INTELLIGENCE) == sheet.rolledPoints(INTELLIGENCE) + 20);
 }

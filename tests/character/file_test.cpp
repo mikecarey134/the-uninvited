@@ -4,7 +4,7 @@
 using namespace character;
 
 static const Profession bartender{ "Bartender",
-	{ { Skill::Speech, 10 }, { Skill::Cooking, 10 }, { Skill::Chemistry, 10 } }, { "shaker", "towel" } };
+	{ { SPEECH, 10 }, { COOKING, 10 }, { CHEMISTRY, 10 } }, { "shaker", "towel" } };
 
 static void checkSame(const CharacterSheet& a, const CharacterSheet& b)
 {
@@ -17,9 +17,9 @@ static void checkSame(const CharacterSheet& a, const CharacterSheet& b)
 	CHECK(a.profession().startingItems == b.profession().startingItems);
 	for (int i = 0; i < ATTRIBUTE_COUNT; ++i)
 	{
-		CHECK(a.rolledPoints((Attribute)i) == b.rolledPoints((Attribute)i));
-		CHECK(a.placedPoints((Attribute)i) == b.placedPoints((Attribute)i));
-		CHECK(a.attribute((Attribute)i) == b.attribute((Attribute)i));
+		CHECK(a.rolledPoints(i) == b.rolledPoints(i));
+		CHECK(a.placedPoints(i) == b.placedPoints(i));
+		CHECK(a.attribute(i) == b.attribute(i));
 	}
 	CHECK(a.hasBloodline() == b.hasBloodline());
 	CHECK(a.bloodlineName() == b.bloodlineName());
@@ -29,8 +29,8 @@ static void checkSame(const CharacterSheet& a, const CharacterSheet& b)
 		CHECK(a.bloodlineAttribute() == b.bloodlineAttribute());
 	for (int i = 0; i < SKILL_COUNT; ++i)
 	{
-		CHECK(a.skill((Skill)i) == b.skill((Skill)i));
-		CHECK(a.experience((Skill)i) == b.experience((Skill)i));
+		CHECK(a.skill(i) == b.skill(i));
+		CHECK(a.experience(i) == b.experience(i));
 	}
 	CHECK(a.water() == b.water());
 	CHECK(a.hunger() == b.hunger());
@@ -63,10 +63,10 @@ TEST_CASE("a played character round trips exactly, fractions and bloodline inclu
 	CharacterSheet sheet = CharacterSheet::create("Ivy", Gender::Male, bartender, random, 1);
 	REQUIRE(sheet.hasBloodline());
 	sheet.setAge(33.3f);
-	REQUIRE(sheet.placePoints(Attribute::Guile, 7));
-	REQUIRE(sheet.placePoints(Attribute::Strength, 4));
-	sheet.addExperience(Skill::Speech, 123.456789);
-	sheet.addExperience(Skill::Smithing, 1.0 / 3.0);
+	REQUIRE(sheet.placePoints(GUILE, 7));
+	REQUIRE(sheet.placePoints(STRENGTH, 4));
+	sheet.addExperience(SPEECH, 123.456789);
+	sheet.addExperience(SMITHING, 1.0 / 3.0);
 	sheet.tick(1.0f, 3600.0f * 50.0f);
 	checkSame(sheet, reloaded(sheet));
 }
@@ -85,7 +85,7 @@ TEST_CASE("empty meters come back with their flags set")
 TEST_CASE("a profession without items round trips")
 {
 	std::mt19937 random(3);
-	CharacterSheet sheet = CharacterSheet::create("Kim", Gender::Male, Profession{ "Doctor", { { Skill::Medicine, 30 } }, {} }, random);
+	CharacterSheet sheet = CharacterSheet::create("Kim", Gender::Male, Profession{ "Doctor", { { MEDICINE, 30 } }, {} }, random);
 	CharacterSheet loaded = reloaded(sheet);
 	CHECK(loaded.profession().startingItems.empty());
 	checkSame(sheet, loaded);

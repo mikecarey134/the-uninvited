@@ -10,7 +10,7 @@ using namespace core;
 
 namespace
 {
-	const character::Profession medic{ "Medic", { { character::Skill::Medicine, 30 } }, {} };
+	const character::Profession medic{ "Medic", { { character::MEDICINE, 30 } }, {} };
 
 	character::CharacterSheet hurt(int health, int hunger, int water)
 	{

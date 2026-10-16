@@ -5,21 +5,34 @@
 
 namespace character
 {
-	enum class Attribute { Agility, Endurance, Guile, Intelligence, Strength };
+	const int AGILITY = 0;
+	const int ENDURANCE = 1;
+	const int GUILE = 2;
+	const int INTELLIGENCE = 3;
+	const int STRENGTH = 4;
 	const int ATTRIBUTE_COUNT = 5;
 
-	enum class Skill { Smithing, Chemistry, Medicine, Cooking, Survivalism, Lockpicking, Electronics, Engineering, Speech, Construction };
+	const int SMITHING = 0;
+	const int CHEMISTRY = 1;
+	const int MEDICINE = 2;
+	const int COOKING = 3;
+	const int SURVIVALISM = 4;
+	const int LOCKPICKING = 5;
+	const int ELECTRONICS = 6;
+	const int ENGINEERING = 7;
+	const int SPEECH = 8;
+	const int CONSTRUCTION = 9;
 	const int SKILL_COUNT = 10;
 
-	const char* attributeName(Attribute attribute);
-	const char* skillName(Skill skill);
-	bool skillFromName(const std::string& name, Skill& skill);
-	const std::vector<Attribute>& governingAttributes(Skill skill);
+	const char* attributeName(int attribute);
+	const char* skillName(int skill);
+	bool skillFromName(const std::string& name, int& skill);
+	const std::vector<int>& governingAttributes(int skill);
 
 	struct Profession
 	{
 		std::string name;
-		std::vector<std::pair<Skill, int> > skillBonuses;
+		std::vector<std::pair<int, int> > skillBonuses;
 		std::vector<std::string> startingItems;
 	};
 

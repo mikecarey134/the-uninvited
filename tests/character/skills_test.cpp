@@ -3,7 +3,7 @@
 
 using namespace character;
 
-static const Profession nurse{ "Nurse", { { Skill::Medicine, 20 }, { Skill::Chemistry, 10 } }, {} };
+static const Profession nurse{ "Nurse", { { MEDICINE, 20 }, { CHEMISTRY, 10 } }, {} };
 
 static CharacterSheet sheetFor(const Profession& profession, unsigned seed = 7, int bloodlineOneIn = 1000000)
 {
@@ -14,12 +14,12 @@ static CharacterSheet sheetFor(const Profession& profession, unsigned seed = 7, 
 TEST_CASE("profession bonuses set the starting skills and every other skill starts at zero")
 {
 	CharacterSheet sheet = sheetFor(nurse);
-	CHECK(sheet.skill(Skill::Medicine) == 20);
-	CHECK(sheet.skill(Skill::Chemistry) == 10);
+	CHECK(sheet.skill(MEDICINE) == 20);
+	CHECK(sheet.skill(CHEMISTRY) == 10);
 	for (int i = 0; i < SKILL_COUNT; ++i)
 	{
-		Skill skill = (Skill)i;
-		if (skill != Skill::Medicine && skill != Skill::Chemistry)
+		int skill = i;
+		if (skill != MEDICINE && skill != CHEMISTRY)
 			CHECK(sheet.skill(skill) == 0);
 		CHECK(sheet.experience(skill) == 0.0);
 	}
@@ -28,9 +28,9 @@ TEST_CASE("profession bonuses set the starting skills and every other skill star
 TEST_CASE("experience gained is multiplied by Intelligence")
 {
 	CharacterSheet sheet = sheetFor(nurse);
-	int intelligence = sheet.attribute(Attribute::Intelligence);
-	sheet.addExperience(Skill::Cooking, 40.0);
-	CHECK(sheet.experience(Skill::Cooking) == doctest::Approx(40.0 * (1.0 + intelligence / 100.0)));
+	int intelligence = sheet.attribute(INTELLIGENCE);
+	sheet.addExperience(COOKING, 40.0);
+	CHECK(sheet.experience(COOKING) == doctest::Approx(40.0 * (1.0 + intelligence / 100.0)));
 	CHECK(experienceMultiplier(0) == doctest::Approx(1.0));
 	CHECK(experienceMultiplier(50) == doctest::Approx(1.5));
 }
@@ -39,10 +39,10 @@ TEST_CASE("more Intelligence means more experience from the same use")
 {
 	CharacterSheet plain = sheetFor(nurse);
 	CharacterSheet clever = sheetFor(nurse);
-	REQUIRE(clever.placePoints(Attribute::Intelligence, 20));
-	plain.addExperience(Skill::Speech, 50.0);
-	clever.addExperience(Skill::Speech, 50.0);
-	CHECK(clever.experience(Skill::Speech) == doctest::Approx(plain.experience(Skill::Speech) + 50.0 * 0.2));
+	REQUIRE(clever.placePoints(INTELLIGENCE, 20));
+	plain.addExperience(SPEECH, 50.0);
+	clever.addExperience(SPEECH, 50.0);
+	CHECK(clever.experience(SPEECH) == doctest::Approx(plain.experience(SPEECH) + 50.0 * 0.2));
 }
 
 TEST_CASE("a bloodline in Intelligence multiplies experience through the boosted value")
@@ -50,10 +50,10 @@ TEST_CASE("a bloodline in Intelligence multiplies experience through the boosted
 	for (unsigned seed = 0; seed < 200; ++seed)
 	{
 		CharacterSheet sheet = sheetFor(nurse, seed, 1);
-		if (sheet.bloodlineAttribute() != Attribute::Intelligence)
+		if (sheet.bloodlineAttribute() != INTELLIGENCE)
 			continue;
-		sheet.addExperience(Skill::Speech, 10.0);
-		CHECK(sheet.experience(Skill::Speech) == doctest::Approx(10.0 * (1.0 + sheet.rolledPoints(Attribute::Intelligence) * 10 / 100.0)));
+		sheet.addExperience(SPEECH, 10.0);
+		CHECK(sheet.experience(SPEECH) == doctest::Approx(10.0 * (1.0 + sheet.rolledPoints(INTELLIGENCE) * 10 / 100.0)));
 		return;
 	}
 	FAIL("no seed rolled an Intelligence bloodline");
@@ -62,33 +62,33 @@ TEST_CASE("a bloodline in Intelligence multiplies experience through the boosted
 TEST_CASE("every hundred experience raises the skill one level with no cap")
 {
 	CharacterSheet sheet = sheetFor(nurse);
-	double multiplier = experienceMultiplier(sheet.attribute(Attribute::Intelligence));
-	sheet.addExperience(Skill::Medicine, 250.0 / multiplier);
-	CHECK(sheet.skill(Skill::Medicine) == 22);
-	sheet.addExperience(Skill::Medicine, 100000.0 / multiplier);
-	CHECK(sheet.skill(Skill::Medicine) == 1022);
+	double multiplier = experienceMultiplier(sheet.attribute(INTELLIGENCE));
+	sheet.addExperience(MEDICINE, 250.0 / multiplier);
+	CHECK(sheet.skill(MEDICINE) == 22);
+	sheet.addExperience(MEDICINE, 100000.0 / multiplier);
+	CHECK(sheet.skill(MEDICINE) == 1022);
 }
 
 TEST_CASE("zero or negative experience changes nothing")
 {
 	CharacterSheet sheet = sheetFor(nurse);
-	sheet.addExperience(Skill::Medicine, 0.0);
-	sheet.addExperience(Skill::Medicine, -500.0);
-	CHECK(sheet.experience(Skill::Medicine) == 0.0);
-	CHECK(sheet.skill(Skill::Medicine) == 20);
+	sheet.addExperience(MEDICINE, 0.0);
+	sheet.addExperience(MEDICINE, -500.0);
+	CHECK(sheet.experience(MEDICINE) == 0.0);
+	CHECK(sheet.skill(MEDICINE) == 20);
 }
 
 TEST_CASE("each skill has exactly its governing attributes, and Cooking has none")
 {
-	typedef std::vector<Attribute> Attributes;
-	CHECK(governingAttributes(Skill::Smithing) == Attributes{ Attribute::Strength });
-	CHECK(governingAttributes(Skill::Chemistry) == Attributes{ Attribute::Intelligence });
-	CHECK(governingAttributes(Skill::Medicine) == Attributes{ Attribute::Intelligence });
-	CHECK(governingAttributes(Skill::Cooking).empty());
-	CHECK(governingAttributes(Skill::Survivalism) == Attributes{ Attribute::Agility, Attribute::Endurance, Attribute::Guile });
-	CHECK(governingAttributes(Skill::Lockpicking) == Attributes{ Attribute::Agility, Attribute::Guile });
-	CHECK(governingAttributes(Skill::Electronics) == Attributes{ Attribute::Intelligence });
-	CHECK(governingAttributes(Skill::Engineering) == Attributes{ Attribute::Intelligence, Attribute::Strength });
-	CHECK(governingAttributes(Skill::Speech) == Attributes{ Attribute::Guile });
-	CHECK(governingAttributes(Skill::Construction) == Attributes{ Attribute::Strength, Attribute::Endurance });
+	typedef std::vector<int> Attributes;
+	CHECK(governingAttributes(SMITHING) == Attributes{ STRENGTH });
+	CHECK(governingAttributes(CHEMISTRY) == Attributes{ INTELLIGENCE });
+	CHECK(governingAttributes(MEDICINE) == Attributes{ INTELLIGENCE });
+	CHECK(governingAttributes(COOKING).empty());
+	CHECK(governingAttributes(SURVIVALISM) == Attributes{ AGILITY, ENDURANCE, GUILE });
+	CHECK(governingAttributes(LOCKPICKING) == Attributes{ AGILITY, GUILE });
+	CHECK(governingAttributes(ELECTRONICS) == Attributes{ INTELLIGENCE });
+	CHECK(governingAttributes(ENGINEERING) == Attributes{ INTELLIGENCE, STRENGTH });
+	CHECK(governingAttributes(SPEECH) == Attributes{ GUILE });
+	CHECK(governingAttributes(CONSTRUCTION) == Attributes{ STRENGTH, ENDURANCE });
 }

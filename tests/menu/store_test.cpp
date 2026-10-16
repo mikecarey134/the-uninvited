@@ -14,7 +14,7 @@ static std::string freshDirectory(const char* name)
 	return (directory / "saves" / "characters").string();
 }
 
-static const Profession chef{ "Chef", { { Skill::Cooking, 30 } }, {} };
+static const Profession chef{ "Chef", { { COOKING, 30 } }, {} };
 
 static CharacterSheet sheetNamed(const std::string& name, unsigned seed = 1)
 {

@@ -47,7 +47,7 @@ namespace character
 		if (bloodlineOneIn > 0 && random() % bloodlineOneIn == 0)
 		{
 			aegis.hasBloodline = true;
-			aegis.bloodlineAttribute = (Attribute)(random() % ATTRIBUTE_COUNT);
+			aegis.bloodlineAttribute = (random() % ATTRIBUTE_COUNT);
 			aegis.bloodline = "[Placeholder]";
 		}
 		return aegis;
@@ -55,7 +55,7 @@ namespace character
 
 	int Aegis::pool() const
 	{
-		return BASE_POOL + rolled[(int)Attribute::Intelligence] / INTELLIGENCE_PER_POOL_POINT;
+		return BASE_POOL + rolled[(int)INTELLIGENCE] / INTELLIGENCE_PER_POOL_POINT;
 	}
 
 	int Aegis::unplaced() const
@@ -66,25 +66,25 @@ namespace character
 		return left;
 	}
 
-	int Aegis::value(Attribute attribute) const
+	int Aegis::value(int attribute) const
 	{
-		int value = rolled[(int)attribute] + placed[(int)attribute];
+		int value = rolled[attribute] + placed[attribute];
 		return hasBloodline && bloodlineAttribute == attribute ? value * BLOODLINE_MULTIPLIER : value;
 	}
 
-	bool Aegis::place(Attribute attribute, int amount)
+	bool Aegis::place(int attribute, int amount)
 	{
 		if (amount <= 0 || amount > unplaced())
 			return false;
-		placed[(int)attribute] += amount;
+		placed[attribute] += amount;
 		return true;
 	}
 
-	bool Aegis::remove(Attribute attribute, int amount)
+	bool Aegis::remove(int attribute, int amount)
 	{
-		if (amount <= 0 || amount > placed[(int)attribute])
+		if (amount <= 0 || amount > placed[attribute])
 			return false;
-		placed[(int)attribute] -= amount;
+		placed[attribute] -= amount;
 		return true;
 	}
 
@@ -94,12 +94,12 @@ namespace character
 		lines.push_back("Name: " + sheet.name());
 		lines.push_back(std::string("Gender: ") + (sheet.gender() == Gender::Female ? "Female" : "Male"));
 		std::string bonuses;
-		for (const std::pair<Skill, int>& bonus : sheet.profession().skillBonuses)
+		for (const std::pair<int, int>& bonus : sheet.profession().skillBonuses)
 			bonuses += (bonuses.empty() ? "" : ", ") + std::string(skillName(bonus.first)) + " +" + std::to_string(bonus.second);
 		lines.push_back("Profession: " + sheet.profession().name + " (" + bonuses + ")");
 		for (int i = 0; i < ATTRIBUTE_COUNT; ++i)
 		{
-			Attribute attribute = (Attribute)i;
+			int attribute = i;
 			bool boosted = sheet.hasBloodline() && sheet.bloodlineAttribute() == attribute;
 			lines.push_back(std::string(attributeName(attribute)) + ": " + std::to_string(sheet.attribute(attribute)) + " (rolled " +
 				std::to_string(sheet.rolledPoints(attribute)) + " + placed " + std::to_string(sheet.placedPoints(attribute)) +
@@ -110,11 +110,11 @@ namespace character
 			std::to_string(CharacterSheet::BLOODLINE_MULTIPLIER) : "Bloodline: none");
 		std::string skills;
 		for (int i = 0; i < SKILL_COUNT; ++i)
-			skills += (i ? ", " : "") + std::string(skillName((Skill)i)) + " " + std::to_string(sheet.skill((Skill)i));
+			skills += (i ? ", " : "") + std::string(skillName(i)) + " " + std::to_string(sheet.skill(i));
 		lines.push_back("Skills: " + skills);
 		char gain[64];
-		std::snprintf(gain, sizeof(gain), "Experience gain: x%.2f from Intelligence %d", experienceMultiplier(sheet.attribute(Attribute::Intelligence)),
-			sheet.attribute(Attribute::Intelligence));
+		std::snprintf(gain, sizeof(gain), "Experience gain: x%.2f from Intelligence %d", experienceMultiplier(sheet.getIntelligence()),
+			sheet.getIntelligence());
 		lines.push_back(gain);
 		lines.push_back("Water " + std::to_string((int)sheet.water()) + ", Hunger " + std::to_string((int)sheet.hunger()) + ", Sanity " +
 			std::to_string((int)sheet.sanity()));
@@ -151,25 +151,25 @@ namespace character
 		sheet.gender_ = gender;
 		sheet.profession_ = profession;
 		sheet.aegis_ = aegis;
-		for (const std::pair<Skill, int>& bonus : profession.skillBonuses)
-			sheet.startingSkills_[(int)bonus.first] += bonus.second;
+		for (const std::pair<int, int>& bonus : profession.skillBonuses)
+			sheet.startingSkills_[bonus.first] += bonus.second;
 		return sheet;
 	}
 
-	int CharacterSheet::skill(Skill skill) const
+	int CharacterSheet::skill(int skill) const
 	{
-		return startingSkills_[(int)skill] + (int)(experience_[(int)skill] / EXPERIENCE_PER_LEVEL);
+		return startingSkills_[skill] + (int)(experience_[skill] / EXPERIENCE_PER_LEVEL);
 	}
 
-	void CharacterSheet::addExperience(Skill skill, double amount)
+	void CharacterSheet::addExperience(int skill, double amount)
 	{
 		if (amount > 0.0)
-			experience_[(int)skill] += amount * experienceMultiplier(attribute(Attribute::Intelligence));
+			experience_[skill] += amount * experienceMultiplier(getIntelligence());
 	}
 
 	void CharacterSheet::survivalTick()
 	{
-		float drain = SURVIVAL_BASE_DRAIN / (1.0f + attribute(Attribute::Endurance) * 0.02f);
+		float drain = SURVIVAL_BASE_DRAIN / (1.0f + getEndurance() * 0.02f);
 		int empty = (water_ <= 0.0f) + (hunger_ <= 0.0f);
 		water_ = std::max(water_ - drain, 0.0f);
 		hunger_ = std::max(hunger_ - drain, 0.0f);
@@ -181,10 +181,10 @@ namespace character
 		float gameSeconds = deltaSeconds * timeCompression;
 		if (gameSeconds <= 0.0f)
 			return;
-		int endurance = attribute(Attribute::Endurance);
+		int endurance = getEndurance();
 		water_ = drained(water_, gameSeconds, WATER_HOURS, endurance);
 		hunger_ = drained(hunger_, gameSeconds, HUNGER_HOURS, endurance);
-		sanity_ = drained(sanity_, gameSeconds, SANITY_HOURS, attribute(Attribute::Intelligence));
+		sanity_ = drained(sanity_, gameSeconds, SANITY_HOURS, getIntelligence());
 		dehydrated_ = water_ <= 0.0f;
 		starving_ = hunger_ <= 0.0f;
 		insane_ = sanity_ <= 0.0f;

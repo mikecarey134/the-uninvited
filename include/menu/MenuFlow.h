@@ -36,7 +36,7 @@ namespace menu
 		const std::vector<character::Profession>& professions() const { return professions_; }
 		const character::Aegis& draft() const { return draft_; }
 		void reroll();
-		bool adjust(character::Attribute attribute, int change);
+		bool adjust(int attribute, int change);
 		bool create(const std::string& name, character::Gender gender, int profession, int outfit = 0);
 
 		void host();

@@ -47,12 +47,12 @@ namespace character
 			return text.compare(0, line.size(), line) == 0 || text.find("\n" + line) != std::string::npos;
 		}
 
-		bool attributeFromName(const std::string& name, Attribute& attribute)
+		bool attributeFromName(const std::string& name, int& attribute)
 		{
 			for (int i = 0; i < ATTRIBUTE_COUNT; ++i)
-				if (name == attributeName((Attribute)i))
+				if (name == attributeName(i))
 				{
-					attribute = (Attribute)i;
+					attribute = i;
 					return true;
 				}
 			return false;
@@ -68,21 +68,21 @@ namespace character
 		out.add("age", age_, 9);
 		out.add("profession", profession_.name);
 		std::vector<std::string> bonuses;
-		for (const std::pair<Skill, int>& bonus : profession_.skillBonuses)
+		for (const std::pair<int, int>& bonus : profession_.skillBonuses)
 			bonuses.push_back(std::string(skillName(bonus.first)) + ":" + std::to_string(bonus.second));
 		out.add("profession_skills", joined(bonuses));
 		out.add("profession_items", joined(profession_.startingItems));
 		for (int i = 0; i < ATTRIBUTE_COUNT; ++i)
 		{
-			out.add(std::string("rolled.") + attributeName((Attribute)i), aegis_.rolled[i]);
-			out.add(std::string("placed.") + attributeName((Attribute)i), aegis_.placed[i]);
+			out.add(std::string("rolled.") + attributeName(i), aegis_.rolled[i]);
+			out.add(std::string("placed.") + attributeName(i), aegis_.placed[i]);
 		}
 		out.add("bloodline", std::string(aegis_.hasBloodline ? attributeName(aegis_.bloodlineAttribute) : "none"));
 		out.add("bloodline_name", aegis_.bloodline);
 		for (int i = 0; i < SKILL_COUNT; ++i)
 		{
-			out.add(std::string("skill.") + skillName((Skill)i), startingSkills_[i]);
-			out.add(std::string("experience.") + skillName((Skill)i), experience_[i], 17);
+			out.add(std::string("skill.") + skillName(i), startingSkills_[i]);
+			out.add(std::string("experience.") + skillName(i), experience_[i], 17);
 		}
 		out.add("health", health_);
 		out.add("water", water_, 9);
@@ -108,13 +108,13 @@ namespace character
 			fields.text("profession_skills", bonuses) && fields.text("profession_items", items);
 		for (int i = 0; read && i < ATTRIBUTE_COUNT; ++i)
 		{
-			std::string name = attributeName((Attribute)i);
+			std::string name = attributeName(i);
 			read = fields.whole("rolled." + name, sheet.aegis_.rolled[i]) && fields.whole("placed." + name, sheet.aegis_.placed[i]);
 		}
 		read = read && fields.text("bloodline", bloodline) && fields.text("bloodline_name", sheet.aegis_.bloodline);
 		for (int i = 0; read && i < SKILL_COUNT; ++i)
 		{
-			std::string name = skillName((Skill)i);
+			std::string name = skillName(i);
 			read = fields.whole("skill." + name, sheet.startingSkills_[i]) && fields.real("experience." + name, sheet.experience_[i]);
 		}
 		read = read && fields.real("water", water) && fields.real("hunger", hunger) && fields.real("sanity", sanity);
@@ -136,7 +136,7 @@ namespace character
 		for (const std::string& entry : read ? split(bonuses) : std::vector<std::string>())
 		{
 			std::string::size_type colon = entry.find(':');
-			Skill skill = Skill::Smithing;
+			int skill = SMITHING;
 			if (colon == std::string::npos || !skillFromName(trim(entry.substr(0, colon)), skill))
 			{
 				read = fields.fail("bad profession skill: " + entry);

@@ -3,7 +3,7 @@
 
 using namespace character;
 
-static const Profession chef{ "Chef", { { Skill::Cooking, 30 } }, {} };
+static const Profession chef{ "Chef", { { COOKING, 30 } }, {} };
 static const float HOUR = 3600.0f;
 
 static CharacterSheet sheet(unsigned seed = 11)
@@ -26,8 +26,8 @@ TEST_CASE("meters start full with no flags set")
 TEST_CASE("one game hour drains each meter by its rate, slowed by the governing attribute")
 {
 	CharacterSheet cal = sheet();
-	int endurance = cal.attribute(Attribute::Endurance);
-	int intelligence = cal.attribute(Attribute::Intelligence);
+	int endurance = cal.attribute(ENDURANCE);
+	int intelligence = cal.attribute(INTELLIGENCE);
 	cal.tick(HOUR, 1.0f);
 	CHECK(cal.water() == doctest::Approx(100.0f - 100.0f / WATER_HOURS / (1.0f + endurance / 100.0f)));
 	CHECK(cal.hunger() == doctest::Approx(100.0f - 100.0f / HUNGER_HOURS / (1.0f + endurance / 100.0f)));
@@ -51,7 +51,7 @@ TEST_CASE("Endurance slows water and hunger but not sanity")
 {
 	CharacterSheet plain = sheet();
 	CharacterSheet tough = sheet();
-	REQUIRE(tough.placePoints(Attribute::Endurance, 20));
+	REQUIRE(tough.placePoints(ENDURANCE, 20));
 	plain.tick(10.0f * HOUR, 1.0f);
 	tough.tick(10.0f * HOUR, 1.0f);
 	CHECK(tough.water() > plain.water());
@@ -63,7 +63,7 @@ TEST_CASE("Intelligence slows sanity but not water or hunger")
 {
 	CharacterSheet plain = sheet();
 	CharacterSheet clever = sheet();
-	REQUIRE(clever.placePoints(Attribute::Intelligence, 20));
+	REQUIRE(clever.placePoints(INTELLIGENCE, 20));
 	plain.tick(10.0f * HOUR, 1.0f);
 	clever.tick(10.0f * HOUR, 1.0f);
 	CHECK(clever.sanity() > plain.sanity());
@@ -74,7 +74,7 @@ TEST_CASE("Intelligence slows sanity but not water or hunger")
 TEST_CASE("each flag sets when its meter reaches zero and the meter stops at zero")
 {
 	CharacterSheet cal = sheet();
-	REQUIRE(cal.attribute(Attribute::Endurance) < 90);
+	REQUIRE(cal.attribute(ENDURANCE) < 90);
 	cal.tick((HUNGER_HOURS - 4.0f) * HOUR, 1.0f);
 	CHECK(cal.water() == 0.0f);
 	CHECK(cal.isDehydrated());
@@ -106,7 +106,7 @@ static CharacterSheet surviving(int endurance, int water, int hunger, int health
 	Aegis aegis;
 	for (int i = 0; i < ATTRIBUTE_COUNT; ++i)
 		aegis.rolled[i] = 20;
-	aegis.rolled[(int)Attribute::Endurance] = endurance;
+	aegis.rolled[(int)ENDURANCE] = endurance;
 	std::string text = CharacterSheet::create("Cal", Gender::Male, chef, aegis).toText();
 	auto set = [&text](const std::string& key, int value) {
 		std::string::size_type at = text.find("\n" + key + " = ");
