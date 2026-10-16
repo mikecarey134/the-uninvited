@@ -1,5 +1,7 @@
 #include "doctest.h"
+#include "CharacterProfile.h"
 #include "Multiplayer.h"
+#include "RemoteStatsCommand.h"
 #include "Outfits.h"
 #include "World.h"
 #include "client/NetSession.h"
@@ -16,8 +18,8 @@ namespace
 		Match()
 			: device(createDevice(video::EDT_NULL, core::dimension2d<u32>(1280, 720))), serverTransport(network), hostTransport(network),
 			  guestTransport(network),
-			  host(hostTransport, [this] { return now; }, remoteEvents([this] { return hostWorld.get(); }, [](const std::string&) {})),
-			  guest(guestTransport, [this] { return now; }, remoteEvents([this] { return guestWorld.get(); }, [](const std::string&) {})),
+			  host(hostTransport, [this] { return now; }, remoteEvents([this] { return hostWorld.get(); }, [](const std::string&) {}, hostSheets)),
+			  guest(guestTransport, [this] { return now; }, remoteEvents([this] { return guestWorld.get(); }, [](const std::string&) {}, guestSheets)),
 			  session(serverTransport, host, [this] { return now; }, [](const std::string&) {})
 		{
 			hostWorld.reset(new World(device, menu::characterModel(character::Gender::Male), menu::outfitSkin(character::Gender::Male, 2).c_str(), [] {}));
@@ -58,6 +60,8 @@ namespace
 		}
 
 		IrrlichtDevice* device;
+		std::map<uint16_t, character::CharacterSheet> hostSheets;
+		std::map<uint16_t, character::CharacterSheet> guestSheets;
 		uint32_t now = 1000;
 		LoopbackNetwork network;
 		LoopbackTransport serverTransport;
@@ -68,6 +72,37 @@ namespace
 		NetClient host;
 		NetClient guest;
 		NetSession session;
+	};
+
+	character::CharacterSheet rook()
+	{
+		character::Aegis aegis;
+		for (int i = 0; i < character::ATTRIBUTE_COUNT; ++i)
+			aegis.rolled[i] = 10 + i;
+		aegis.placed[character::STRENGTH] = 5;
+		character::CharacterSheet sheet = character::CharacterSheet::create("Rook", character::Gender::Male, character::Profession{ "Blacksmith", { { character::SMITHING, 30 } }, {} }, aegis);
+		sheet.setAge(52.0f);
+		return sheet;
+	}
+
+	character::CharacterSheet dana()
+	{
+		character::Aegis aegis;
+		for (int i = 0; i < character::ATTRIBUTE_COUNT; ++i)
+			aegis.rolled[i] = 20 - i;
+		aegis.hasBloodline = true;
+		aegis.bloodlineAttribute = character::INTELLIGENCE;
+		aegis.bloodline = "[Placeholder]";
+		return character::CharacterSheet::create("Dana", character::Gender::Female,
+			character::Profession{ "Paramedic", { { character::MEDICINE, 15 }, { character::ELECTRONICS, 10 }, { character::SURVIVALISM, 5 } }, {} }, aegis);
+	}
+
+	struct Lines : IC_MessageSink
+	{
+		void appendMessage(const WideString message) override { text.push_back(irr::core::stringc(message).c_str()); }
+		void clearMessages() override { text.clear(); }
+		void toggleVisible() override {}
+		std::vector<std::string> text;
 	};
 
 	bool endsWith(const std::string& text, const std::string& tail)
@@ -130,4 +165,43 @@ TEST_CASE("a guest sees the host who was already there, in the host's model and 
 	match.key(*match.hostWorld, KEY_KEY_W, false);
 	match.pump(5);
 	CHECK(rook->getStartFrame() == 206);
+}
+
+TEST_CASE("each player's full character arrives on the other side when they join, is listed by remote_stats, and is forgotten when they leave")
+{
+	Match match;
+	match.host.setProfile(character::packProfile(rook()));
+	match.guest.setProfile(character::packProfile(dana()));
+	REQUIRE(match.session.host(4302, "Rook", menu::packAppearance(character::Gender::Male, 2)));
+	REQUIRE(match.guest.connect("127.0.0.1", 4302, "Dana", menu::packAppearance(character::Gender::Female, 0)));
+	match.pump(10);
+	REQUIRE(match.guest.isJoined());
+	uint16_t danaId = match.guest.localId();
+	uint16_t rookId = match.host.localId();
+
+	REQUIRE(match.hostSheets.size() == 1);
+	REQUIRE(match.hostSheets.count(danaId) == 1);
+	CHECK(character::describe(match.hostSheets.at(danaId)) == character::describe(dana()));
+	CHECK(match.hostSheets.at(danaId).age() == dana().age());
+	REQUIRE(match.guestSheets.size() == 1);
+	REQUIRE(match.guestSheets.count(rookId) == 1);
+	CHECK(character::describe(match.guestSheets.at(rookId)) == character::describe(rook()));
+	CHECK(match.guestSheets.at(rookId).age() == 52.0f);
+	CHECK(match.guestSheets.at(rookId).outfit() == 2);
+
+	RemoteStatsCommand command(match.hostSheets);
+	CHECK(command.getName() == L"remote_stats");
+	Lines out;
+	CHECK(command.invoke(array<WideString>(), nullptr, &out));
+	std::vector<std::string> expected{ "Player " + std::to_string(danaId) + ", age 28" };
+	for (const std::string& line : character::describe(dana()))
+		expected.push_back(line);
+	CHECK(out.text == expected);
+
+	match.guest.shutdown();
+	match.pump(10);
+	CHECK(match.hostSheets.empty());
+	Lines none;
+	CHECK(command.invoke(array<WideString>(), nullptr, &none));
+	CHECK(none.text == std::vector<std::string>{ "No other players are connected" });
 }

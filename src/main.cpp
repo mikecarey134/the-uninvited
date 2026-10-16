@@ -23,6 +23,8 @@
 #include "World.h"
 #include "client/NetSession.h"
 #include "Multiplayer.h"
+#include "CharacterProfile.h"
+#include "RemoteStatsCommand.h"
 #include "net/EnetTransport.h"
 
 using namespace irr;
@@ -58,11 +60,12 @@ namespace
 			return (uint32_t)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started).count();
 		};
 		std::unique_ptr<World> world;
+		std::map<uint16_t, character::CharacterSheet> remoteSheets;
 		NetClient::Events events = remoteEvents([&world] { return world.get(); }, [&status](const std::string& text) {
 			status.push_back(text);
 			if (status.size() > 8)
 				status.pop_front();
-		});
+		}, remoteSheets);
 		EnetTransport clientTransport;
 		EnetTransport serverTransport;
 		NetClient client(clientTransport, clock, events);
@@ -79,6 +82,7 @@ namespace
 		IC_Console console;
 		console.loadDefaultCommands(device);
 		console.registerCommand(new PlayerStatsCommand([&flow] { return flow.chosen(); }));
+		console.registerCommand(new RemoteStatsCommand(remoteSheets));
 		console.getConfig().fontName = "assets/fonts/label.png";
 		core::dimension2d<u32> screen = device->getVideoDriver()->getScreenSize();
 		console.initializeConsole(canvas, core::dimension2d<s32>((s32)screen.Width, (s32)screen.Height));
@@ -102,6 +106,7 @@ namespace
 				status.clear();
 				std::string name = flow.chosen() ? flow.chosen()->name() : "player";
 				uint8_t look = flow.chosen() ? menu::packAppearance(flow.chosen()->gender(), flow.chosen()->outfit()) : 0;
+				client.setProfile(flow.chosen() ? character::packProfile(*flow.chosen()) : std::vector<uint8_t>());
 				bool hosting = flow.session() == menu::Session::Host;
 				bool connecting = hosting ? session.host(flow.port(), name, look) : session.join(flow.address(), flow.port(), name, look);
 				if (!connecting)

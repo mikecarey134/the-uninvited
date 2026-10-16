@@ -1,4 +1,5 @@
 #include "Multiplayer.h"
+#include "CharacterProfile.h"
 #include "Outfits.h"
 #include "World.h"
 
@@ -20,11 +21,21 @@ namespace
 	}
 }
 
-NetClient::Events remoteEvents(std::function<World*()> world, std::function<void(const std::string&)> line)
+NetClient::Events remoteEvents(std::function<World*()> world, std::function<void(const std::string&)> line,
+	std::map<uint16_t, character::CharacterSheet>& sheets)
 {
 	NetClient::Events events;
 	events.line = [line](const std::string& text, NetClient::LineKind) { line(text); };
-	events.joined = [world](const NetClient::Remote& remote) {
+	events.joined = [world, &sheets](const NetClient::Remote& remote) {
+		character::Gender gender;
+		int outfit;
+		menu::unpackAppearance(remote.model, gender, outfit);
+		character::CharacterSheet sheet = character::CharacterSheet::create(remote.name, gender, character::Profession());
+		if (character::unpackProfile(remote.profile, remote.name, gender, outfit, sheet))
+		{
+			sheets.erase(remote.id);
+			sheets.emplace(remote.id, sheet);
+		}
 		if (World* at = world())
 			spawn(*at, remote);
 	};
@@ -32,7 +43,8 @@ NetClient::Events remoteEvents(std::function<World*()> world, std::function<void
 		if (World* at = world())
 			place(*at, remote);
 	};
-	events.left = [world](uint16_t id) {
+	events.left = [world, &sheets](uint16_t id) {
+		sheets.erase(id);
 		if (World* at = world())
 			at->removeRemote(id);
 	};

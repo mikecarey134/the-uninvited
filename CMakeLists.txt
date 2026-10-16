@@ -8,11 +8,11 @@ set(GAMECORE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/engine/gamecorev0.1.1/gamecorev0.1
 add_subdirectory("${GAMECORE_DIR}" engine EXCLUDE_FROM_ALL)
 set(DOCTEST_DIR "${GAMECORE_DIR}/inventory/third_party/doctest")
 
-add_library(uninvited_character STATIC src/character/Profession.cpp src/character/CharacterSheet.cpp src/character/CharacterFile.cpp)
+add_library(uninvited_character STATIC src/character/Profession.cpp src/character/CharacterSheet.cpp src/character/CharacterFile.cpp src/character/CharacterProfile.cpp)
 target_include_directories(uninvited_character PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/character")
 target_link_libraries(uninvited_character PUBLIC gamecore_engine)
 
-add_library(uninvited_menu STATIC src/menu/CharacterStore.cpp src/menu/MenuFlow.cpp src/menu/PlayerStatsCommand.cpp src/menu/Outfits.cpp)
+add_library(uninvited_menu STATIC src/menu/CharacterStore.cpp src/menu/MenuFlow.cpp src/menu/PlayerStatsCommand.cpp src/menu/RemoteStatsCommand.cpp src/menu/Outfits.cpp)
 target_include_directories(uninvited_menu PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/menu")
 target_link_libraries(uninvited_menu PUBLIC uninvited_character)
 
@@ -22,7 +22,7 @@ target_link_libraries(game PRIVATE uninvited_menu gamecore_engine game_net_sessi
 
 enable_testing()
 add_executable(character_tests tests/character/main.cpp tests/character/profession_test.cpp tests/character/attributes_test.cpp
-  tests/character/skills_test.cpp tests/character/survival_test.cpp tests/character/sheet_test.cpp tests/character/file_test.cpp)
+  tests/character/skills_test.cpp tests/character/survival_test.cpp tests/character/sheet_test.cpp tests/character/file_test.cpp tests/character/profile_test.cpp)
 target_include_directories(character_tests PRIVATE "${DOCTEST_DIR}")
 target_compile_definitions(character_tests PRIVATE CHARACTER_CONFIG_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/config")
 target_link_libraries(character_tests PRIVATE uninvited_character)
