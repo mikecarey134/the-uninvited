@@ -17,12 +17,14 @@
 #include "MenuSkin.h"
 #include "MouseCapture.h"
 #include "Notebook.h"
+#include "InventoryScreen.h"
 #include "Outfits.h"
 #include "PlayerStatsCommand.h"
 #include "SoundEngine.h"
 #include "World.h"
 #include "client/NetSession.h"
 #include "Multiplayer.h"
+#include "Backpack.h"
 #include "ChatQueue.h"
 #include "DebugCommands.h"
 #include "UiAnchor.h"
@@ -107,7 +109,24 @@ namespace
 		device->setEventReceiver(&router);
 
 		MouseCapture capture(device->getCursorControl());
-		Notebook notebook([&console] { return console.isVisible(); }, [&console] { console.setVisible(false); });
+		inventory::Catalog itemCatalog;
+		std::string itemProblem;
+		bool itemsLoaded = backpack::loadCatalog(itemCatalog, itemProblem);
+		if (!itemsLoaded)
+			std::cerr << "Inventory data did not load: " << itemProblem << std::endl;
+		std::unique_ptr<inventory::Inventory> carried;
+		std::unique_ptr<backpack::Page> carriedPage;
+		Notebook* notebookOpen = nullptr;
+		InventoryScreen inventoryScreen([&console] { return console.isVisible(); }, [&console, &notebookOpen] {
+			console.setVisible(false);
+			if (notebookOpen)
+				notebookOpen->close();
+		});
+		Notebook notebook([&console] { return console.isVisible(); }, [&console, &inventoryScreen] {
+			console.setVisible(false);
+			inventoryScreen.close();
+		});
+		notebookOpen = &notebook;
 		u32 lastFrame = device->getTimer()->getTime();
 		bool playing = false;
 		while (device->run())
@@ -137,6 +156,14 @@ namespace
 					screens.setWorld(world.get());
 					router.push(world.get());
 					router.push(&notebook);
+					router.push(&inventoryScreen);
+					if (itemsLoaded)
+					{
+						carried.reset(new inventory::Inventory(itemCatalog, backpack::COLUMNS, backpack::ROWS));
+						backpack::addStartingItems(*carried);
+						carriedPage.reset(new backpack::Page(*carried, itemCatalog));
+						inventoryScreen.attach(carriedPage.get());
+					}
 					capture.setCaptured(true);
 				}
 			}
@@ -150,7 +177,12 @@ namespace
 					flow.keep(world->sheet());
 					capture.setCaptured(false);
 					notebook.close();
+					inventoryScreen.close();
 					router.remove(&notebook);
+					router.remove(&inventoryScreen);
+					inventoryScreen.attach(nullptr);
+					carriedPage.reset();
+					carried.reset();
 					router.remove(world.get());
 					screens.setWorld(nullptr);
 					world.reset();
@@ -163,8 +195,11 @@ namespace
 			if (world)
 			{
 				if (console.isVisible())
+				{
 					notebook.close();
-				bool paused = console.isVisible() || notebook.isOpen();
+					inventoryScreen.close();
+				}
+				bool paused = console.isVisible() || notebook.isOpen() || inventoryScreen.isOpen();
 				capture.setCaptured(!paused);
 				capture.beginFrame();
 				world->look(capture.delta().X * 0.25f);
@@ -187,6 +222,7 @@ namespace
 			{
 				chat.draw();
 				notebook.draw(canvas, world->sheet());
+				inventoryScreen.draw(canvas);
 			}
 			console.renderConsole(0);
 			device->getVideoDriver()->endScene();

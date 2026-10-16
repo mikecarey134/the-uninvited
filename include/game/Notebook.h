@@ -10,10 +10,9 @@ class Notebook : public InputLayer
 {
 public:
 	static const int CHARACTER = 0;
-	static const int INVENTORY = 1;
-	static const int MAP = 2;
-	static const int NOTES = 3;
-	static const int TABS = 4;
+	static const int MAP = 1;
+	static const int NOTES = 2;
+	static const int TABS = 3;
 
 	Notebook(std::function<bool()> blocked, std::function<void()> opened);
 

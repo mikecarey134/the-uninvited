@@ -87,29 +87,24 @@ namespace
 	}
 }
 
-TEST_CASE("C and I open the notebook to their page, the same key again closes it, the other key switches, and Escape closes")
+TEST_CASE("C opens the notebook to the character sheet, C again or Escape closes it, and I is left for the inventory screen")
 {
 	Book book;
 	CHECK_FALSE(book.notebook.isOpen());
 	CHECK_FALSE(book.key(KEY_ESCAPE));
-	CHECK(book.key(KEY_KEY_C));
-	CHECK(book.notebook.isOpen());
-	CHECK(book.notebook.page() == Notebook::CHARACTER);
-	CHECK(book.key(KEY_KEY_I));
-	CHECK(book.notebook.isOpen());
-	CHECK(book.notebook.page() == Notebook::INVENTORY);
-	CHECK(book.key(KEY_KEY_I));
+	CHECK_FALSE(book.key(KEY_KEY_I));
 	CHECK_FALSE(book.notebook.isOpen());
-	CHECK(book.key(KEY_KEY_I));
-	CHECK(book.notebook.page() == Notebook::INVENTORY);
 	CHECK(book.key(KEY_KEY_C));
+	CHECK(book.notebook.isOpen());
 	CHECK(book.notebook.page() == Notebook::CHARACTER);
+	CHECK_FALSE(book.key(KEY_KEY_I));
+	CHECK(book.notebook.isOpen());
 	CHECK(book.key(KEY_KEY_C));
 	CHECK_FALSE(book.notebook.isOpen());
 	CHECK(book.key(KEY_KEY_C));
 	CHECK(book.key(KEY_ESCAPE));
 	CHECK_FALSE(book.notebook.isOpen());
-	CHECK(book.opened == 3);
+	CHECK(book.opened == 2);
 }
 
 TEST_CASE("while the console is up the notebook keys do nothing, so typing into the console is safe")
@@ -117,7 +112,6 @@ TEST_CASE("while the console is up the notebook keys do nothing, so typing into 
 	Book book;
 	book.console = true;
 	CHECK_FALSE(book.key(KEY_KEY_C));
-	CHECK_FALSE(book.key(KEY_KEY_I));
 	CHECK_FALSE(book.notebook.isOpen());
 	CHECK(book.opened == 0);
 }
@@ -142,7 +136,7 @@ TEST_CASE("clicking a bookmark turns to its page")
 	book.key(KEY_KEY_C);
 	book.draw(ada(false));
 	dimension2d<u32> screen(1280, 720);
-	for (int tab : { Notebook::MAP, Notebook::NOTES, Notebook::INVENTORY, Notebook::CHARACTER })
+	for (int tab : { Notebook::MAP, Notebook::NOTES, Notebook::CHARACTER })
 	{
 		CHECK(book.click(book.notebook.tabArea(tab, screen).getCenter()));
 		CHECK(book.notebook.page() == tab);
@@ -150,12 +144,12 @@ TEST_CASE("clicking a bookmark turns to its page")
 	}
 }
 
-TEST_CASE("the open notebook dims the screen, centres the journal spread, and pokes four bookmarks out of its right edge, the active one pushed in and brighter")
+TEST_CASE("the open notebook dims the screen, centres the journal spread, and pokes three bookmarks out of its right edge, the active one pushed in and brighter")
 {
 	Book book;
 	book.draw(ada(false));
 	CHECK(book.canvas.calls.empty());
-	book.key(KEY_KEY_I);
+	book.key(KEY_KEY_C);
 	book.draw(ada(false));
 	REQUIRE_FALSE(book.canvas.calls.empty());
 	const RecordingCanvas::Call& dim = book.canvas.calls.front();
@@ -174,7 +168,7 @@ TEST_CASE("the open notebook dims the screen, centres the journal spread, and po
 	CHECK(std::abs(spread->area.getCenter().Y - 360) <= 2);
 
 	std::vector<const RecordingCanvas::Call*> tabs;
-	for (int i = 0; i < 4; ++i)
+	for (int i = 0; i < Notebook::TABS; ++i)
 	{
 		const RecordingCanvas::Call* tab = book.image("bookmark_tabs.png", i);
 		REQUIRE(tab != nullptr);
@@ -184,22 +178,22 @@ TEST_CASE("the open notebook dims the screen, centres the journal spread, and po
 		CHECK(tab->area.LowerRightCorner.X <= 1280);
 	}
 	std::sort(tabs.begin(), tabs.end(), [](const RecordingCanvas::Call* a, const RecordingCanvas::Call* b) { return a->area.UpperLeftCorner.Y < b->area.UpperLeftCorner.Y; });
-	for (int i = 1; i < 4; ++i)
+	for (int i = 1; i < Notebook::TABS; ++i)
 	{
 		CHECK(tabs[i]->source.UpperLeftCorner.Y > tabs[i - 1]->source.UpperLeftCorner.Y);
 		CHECK(tabs[i]->area.UpperLeftCorner.Y >= tabs[i - 1]->area.LowerRightCorner.Y);
 	}
-	const RecordingCanvas::Call* active = tabs[Notebook::INVENTORY];
-	for (int i = 0; i < 4; ++i)
+	const RecordingCanvas::Call* active = tabs[Notebook::CHARACTER];
+	for (int i = 0; i < Notebook::TABS; ++i)
 	{
-		if (i == Notebook::INVENTORY)
+		if (i == Notebook::CHARACTER)
 			continue;
 		CHECK(active->area.LowerRightCorner.X < tabs[i]->area.LowerRightCorner.X);
 		CHECK(active->colour.getRed() > tabs[i]->colour.getRed());
 		CHECK(tabs[i] < spread);
 	}
 	CHECK(active > spread);
-	CHECK(book.notebook.tabArea(Notebook::INVENTORY, dimension2d<u32>(1280, 720)) == active->area);
+	CHECK(book.notebook.tabArea(Notebook::CHARACTER, dimension2d<u32>(1280, 720)) == active->area);
 }
 
 TEST_CASE("the character sheet page shows the title, profession and AEGIS on the left and every skill on the right, in dark ink, read through the getters")
@@ -270,23 +264,10 @@ TEST_CASE("a character with a bloodline has it named with its attribute on the r
 	CHECK(line->area.UpperLeftCorner.X >= spread->area.getCenter().X);
 }
 
-TEST_CASE("the inventory page says Empty under its title on the left, and the map and notes pages promise what is coming")
+TEST_CASE("the notebook has no inventory page any more, and the map and notes pages promise what is coming")
 {
 	Book book;
-	book.key(KEY_KEY_I);
-	book.draw(ada(false));
-	const RecordingCanvas::Call* spread = book.image("notebook_spread.png");
-	REQUIRE(spread != nullptr);
-	s32 middle = spread->area.getCenter().X;
-	REQUIRE(book.text(L"INVENTORY") != nullptr);
-	const RecordingCanvas::Call* empty = book.text(L"Empty");
-	REQUIRE(empty != nullptr);
-	CHECK(empty->hcenter);
-	CHECK(empty->area.LowerRightCorner.X <= middle);
-	CHECK(empty->area.UpperLeftCorner.Y > book.text(L"INVENTORY")->area.UpperLeftCorner.Y);
-	CHECK(book.text(L"Medic") == nullptr);
-	CHECK(book.text(L"CHARACTER SHEET") == nullptr);
-
+	book.key(KEY_KEY_C);
 	book.click(book.notebook.tabArea(Notebook::MAP, dimension2d<u32>(1280, 720)).getCenter());
 	book.draw(ada(false));
 	CHECK(book.text(L"MAP - Coming Soon") != nullptr);
@@ -294,4 +275,5 @@ TEST_CASE("the inventory page says Empty under its title on the left, and the ma
 	book.click(book.notebook.tabArea(Notebook::NOTES, dimension2d<u32>(1280, 720)).getCenter());
 	book.draw(ada(false));
 	CHECK(book.text(L"NOTES - Coming Soon") != nullptr);
+	CHECK(book.text(L"INVENTORY") == nullptr);
 }

@@ -21,8 +21,7 @@ namespace
 	const char* const titleFont = "assets/fonts/button.png";
 	const char* const bodyFont = "assets/fonts/body.png";
 	const rect<s32> spreadArt(14, 9, 1647, 917);
-	const rect<s32> tabArt[Notebook::TABS] = { rect<s32>(444, 48, 1030, 277), rect<s32>(445, 314, 1028, 525),
-		rect<s32>(446, 563, 1045, 792), rect<s32>(453, 810, 1034, 1031) };
+	const rect<s32> tabArt[Notebook::TABS] = { rect<s32>(444, 48, 1030, 277), rect<s32>(446, 563, 1045, 792), rect<s32>(453, 810, 1034, 1031) };
 
 	std::wstring wide(const std::string& text)
 	{
@@ -68,7 +67,6 @@ namespace
 }
 
 const int Notebook::CHARACTER;
-const int Notebook::INVENTORY;
 const int Notebook::MAP;
 const int Notebook::NOTES;
 const int Notebook::TABS;
@@ -114,8 +112,7 @@ bool Notebook::onEvent(const SEvent& event)
 		toggle(CHARACTER);
 		return true;
 	case KEY_KEY_I:
-		toggle(INVENTORY);
-		return true;
+		return false;
 	case KEY_ESCAPE:
 		if (!open_)
 			return false;
@@ -181,10 +178,6 @@ void Notebook::draw(Canvas& canvas, const character::CharacterSheet& sheet)
 				rect<s32>(right.UpperLeftCorner.X, y + 14, right.LowerRightCorner.X, y + 40));
 		break;
 	}
-	case INVENTORY:
-		write(canvas, title, "INVENTORY", heading);
-		write(canvas, body, "Empty", middle, true);
-		break;
 	case MAP:
 		write(canvas, title, "MAP - Coming Soon", middle, true);
 		break;
