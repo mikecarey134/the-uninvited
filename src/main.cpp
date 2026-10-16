@@ -16,6 +16,7 @@
 #include "MenuScene.h"
 #include "MenuSkin.h"
 #include "MouseCapture.h"
+#include "Notebook.h"
 #include "Outfits.h"
 #include "PlayerStatsCommand.h"
 #include "SoundEngine.h"
@@ -88,6 +89,7 @@ namespace
 		device->setEventReceiver(&router);
 
 		MouseCapture capture(device->getCursorControl());
+		Notebook notebook([&console] { return console.isVisible(); }, [&console] { console.setVisible(false); });
 		std::unique_ptr<World> world;
 		u32 lastFrame = device->getTimer()->getTime();
 		bool playing = false;
@@ -111,6 +113,7 @@ namespace
 						menu::outfitSkin(chosen->gender(), chosen->outfit()).c_str(), [&flow] { flow.returnToTitle(); }, *chosen));
 					screens.setWorld(world.get());
 					router.push(world.get());
+					router.push(&notebook);
 					capture.setCaptured(true);
 				}
 			}
@@ -122,6 +125,8 @@ namespace
 				if (world)
 				{
 					capture.setCaptured(false);
+					notebook.close();
+					router.remove(&notebook);
 					router.remove(world.get());
 					screens.setWorld(nullptr);
 					world.reset();
@@ -133,10 +138,13 @@ namespace
 			lastFrame = now;
 			if (world)
 			{
-				capture.setCaptured(!console.isVisible());
+				if (console.isVisible())
+					notebook.close();
+				bool paused = console.isVisible() || notebook.isOpen();
+				capture.setCaptured(!paused);
 				capture.beginFrame();
 				world->look(capture.delta().X * 0.25f);
-				world->update(console.isVisible() ? 0.0f : seconds);
+				world->update(paused ? 0.0f : seconds);
 			}
 
 			session.tick();
@@ -144,6 +152,8 @@ namespace
 
 			device->getVideoDriver()->beginScene(true, true, video::SColor(255,0,0,0));
 			screens.draw();
+			if (world)
+				notebook.draw(canvas, world->sheet());
 			console.renderConsole(0);
 			device->getVideoDriver()->endScene();
 
