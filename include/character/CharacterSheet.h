@@ -6,9 +6,12 @@
 
 namespace character
 {
-	// 100 / (0.26 / (1 + 20 * 0.02)) = 538 one-second ticks, about 9 minutes for a full bar at Endurance 20
-	const float SURVIVAL_BASE_DRAIN = 0.26f;
-	const int SURVIVAL_HEALTH_DRAIN = 1;
+	const double GAME_DAY_SECONDS = 24.0 * 60.0 * 60.0;
+	const double WATER_EMPTY_DAYS = 3.0;
+	const double HUNGER_EMPTY_DAYS = 7.0;
+
+	double waterDrainPerSecond(int endurance);
+	double hungerDrainPerSecond(int endurance);
 
 	enum class Gender { Male, Female };
 
@@ -109,9 +112,9 @@ namespace character
 		int health() const { return health_; }
 		int maxHealth() const { return MAX_HEALTH; }
 		bool isDead() const { return health_ <= 0; }
-		void survivalTick();
-		float water() const { return water_; }
-		float hunger() const { return hunger_; }
+		void survivalTick(double gameSeconds);
+		float water() const { return (float)water_; }
+		float hunger() const { return (float)hunger_; }
 		float sanity() const { return sanity_; }
 		bool isDehydrated() const { return dehydrated_; }
 		bool isStarving() const { return starving_; }
@@ -129,8 +132,9 @@ namespace character
 		int startingSkills_[SKILL_COUNT] = {};
 		double experience_[SKILL_COUNT] = {};
 		int health_ = MAX_HEALTH;
-		float water_ = 100.0f;
-		float hunger_ = 100.0f;
+		double water_ = 100.0;
+		double hunger_ = 100.0;
+		double wounds_ = 0.0;
 		float sanity_ = 100.0f;
 		bool dehydrated_ = false;
 		bool starving_ = false;

@@ -370,25 +370,38 @@ namespace
 	}
 }
 
-TEST_CASE("the world drains its player's meters once per whole second of frame time added up")
+TEST_CASE("the world drains its player's meters once per whole game-second, which is frame time times the time compression")
 {
 	Fixture fixture(survivor(100, 100, 100));
-	const f32 drain = character::SURVIVAL_BASE_DRAIN / (1.0f + 20 * 0.02f);
+	CHECK(fixture.world->timeCompression() == 1.0f);
+	const double drain = character::waterDrainPerSecond(20);
 	fixture.world->update(0.4f);
 	fixture.world->update(0.4f);
 	CHECK(fixture.world->sheet().water() == doctest::Approx(100.0f));
 	fixture.world->update(0.4f);
-	CHECK(fixture.world->sheet().water() == doctest::Approx(100.0f - drain));
-	CHECK(fixture.world->sheet().hunger() == doctest::Approx(100.0f - drain));
+	CHECK(fixture.world->sheet().water() == doctest::Approx(100.0 - drain).epsilon(5e-7));
+	CHECK(fixture.world->sheet().hunger() == doctest::Approx(100.0 - character::hungerDrainPerSecond(20)).epsilon(5e-7));
 	fixture.world->update(2.5f);
-	CHECK(fixture.world->sheet().water() == doctest::Approx(100.0f - 3.0f * drain));
-	fixture.world->update(0.0f);
-	CHECK(fixture.world->sheet().water() == doctest::Approx(100.0f - 3.0f * drain));
+	CHECK(fixture.world->sheet().water() == doctest::Approx(100.0 - 3.0 * drain).epsilon(5e-7));
+
+	Fixture doubled(survivor(100, 100, 100));
+	doubled.world->setTimeCompression(2.0f);
+	doubled.world->update(0.5f);
+	CHECK(doubled.world->sheet().water() == doctest::Approx(100.0 - drain).epsilon(5e-7));
+	doubled.world->update(1.5f);
+	CHECK(doubled.world->sheet().water() == doctest::Approx(100.0 - 4.0 * drain).epsilon(5e-7));
+
+	Fixture day(survivor(100, 100, 100));
+	day.world->setTimeCompression(3600.0f);
+	day.world->update(24.0f * 3.0f);
+	CHECK(day.world->sheet().water() == doctest::Approx(0.0f).epsilon(0.001));
+	CHECK(day.world->sheet().hunger() == doctest::Approx(100.0 * 4.0 / 7.0).epsilon(0.001));
 }
 
 TEST_CASE("at zero health the player is dead and frozen: no walking, no looking round, and Escape does not leave")
 {
 	Fixture fixture(survivor(0, 50, 2));
+	fixture.world->setTimeCompression(3600.0f);
 	CHECK_FALSE(fixture.world->dead());
 	fixture.world->update(2.0f);
 	CHECK(fixture.world->sheet().health() == 0);
@@ -498,6 +511,7 @@ TEST_CASE("the state sent for the local player is where it stands, the way it fa
 	fixture.key(KEY_KEY_D, false);
 
 	Fixture doomed(survivor(0, 0, 1));
+	doomed.world->setTimeCompression(3600.0f);
 	doomed.world->update(1.0f);
 	REQUIRE(doomed.world->dead());
 	CHECK_FALSE(protocol::isAlive(doomed.world->localState().state));

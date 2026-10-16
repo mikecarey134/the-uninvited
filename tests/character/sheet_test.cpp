@@ -42,7 +42,7 @@ TEST_CASE("a created character can be configured and ticked")
 	CHECK(sheet.unplacedPoints() == sheet.pointPool() - 20);
 	sheet.addExperience(MEDICINE, 1000.0);
 	CHECK(sheet.skill(MEDICINE) > 15);
-	sheet.survivalTick();
+	sheet.survivalTick(3600.0);
 	CHECK(sheet.water() < 100.0f);
 	CHECK(sheet.hunger() < 100.0f);
 	CHECK(sheet.sanity() == 100.0f);

@@ -32,6 +32,8 @@ public:
 	irr::f32 playerRadius() const;
 	const character::CharacterSheet& sheet() const { return sheet_; }
 	bool dead() const { return sheet_.isDead(); }
+	irr::f32 timeCompression() const { return compression_; }
+	void setTimeCompression(irr::f32 compression) { compression_ = compression; }
 	protocol::State localState() const;
 
 	void addRemote(uint16_t id, const char* model, const char* skin);
@@ -73,6 +75,7 @@ private:
 	std::vector<irr::core::aabbox3df> obstacles_;
 	character::CharacterSheet sheet_;
 	irr::f32 unticked_;
+	irr::f32 compression_;
 	std::map<uint16_t, Remote> remotes_;
 	irr::f32 clock_;
 };

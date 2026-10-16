@@ -50,7 +50,7 @@ const uint8_t World::WALKING_STATE;
 World::World(IrrlichtDevice* device, const char* model, const char* skin, std::function<void()> leave,
 	const character::CharacterSheet& sheet)
 	: device_(device), scene_(device->getSceneManager()->createNewSceneManager(false)), camera_(0), player_(0), leave_(leave),
-	walking_(false), yaw_(0.0f), feet_(0.0f), sheet_(sheet), unticked_(0.0f), clock_(0.0f)
+	walking_(false), yaw_(0.0f), feet_(0.0f), sheet_(sheet), unticked_(0.0f), compression_(1.0f), clock_(0.0f)
 {
 	for (bool& held : held_)
 		held = false;
@@ -212,10 +212,10 @@ void World::look(f32 degrees)
 
 void World::update(f32 seconds)
 {
-	unticked_ += seconds;
+	unticked_ += seconds * compression_;
 	while (unticked_ >= 1.0f && !dead())
 	{
-		sheet_.survivalTick();
+		sheet_.survivalTick(1.0);
 		unticked_ -= 1.0f;
 	}
 	if (dead())

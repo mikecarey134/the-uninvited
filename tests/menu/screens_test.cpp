@@ -516,6 +516,8 @@ TEST_CASE("the HUD follows the world's draining character, and death puts YOU DI
 		character::CharacterSheet dying = character::CharacterSheet::fromText(text, problem);
 		REQUIRE(problem.empty());
 		World world(device, menu::characterModel(character::Gender::Male), menu::outfitSkin(character::Gender::Male, 0).c_str(), [] {}, dying);
+		int endurance = dying.getEndurance();
+		world.setTimeCompression((float)(2.5 / (character::waterDrainPerSecond(endurance) + character::hungerDrainPerSecond(endurance))));
 		screens.setWorld(&world);
 		auto says = [&canvas](const std::wstring& line) -> const RecordingCanvas::Call* {
 			for (const RecordingCanvas::Call& call : canvas.calls)

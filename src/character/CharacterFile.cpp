@@ -154,8 +154,8 @@ namespace character
 		sheet.gender_ = gender == "Female" ? Gender::Female : Gender::Male;
 		sheet.age_ = (float)age;
 		sheet.profession_.startingItems = split(items);
-		sheet.water_ = (float)water;
-		sheet.hunger_ = (float)hunger;
+		sheet.water_ = water;
+		sheet.hunger_ = hunger;
 		sheet.sanity_ = (float)sanity;
 		sheet.dehydrated_ = sheet.water_ <= 0.0f;
 		sheet.starving_ = sheet.hunger_ <= 0.0f;

@@ -152,13 +152,35 @@ namespace character
 			experience_[skill] += amount * experienceMultiplier(getIntelligence());
 	}
 
-	void CharacterSheet::survivalTick()
+	void CharacterSheet::survivalTick(double gameSeconds)
 	{
-		float drain = SURVIVAL_BASE_DRAIN / (1.0f + getEndurance() * 0.02f);
-		int empty = (water_ <= 0.0f) + (hunger_ <= 0.0f);
-		water_ = std::max(water_ - drain, 0.0f);
-		hunger_ = std::max(hunger_ - drain, 0.0f);
-		health_ = std::max(health_ - empty * SURVIVAL_HEALTH_DRAIN, 0);
+		double water = waterDrainPerSecond(getEndurance());
+		double hunger = hungerDrainPerSecond(getEndurance());
+		wounds_ += ((water_ <= 0.0 ? water : 0.0) + (hunger_ <= 0.0 ? hunger : 0.0)) * gameSeconds;
+		water_ = std::max(water_ - water * gameSeconds, 0.0);
+		hunger_ = std::max(hunger_ - hunger * gameSeconds, 0.0);
+		int lost = (int)wounds_;
+		wounds_ -= lost;
+		health_ = std::max(health_ - lost, 0);
+	}
+
+	namespace
+	{
+		double drainPerSecond(double emptyDays, int endurance)
+		{
+			double base = 2.0 * 100.0 / (emptyDays * GAME_DAY_SECONDS);
+			return base / (1.0 + endurance / 20.0);
+		}
+	}
+
+	double waterDrainPerSecond(int endurance)
+	{
+		return drainPerSecond(WATER_EMPTY_DAYS, endurance);
+	}
+
+	double hungerDrainPerSecond(int endurance)
+	{
+		return drainPerSecond(HUNGER_EMPTY_DAYS, endurance);
 	}
 
 }
