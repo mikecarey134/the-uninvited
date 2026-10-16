@@ -22,6 +22,7 @@
 #include "SoundEngine.h"
 #include "World.h"
 #include "client/NetSession.h"
+#include "Multiplayer.h"
 #include "net/EnetTransport.h"
 
 using namespace irr;
@@ -56,12 +57,12 @@ namespace
 		auto clock = [started] {
 			return (uint32_t)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started).count();
 		};
-		NetClient::Events events;
-		events.line = [&status](const std::string& text, NetClient::LineKind) {
+		std::unique_ptr<World> world;
+		NetClient::Events events = remoteEvents([&world] { return world.get(); }, [&status](const std::string& text) {
 			status.push_back(text);
 			if (status.size() > 8)
 				status.pop_front();
-		};
+		});
 		EnetTransport clientTransport;
 		EnetTransport serverTransport;
 		NetClient client(clientTransport, clock, events);
@@ -90,7 +91,6 @@ namespace
 
 		MouseCapture capture(device->getCursorControl());
 		Notebook notebook([&console] { return console.isVisible(); }, [&console] { console.setVisible(false); });
-		std::unique_ptr<World> world;
 		u32 lastFrame = device->getTimer()->getTime();
 		bool playing = false;
 		while (device->run())
@@ -101,8 +101,9 @@ namespace
 			{
 				status.clear();
 				std::string name = flow.chosen() ? flow.chosen()->name() : "player";
+				uint8_t look = flow.chosen() ? menu::packAppearance(flow.chosen()->gender(), flow.chosen()->outfit()) : 0;
 				bool hosting = flow.session() == menu::Session::Host;
-				bool connecting = hosting ? session.host(flow.port(), name, 0) : session.join(flow.address(), flow.port(), name, 0);
+				bool connecting = hosting ? session.host(flow.port(), name, look) : session.join(flow.address(), flow.port(), name, look);
 				if (!connecting)
 					status.push_back(hosting ? "Port " + std::to_string(flow.port()) + " is already in use"
 						: "Unable to reach " + flow.address() + ":" + std::to_string(flow.port()));
@@ -148,7 +149,9 @@ namespace
 			}
 
 			session.tick();
-			client.update(protocol::State{ 0, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, 0 });
+			client.update(world ? world->localState() : protocol::State{ 0, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, 0 });
+			if (world)
+				world->updateRemotes(seconds);
 
 			device->getVideoDriver()->beginScene(true, true, video::SColor(255,0,0,0));
 			screens.draw();

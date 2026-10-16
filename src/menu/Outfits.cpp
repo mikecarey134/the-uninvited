@@ -21,4 +21,15 @@ namespace menu
 		int count = (int)skins.size();
 		return skins[((outfit % count) + count) % count];
 	}
+
+	uint8_t packAppearance(character::Gender gender, int outfit)
+	{
+		return (uint8_t)((gender == character::Gender::Female ? 0x80 : 0) | (outfit & 0x7F));
+	}
+
+	void unpackAppearance(uint8_t packed, character::Gender& gender, int& outfit)
+	{
+		gender = packed & 0x80 ? character::Gender::Female : character::Gender::Male;
+		outfit = packed & 0x7F;
+	}
 }

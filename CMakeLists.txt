@@ -16,7 +16,7 @@ add_library(uninvited_menu STATIC src/menu/CharacterStore.cpp src/menu/MenuFlow.
 target_include_directories(uninvited_menu PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/menu")
 target_link_libraries(uninvited_menu PUBLIC uninvited_character)
 
-add_executable(game src/main.cpp src/menu/MenuScreens.cpp src/menu/MenuSkin.cpp src/menu/MenuScene.cpp src/game/World.cpp src/game/Hud.cpp src/game/Notebook.cpp)
+add_executable(game src/main.cpp src/menu/MenuScreens.cpp src/menu/MenuSkin.cpp src/menu/MenuScene.cpp src/game/World.cpp src/game/Hud.cpp src/game/Notebook.cpp src/game/Multiplayer.cpp)
 target_include_directories(game PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include/game")
 target_link_libraries(game PRIVATE uninvited_menu gamecore_engine game_net_session)
 
@@ -28,7 +28,7 @@ target_compile_definitions(character_tests PRIVATE CHARACTER_CONFIG_DIR="${CMAKE
 target_link_libraries(character_tests PRIVATE uninvited_character)
 add_test(NAME character_tests COMMAND character_tests)
 
-add_executable(menu_tests tests/menu/main.cpp tests/menu/store_test.cpp tests/menu/flow_test.cpp)
+add_executable(menu_tests tests/menu/main.cpp tests/menu/store_test.cpp tests/menu/flow_test.cpp tests/menu/appearance_test.cpp)
 target_include_directories(menu_tests PRIVATE "${DOCTEST_DIR}")
 target_compile_definitions(menu_tests PRIVATE CHARACTER_CONFIG_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/config"
   MENU_TEST_DIR="${CMAKE_CURRENT_BINARY_DIR}/menu_tests_data")
@@ -36,11 +36,11 @@ target_link_libraries(menu_tests PRIVATE uninvited_menu game_net_session)
 add_test(NAME menu_tests COMMAND menu_tests)
 
 add_executable(ui_tests tests/menu/main.cpp tests/menu/ui_test.cpp tests/menu/scene_test.cpp tests/menu/screens_test.cpp
-  tests/game/world_test.cpp tests/game/hud_test.cpp tests/game/notebook_test.cpp src/menu/MenuSkin.cpp src/menu/MenuScene.cpp src/menu/MenuScreens.cpp src/game/World.cpp
-  src/game/Hud.cpp src/game/Notebook.cpp engine/gamecorev0.1.1/gamecorev0.1.1/engine/RecordingCanvas.cpp)
+  tests/game/world_test.cpp tests/game/hud_test.cpp tests/game/notebook_test.cpp tests/game/multiplayer_test.cpp src/menu/MenuSkin.cpp src/menu/MenuScene.cpp src/menu/MenuScreens.cpp src/game/World.cpp
+  src/game/Hud.cpp src/game/Notebook.cpp src/game/Multiplayer.cpp engine/gamecorev0.1.1/gamecorev0.1.1/engine/RecordingCanvas.cpp)
 target_include_directories(ui_tests PRIVATE "${DOCTEST_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/include/menu" "${CMAKE_CURRENT_SOURCE_DIR}/include/game")
 target_compile_definitions(ui_tests PRIVATE ASSETS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets")
-target_link_libraries(ui_tests PRIVATE uninvited_menu gamecore_engine)
+target_link_libraries(ui_tests PRIVATE uninvited_menu gamecore_engine game_net_session)
 add_test(NAME ui_tests COMMAND ui_tests WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
 
 foreach(target uninvited_character uninvited_menu game character_tests menu_tests ui_tests)

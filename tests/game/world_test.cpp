@@ -415,3 +415,90 @@ TEST_CASE("at zero health the player is dead and frozen: no walking, no looking 
 	CHECK(fixture.world->onEvent(escape));
 	CHECK(fixture.left == 0);
 }
+
+TEST_CASE("a remote player appears with its own model and skin, standing on the ground, and only once")
+{
+	Fixture fixture;
+	fixture.world->addRemote(7, dan, "assets/models/playerskin_d1.bmp");
+	fixture.world->addRemote(7, dan, "assets/models/playerskin_d1.bmp");
+	IAnimatedMeshSceneNode* remote = fixture.world->remote(7);
+	REQUIRE(remote != nullptr);
+	CHECK(remote->getMesh() == fixture.device->getSceneManager()->getMesh(dan));
+	CHECK(endsWith(remote->getMaterial(0).getTexture(0)->getName().getPath().c_str(), "playerskin_d1.bmp"));
+	remote->updateAbsolutePosition();
+	CHECK(remote->getTransformedBoundingBox().MinEdge.Y == doctest::Approx(0.0f).epsilon(0.05));
+	int remotes = 0;
+	for (ISceneNode* node : fixture.world->scene()->getRootSceneNode()->getChildren())
+		if (std::string(node->getName()) == "remote 7")
+			++remotes;
+	CHECK(remotes == 1);
+	CHECK(fixture.world->remote(8) == nullptr);
+}
+
+TEST_CASE("a remote player glides between the positions it reports and faces their yaw")
+{
+	Fixture fixture;
+	fixture.world->addRemote(3, mike, greenKnit);
+	const f32 first[3] = { 0.0f, 0.0f, 10.0f };
+	const f32 second[3] = { 2.0f, 0.0f, 10.0f };
+	fixture.world->placeRemote(3, 1, first, 90.0f, true);
+	fixture.world->updateRemotes(0.05f);
+	fixture.world->placeRemote(3, 2, second, 90.0f, true);
+	fixture.world->updateRemotes(0.075f);
+	f32 between = fixture.world->remote(3)->getPosition().X;
+	CHECK(between > 0.1f);
+	CHECK(between < 1.9f);
+	CHECK(fixture.world->remote(3)->getPosition().Z == doctest::Approx(10.0f));
+	fixture.world->updateRemotes(1.0f);
+	CHECK(fixture.world->remote(3)->getPosition().X == doctest::Approx(2.0f));
+	fixture.world->remote(3)->updateAbsolutePosition();
+	CHECK(fixture.world->remote(3)->getTransformedBoundingBox().MinEdge.Y == doctest::Approx(0.0f).epsilon(0.05));
+	CHECK(fixture.world->remote(3)->getRotation().Y == doctest::Approx(90.0f));
+	const f32 back[3] = { 2.0f, 0.0f, 10.0f };
+	fixture.world->placeRemote(3, 1, back, 0.0f, false);
+	fixture.world->updateRemotes(1.0f);
+	CHECK(fixture.world->remote(3)->getRotation().Y == doctest::Approx(90.0f));
+}
+
+TEST_CASE("a remote player walks while it reports walking, idles when it stops, and vanishes when it leaves")
+{
+	Fixture fixture;
+	fixture.world->addRemote(4, mike, greenKnit);
+	const f32 at[3] = { 1.0f, 0.0f, 5.0f };
+	fixture.world->placeRemote(4, 1, at, 0.0f, true);
+	fixture.world->updateRemotes(0.2f);
+	CHECK(fixture.world->remote(4)->getStartFrame() == 301);
+	CHECK(fixture.world->remote(4)->getEndFrame() == 316);
+	fixture.world->placeRemote(4, 2, at, 0.0f, false);
+	fixture.world->updateRemotes(0.2f);
+	CHECK(fixture.world->remote(4)->getStartFrame() == 206);
+	fixture.world->removeRemote(4);
+	CHECK(fixture.world->remote(4) == nullptr);
+	CHECK(fixture.world->scene()->getSceneNodeFromName("remote 4") == nullptr);
+	fixture.world->removeRemote(4);
+	fixture.world->updateRemotes(0.1f);
+}
+
+TEST_CASE("the state sent for the local player is where it stands, the way it faces, and whether it walks or is dead")
+{
+	Fixture fixture;
+	protocol::State still = fixture.world->localState();
+	CHECK(still.pos[0] == doctest::Approx(0.0f));
+	CHECK(still.pos[1] == doctest::Approx(0.0f));
+	CHECK(still.pos[2] == doctest::Approx(0.0f));
+	CHECK(still.state == World::IDLE_STATE);
+	fixture.key(KEY_KEY_D, true);
+	fixture.world->update(1.0f);
+	protocol::State walking = fixture.world->localState();
+	CHECK(walking.pos[0] == doctest::Approx(fixture.world->player()->getPosition().X));
+	CHECK(walking.pos[1] == doctest::Approx(0.0f));
+	CHECK(walking.rot[1] == doctest::Approx(90.0f));
+	CHECK(walking.state == World::WALKING_STATE);
+	CHECK(protocol::isAlive(walking.state));
+	fixture.key(KEY_KEY_D, false);
+
+	Fixture doomed(survivor(0, 0, 1));
+	doomed.world->update(1.0f);
+	REQUIRE(doomed.world->dead());
+	CHECK_FALSE(protocol::isAlive(doomed.world->localState().state));
+}

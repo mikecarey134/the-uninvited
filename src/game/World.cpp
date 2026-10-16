@@ -1,6 +1,7 @@
 #include "World.h"
 #include <algorithm>
 #include <cmath>
+#include <string>
 
 using namespace irr;
 using namespace core;
@@ -27,12 +28,29 @@ namespace
 	const s32 walkStart = 301;
 	const s32 walkEnd = 316;
 	const EKEY_CODE moveKeys[4] = { KEY_KEY_W, KEY_KEY_S, KEY_KEY_A, KEY_KEY_D };
+
+	void loop(IAnimatedMeshSceneNode* node, bool walking)
+	{
+		if (walking && (s32)node->getMesh()->getFrameCount() > walkEnd)
+		{
+			node->setFrameLoop(walkStart, walkEnd);
+			node->setAnimationSpeed(15.0f);
+		}
+		else
+		{
+			node->setFrameLoop(idleStart, idleEnd);
+			node->setAnimationSpeed(12.0f);
+		}
+	}
 }
+
+const uint8_t World::IDLE_STATE;
+const uint8_t World::WALKING_STATE;
 
 World::World(IrrlichtDevice* device, const char* model, const char* skin, std::function<void()> leave,
 	const character::CharacterSheet& sheet)
 	: device_(device), scene_(device->getSceneManager()->createNewSceneManager(false)), camera_(0), player_(0), leave_(leave),
-	walking_(false), yaw_(0.0f), feet_(0.0f), sheet_(sheet), unticked_(0.0f)
+	walking_(false), yaw_(0.0f), feet_(0.0f), sheet_(sheet), unticked_(0.0f), clock_(0.0f)
 {
 	for (bool& held : held_)
 		held = false;
@@ -139,20 +157,27 @@ void World::move(const vector3df& step)
 
 void World::addPlayer(const char* model, const char* skin)
 {
+	player_ = addCharacter(model, skin, feet_);
+	if (player_)
+		player_->setName("player");
+}
+
+IAnimatedMeshSceneNode* World::addCharacter(const char* model, const char* skin, f32& feet)
+{
 	IAnimatedMesh* mesh = scene_->getMesh(model);
 	if (!mesh)
-		return;
+		return 0;
 	f32 scale = characterHeight / mesh->getBoundingBox().getExtent().Y;
-	feet_ = -mesh->getMesh(idleStart)->getBoundingBox().MinEdge.Y * scale;
-	player_ = scene_->addAnimatedMeshSceneNode(mesh, 0, -1, vector3df(0.0f, feet_, 0.0f), vector3df(), vector3df(scale, scale, scale));
-	player_->setName("player");
+	feet = -mesh->getMesh(idleStart)->getBoundingBox().MinEdge.Y * scale;
+	IAnimatedMeshSceneNode* node = scene_->addAnimatedMeshSceneNode(mesh, 0, -1, vector3df(0.0f, feet, 0.0f), vector3df(), vector3df(scale, scale, scale));
 	if (ITexture* texture = device_->getVideoDriver()->getTexture(skin))
-		player_->setMaterialTexture(0, texture);
-	player_->setMaterialFlag(EMF_FOG_ENABLE, true);
-	player_->setMaterialFlag(EMF_NORMALIZE_NORMALS, true);
-	player_->setLoopMode(true);
-	player_->setFrameLoop(idleStart, idleEnd);
-	player_->setAnimationSpeed(12.0f);
+		node->setMaterialTexture(0, texture);
+	node->setMaterialFlag(EMF_FOG_ENABLE, true);
+	node->setMaterialFlag(EMF_NORMALIZE_NORMALS, true);
+	node->setLoopMode(true);
+	node->setFrameLoop(idleStart, idleEnd);
+	node->setAnimationSpeed(12.0f);
+	return node;
 }
 
 void World::addLights()
@@ -241,17 +266,82 @@ void World::animate(bool walking)
 	if (!player_ || walking == walking_)
 		return;
 	walking_ = walking;
-	bool canWalk = (s32)player_->getMesh()->getFrameCount() > walkEnd;
-	if (walking && canWalk)
+	loop(player_, walking);
+}
+
+protocol::State World::localState() const
+{
+	protocol::State state{ 0, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, IDLE_STATE };
+	if (player_)
 	{
-		player_->setFrameLoop(walkStart, walkEnd);
-		player_->setAnimationSpeed(15.0f);
+		state.pos[0] = player_->getPosition().X;
+		state.pos[1] = player_->getPosition().Y - feet_;
+		state.pos[2] = player_->getPosition().Z;
+		state.rot[1] = player_->getRotation().Y;
 	}
-	else
+	if (dead())
+		state.state = protocol::STATE_DEAD;
+	else if (walking_)
+		state.state = WALKING_STATE;
+	return state;
+}
+
+void World::addRemote(uint16_t id, const char* model, const char* skin)
+{
+	if (remotes_.count(id))
+		return;
+	Remote remote;
+	remote.node = addCharacter(model, skin, remote.feet);
+	if (!remote.node)
+		return;
+	remote.node->setName(("remote " + std::to_string(id)).c_str());
+	remote.walking = false;
+	remote.animatedWalking = false;
+	remotes_[id] = remote;
+}
+
+void World::placeRemote(uint16_t id, uint16_t seq, const f32 position[3], f32 yaw, bool walking)
+{
+	auto found = remotes_.find(id);
+	if (found == remotes_.end())
+		return;
+	found->second.path.addSnapshot(seq, position, yaw, clock_);
+	found->second.walking = walking;
+}
+
+void World::removeRemote(uint16_t id)
+{
+	auto found = remotes_.find(id);
+	if (found == remotes_.end())
+		return;
+	found->second.node->remove();
+	remotes_.erase(found);
+}
+
+void World::updateRemotes(f32 seconds)
+{
+	clock_ += seconds;
+	for (auto& entry : remotes_)
 	{
-		player_->setFrameLoop(idleStart, idleEnd);
-		player_->setAnimationSpeed(12.0f);
+		Remote& remote = entry.second;
+		Pose pose;
+		if (remote.path.sample(clock_ - Interpolator::DELAY, pose))
+		{
+			remote.node->setPosition(vector3df(pose.position[0], pose.position[1] + remote.feet, pose.position[2]));
+			remote.node->setRotation(vector3df(0.0f, pose.yaw, 0.0f));
+		}
+		if (remote.walking != remote.animatedWalking)
+		{
+			remote.animatedWalking = remote.walking;
+			loop(remote.node, remote.walking);
+		}
 	}
+}
+
+IAnimatedMeshSceneNode* World::remote(uint16_t id) const
+{
+	auto found = remotes_.find(id);
+	return found == remotes_.end() ? 0 : found->second.node;
 }
 
 void World::draw()
