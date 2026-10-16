@@ -66,23 +66,25 @@ namespace
 	}
 }
 
-TEST_CASE("the vitals cluster sits tight in the top-left corner on a dark see-through panel while there is no backing art")
+TEST_CASE("the vitals cluster sits tight in the top-left corner on the sheet-metal backing art, see-through")
 {
 	RecordingCanvas canvas;
 	canvas.screenDimension = dimension2d<u32>(1280, 720);
 	drawVitals(canvas, hurt(100, 100, 100));
 	REQUIRE_FALSE(canvas.calls.empty());
 	const RecordingCanvas::Call& panel = canvas.calls.front();
-	CHECK(panel.kind == RecordingCanvas::RECT);
+	REQUIRE(panel.kind == RecordingCanvas::IMAGE);
+	CHECK(canvas.pathOf(panel.texture) == "assets/hud/backing_panel.png");
 	CHECK(panel.colour.getAlpha() < 255);
 	CHECK(panel.colour.getAlpha() > 80);
+	CHECK(panel.source.getWidth() > 0);
 	CHECK(panel.area.UpperLeftCorner.X <= 16);
 	CHECK(panel.area.UpperLeftCorner.Y <= 16);
 	CHECK(panel.area.LowerRightCorner.X <= 320);
 	CHECK(panel.area.LowerRightCorner.Y <= 96);
-	CHECK(image(canvas, "backing_panel.png") == nullptr);
 	for (const RecordingCanvas::Call& call : canvas.calls)
-		if (call.kind != RecordingCanvas::TEXT)
+		if (call.kind != RecordingCanvas::TEXT && call.texture != image(canvas, "weapon_frame.png")->texture &&
+			call.texture != image(canvas, "reticle.png")->texture)
 			CHECK(within(panel.area, call.area));
 }
 
@@ -171,4 +173,45 @@ TEST_CASE("an empty meter draws no liquid at all, and a full one fills the whole
 	const RecordingCanvas::Call* health = image(canvas, "fill_hp.png");
 	REQUIRE(health != nullptr);
 	CHECK(health->area.getWidth() >= 100);
+}
+
+TEST_CASE("an empty, see-through weapon frame sits in the bottom-right corner with the cluster's margin")
+{
+	RecordingCanvas canvas;
+	canvas.screenDimension = dimension2d<u32>(1280, 720);
+	drawVitals(canvas, hurt(100, 100, 100));
+	const RecordingCanvas::Call* frame = image(canvas, "weapon_frame.png");
+	REQUIRE(frame != nullptr);
+	CHECK(frame->area.LowerRightCorner.X == 1280 - 12);
+	CHECK(frame->area.LowerRightCorner.Y == 720 - 12);
+	CHECK(frame->area.getWidth() >= 100);
+	CHECK(frame->area.getWidth() <= 140);
+	CHECK(frame->area.getHeight() >= 64);
+	CHECK(frame->area.getHeight() <= 96);
+	CHECK(frame->colour.getAlpha() < 255);
+	CHECK(frame->source.getWidth() > 0);
+	for (const RecordingCanvas::Call& call : canvas.calls)
+		if (&call != frame)
+			CHECK_FALSE(frame->area.isRectCollided(call.area));
+}
+
+TEST_CASE("a small crosshair is drawn last, centred exactly on the screen")
+{
+	RecordingCanvas canvas;
+	canvas.screenDimension = dimension2d<u32>(1280, 720);
+	drawVitals(canvas, hurt(100, 100, 100));
+	const RecordingCanvas::Call& last = canvas.calls.back();
+	REQUIRE(last.kind == RecordingCanvas::IMAGE);
+	CHECK(canvas.pathOf(last.texture) == "assets/hud/reticle.png");
+	CHECK(last.area.getWidth() >= 24);
+	CHECK(last.area.getWidth() <= 32);
+	CHECK(last.area.getHeight() == last.area.getWidth());
+	CHECK(last.area.getCenter().X == 640);
+	CHECK(last.area.getCenter().Y == 360);
+	canvas.calls.clear();
+	canvas.screenDimension = dimension2d<u32>(1920, 1080);
+	drawVitals(canvas, hurt(100, 100, 100));
+	CHECK(canvas.calls.back().area.getCenter().X == 960);
+	CHECK(canvas.calls.back().area.getCenter().Y == 540);
+	CHECK(image(canvas, "weapon_frame.png")->area.LowerRightCorner.X == 1920 - 12);
 }

@@ -1,7 +1,6 @@
 #include "Hud.h"
 #include "Theme.h"
 #include <algorithm>
-#include <fstream>
 #include <string>
 
 using namespace irr;
@@ -19,12 +18,17 @@ namespace
 	const s32 numberX = 264;
 	const s32 firstRow = 22;
 	const s32 rowStep = 18;
-	const SColor panelColour(170, 10, 9, 7);
-	const SColor backingTint(200, 255, 255, 255);
+	const SColor seeThrough(200, 255, 255, 255);
+	const s32 margin = 12;
+	const s32 weaponWidth = 128;
+	const s32 weaponHeight = 80;
+	const s32 reticleSize = 32;
 	const SColor portraitColour(255, 20, 18, 14);
 	const SColor opaque(255, 255, 255, 255);
 	const char* const labelFont = "assets/fonts/label.png";
-	const char* const backingFile = "assets/hud/backing_panel.png";
+	const rect<s32> backingArt(19, 119, 2154, 592);
+	const rect<s32> weaponArt(22, 35, 1516, 976);
+	const rect<s32> reticleArt(364, 349, 892, 887);
 	const rect<s32> frameArt(40, 42, 1215, 1203);
 	const rect<s32> trackArt(28, 271, 2144, 487);
 
@@ -76,11 +80,7 @@ namespace
 
 void drawVitals(Canvas& canvas, const character::CharacterSheet& sheet)
 {
-	static const bool backed = std::ifstream(backingFile).good();
-	if (backed)
-		canvas.drawImage(canvas.loadTexture(backingFile), panel, backingTint);
-	else
-		canvas.drawRect(panel, panelColour);
+	canvas.drawImage(canvas.loadTexture("assets/hud/backing_panel.png"), panel, backingArt, seeThrough);
 	canvas.drawRect(portrait, portraitColour);
 	canvas.drawRect(rect<s32>(41, 30, 55, 46), theme::dim);
 	canvas.drawRect(rect<s32>(31, 50, 65, 75), theme::dim);
@@ -89,4 +89,12 @@ void drawVitals(Canvas& canvas, const character::CharacterSheet& sheet)
 	bar(canvas, font, 0, (f32)sheet.health(), (f32)sheet.maxHealth());
 	bar(canvas, font, 1, sheet.hunger(), 100.0f);
 	bar(canvas, font, 2, sheet.water(), 100.0f);
+	dimension2d<u32> screen = canvas.screenSize();
+	s32 right = (s32)screen.Width - margin;
+	s32 bottom = (s32)screen.Height - margin;
+	canvas.drawImage(canvas.loadTexture("assets/hud/weapon_frame.png"), rect<s32>(right - weaponWidth, bottom - weaponHeight, right, bottom),
+		weaponArt, seeThrough);
+	position2d<s32> centre((s32)screen.Width / 2, (s32)screen.Height / 2);
+	canvas.drawImage(canvas.loadTexture("assets/hud/reticle.png"), rect<s32>(centre.X - reticleSize / 2, centre.Y - reticleSize / 2,
+		centre.X + reticleSize / 2, centre.Y + reticleSize / 2), reticleArt, opaque);
 }
