@@ -45,16 +45,29 @@ namespace
 		return std::wstring(text.begin(), text.end());
 	}
 
-	std::string fitted(IGUIFont* font, const std::string& text, s32 room)
+	std::string wrapped(IGUIFont* font, const std::string& text, s32 room)
 	{
-		if (!font || (s32)font->getDimension(wide(text).c_str()).Width <= room)
-			return text;
-		std::string cut = text;
-		while (!cut.empty() && (s32)font->getDimension(wide(cut + "...").c_str()).Width > room)
-			cut.pop_back();
-		while (!cut.empty() && (cut.back() == ' ' || cut.back() == ','))
-			cut.pop_back();
-		return cut + "...";
+		std::string result;
+		std::string line;
+		std::string::size_type at = 0;
+		while (at < text.size())
+		{
+			std::string::size_type comma = text.find(", ", at);
+			std::string::size_type end = comma == std::string::npos ? text.size() : comma + 2;
+			std::string piece = text.substr(at, end - at);
+			std::string longer = line + piece;
+			while (!longer.empty() && longer.back() == ' ')
+				longer.pop_back();
+			if (!line.empty() && font && (s32)font->getDimension(wide(longer).c_str()).Width > room)
+			{
+				result += line + "\n";
+				line = "      " + piece;
+			}
+			else
+				line += piece;
+			at = end;
+		}
+		return result + line;
 	}
 
 	std::string bonuses(const character::Profession& profession)
@@ -211,8 +224,7 @@ void MenuScreens::build()
 		std::vector<std::string> names;
 		for (const character::CharacterSheet& sheet : flow_.characters())
 			names.push_back(sheet.name() + "   -   " + sheet.profession().name);
-		IGUIListBox* list = panel_.list(place(rect<s32>(left, contentY, right, 612)), GUI_ID_CHARACTERS, names, flow_.highlighted());
-		list->setItemHeight(36);
+		panel_.list(place(rect<s32>(left, contentY, right, 612)), GUI_ID_CHARACTERS, names, flow_.highlighted());
 		markCharacters();
 		addButton(GUI_ID_NEW_CHARACTER, rect<s32>(left + 128, bottomTop, left + 328, bottomBottom), "New Character", Style::Secondary);
 		addButton(GUI_ID_SELECT, rect<s32>(left + 336, bottomTop, right, bottomBottom), "Select & Play", Style::Primary);
@@ -231,12 +243,18 @@ void MenuScreens::build()
 		for (const character::Profession& profession : flow_.professions())
 			professions.push_back("  " + profession.name + "   -   " + bonuses(profession));
 		IGUIListBox* list = panel_.list(place(rect<s32>(left, 244, formRight, 418)), GUI_ID_PROFESSION, professions, 0);
-		list->setItemHeight(30);
 		IGUISkin* skin = device_->getGUIEnvironment()->getSkin();
 		s32 room = list->getAbsolutePosition().getWidth() - skin->getSize(EGDS_SCROLLBAR_SIZE) - 2 * skin->getSize(EGDS_TEXT_DISTANCE_X);
 		IGUIFont* font = device_->getGUIEnvironment()->getFont(bodyFont);
+		s32 rowHeight = 30;
 		for (u32 i = 0; i < list->getItemCount(); ++i)
-			list->setItem(i, wide(fitted(font, professions[i], room)).c_str(), -1);
+		{
+			std::string row = wrapped(font, professions[i], room);
+			list->setItem(i, wide(row).c_str(), -1);
+			if (font)
+				rowHeight = std::max(rowHeight, (s32)font->getDimension(wide(row).c_str()).Height + 8);
+		}
+		list->setItemHeight(rowHeight);
 		for (s32 i = 0; i < character::ATTRIBUTE_COUNT; ++i)
 		{
 			s32 y = statTop + i * statRow;
@@ -327,13 +345,22 @@ void MenuScreens::markCharacters()
 	if (!element)
 		return;
 	IGUIListBox* list = static_cast<IGUIListBox*>(element);
+	IGUISkin* skin = device_->getGUIEnvironment()->getSkin();
+	s32 room = list->getAbsolutePosition().getWidth() - skin->getSize(EGDS_SCROLLBAR_SIZE) - 2 * skin->getSize(EGDS_TEXT_DISTANCE_X);
+	IGUIFont* font = device_->getGUIEnvironment()->getFont(bodyFont);
+	s32 rowHeight = 36;
 	for (u32 i = 0; i < list->getItemCount() && i < flow_.characters().size(); ++i)
 	{
 		const character::CharacterSheet& sheet = flow_.characters()[i];
 		std::wstring line = (s32)i == flow_.highlighted() ? L"  " + std::wstring(1, check) + L"   " : std::wstring(L"        ");
 		line += wide(sheet.name() + "   -   " + sheet.profession().name);
+		if (font && (s32)font->getDimension(line.c_str()).Width > room)
+			line = line.substr(0, line.size() - sheet.profession().name.size() - 3) + L"\n            " + wide(sheet.profession().name);
 		list->setItem(i, line.c_str(), -1);
+		if (font)
+			rowHeight = std::max(rowHeight, (s32)font->getDimension(line.c_str()).Height + 8);
 	}
+	list->setItemHeight(rowHeight);
 }
 
 void MenuScreens::text(FontHandle font, const std::string& line, s32 x, s32 y, SColor colour)

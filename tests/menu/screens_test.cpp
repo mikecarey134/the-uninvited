@@ -296,7 +296,7 @@ TEST_CASE("the outfit picked on create is saved and worn on select and in the ga
 	CHECK(endsWith(skinOf(menu.backdrop), "playerskin_m3.jpg"));
 }
 
-TEST_CASE("every profession row on the create screen fits inside its list, long ones shortened with an ellipsis")
+TEST_CASE("every profession row on the create screen shows its full bonus text, wrapped to fit inside its list")
 {
 	Menu menu("screens_professions");
 	menu.flow.play();
@@ -305,22 +305,81 @@ TEST_CASE("every profession row on the create screen fits inside its list, long 
 	IGUIElement* element = menu.device->getGUIEnvironment()->getRootGUIElement()->getElementFromId(MenuScreens::GUI_ID_PROFESSION, true);
 	REQUIRE(element != nullptr);
 	IGUIListBox* list = static_cast<IGUIListBox*>(element);
+	CHECK(list->getAbsolutePosition() == core::rect<s32>(64, 244, 448, 418));
 	IGUISkin* skin = menu.device->getGUIEnvironment()->getSkin();
 	IGUIFont* font = skin->getFont();
 	REQUIRE(font != nullptr);
 	s32 room = list->getAbsolutePosition().getWidth() - skin->getSize(EGDS_SCROLLBAR_SIZE) - 2 * skin->getSize(EGDS_TEXT_DISTANCE_X);
 	REQUIRE(list->getItemCount() == menu.flow.professions().size());
-	int shortened = 0;
+	REQUIRE(list->getItemCount() == 28);
+	core::rect<s32> box = list->getAbsolutePosition();
+	s32 rowHeight = 0;
+	while (rowHeight < box.getHeight() && list->getItemAt(box.UpperLeftCorner.X + 4, box.UpperLeftCorner.Y + rowHeight) != 1)
+		++rowHeight;
+	int wrapped = 0;
 	for (u32 i = 0; i < list->getItemCount(); ++i)
 	{
 		std::wstring item = list->getListItem(i);
 		INFO(core::stringc(item.c_str()).c_str());
 		CHECK((s32)font->getDimension(item.c_str()).Width <= room);
-		CHECK(item.find(std::wstring(menu.flow.professions()[i].name.begin(), menu.flow.professions()[i].name.end())) != std::wstring::npos);
-		if (item.size() >= 3 && item.compare(item.size() - 3, 3, L"...") == 0)
-			++shortened;
+		CHECK((s32)font->getDimension(item.c_str()).Height <= rowHeight);
+		CHECK(item.find(L"...") == std::wstring::npos);
+		std::wstring flat;
+		for (wchar_t c : item)
+			if (c != L'\n' && c != L' ')
+				flat += c;
+		const character::Profession& profession = menu.flow.professions()[i];
+		CHECK(flat.find(std::wstring(profession.name.begin(), profession.name.end()).substr(0, 4)) == 0);
+		for (const std::pair<int, int>& bonus : profession.skillBonuses)
+		{
+			std::string expected = std::string(character::skillName(bonus.first)) + "+" + std::to_string(bonus.second);
+			CHECK(flat.find(std::wstring(expected.begin(), expected.end())) != std::wstring::npos);
+		}
+		if (item.find(L'\n') != std::wstring::npos)
+			++wrapped;
 	}
-	CHECK(shortened >= 1);
+	CHECK(wrapped >= 1);
+}
+
+TEST_CASE("every profession fits on the select screen beside the longest possible name")
+{
+	Menu menu("screens_select_professions");
+	menu.flow.play();
+	for (size_t i = 0; i < menu.flow.professions().size(); ++i)
+	{
+		menu.flow.newCharacter();
+		std::string name = std::string(menu::MAX_NAME_LENGTH - 2, 'W') + (char)('A' + i / 26) + (char)('A' + i % 26);
+		REQUIRE(menu.flow.create(name, character::Gender::Male, (int)i));
+	}
+	menu.flow.play();
+	menu.screens->draw();
+	IGUIElement* element = menu.device->getGUIEnvironment()->getRootGUIElement()->getElementFromId(MenuScreens::GUI_ID_CHARACTERS, true);
+	REQUIRE(element != nullptr);
+	IGUIListBox* list = static_cast<IGUIListBox*>(element);
+	IGUISkin* skin = menu.device->getGUIEnvironment()->getSkin();
+	IGUIFont* font = skin->getFont();
+	REQUIRE(font != nullptr);
+	s32 room = list->getAbsolutePosition().getWidth() - skin->getSize(EGDS_SCROLLBAR_SIZE) - 2 * skin->getSize(EGDS_TEXT_DISTANCE_X);
+	REQUIRE(list->getItemCount() == menu.flow.professions().size());
+	core::rect<s32> box = list->getAbsolutePosition();
+	CHECK(box == core::rect<s32>(64, 104, 608, 612));
+	s32 rowHeight = 0;
+	while (rowHeight < box.getHeight() && list->getItemAt(box.UpperLeftCorner.X + 4, box.UpperLeftCorner.Y + rowHeight) != 1)
+		++rowHeight;
+	int wrapped = 0;
+	for (u32 i = 0; i < list->getItemCount(); ++i)
+	{
+		std::wstring item = list->getListItem(i);
+		INFO(core::stringc(item.c_str()).c_str());
+		CHECK((s32)font->getDimension(item.c_str()).Width <= room);
+		CHECK((s32)font->getDimension(item.c_str()).Height <= rowHeight);
+		if (item.find(L'\n') != std::wstring::npos)
+			++wrapped;
+		const std::string& profession = menu.flow.characters()[i].profession().name;
+		CHECK(item.find(std::wstring(profession.begin(), profession.end())) != std::wstring::npos);
+	}
+	CHECK(wrapped >= 1);
+	CHECK(wrapped < (int)list->getItemCount());
 }
 
 TEST_CASE("switching to female after picking a male outfit saves her on her own first outfit")
