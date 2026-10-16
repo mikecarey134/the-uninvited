@@ -16,7 +16,6 @@ namespace
 	const f32 fogStart = 20.0f;
 	const f32 fogEnd = 100.0f;
 	const f32 characterHeight = 1.75f;
-	const f32 walkSpeed = 3.5f;
 	const f32 radius = 0.35f;
 	const f32 edge = groundSize / 2.0f - radius;
 	const f32 longestStep = 0.1f;
@@ -50,7 +49,7 @@ const uint8_t World::WALKING_STATE;
 World::World(IrrlichtDevice* device, const char* model, const char* skin, std::function<void()> leave,
 	const character::CharacterSheet& sheet)
 	: device_(device), scene_(device->getSceneManager()->createNewSceneManager(false)), camera_(0), player_(0), leave_(leave),
-	walking_(false), yaw_(0.0f), feet_(0.0f), sheet_(sheet), unticked_(0.0f), compression_(1.0f), timeOfDay_(START_HOUR), sun_(0), clock_(0.0f)
+	walking_(false), yaw_(0.0f), feet_(0.0f), sheet_(sheet), unticked_(0.0f), compression_(1.0f), timeOfDay_(START_HOUR), speed_(3.5f), debugShown_(false), sun_(0), clock_(0.0f)
 {
 	for (bool& held : held_)
 		held = false;
@@ -201,6 +200,13 @@ void World::setTimeOfDay(f32 hours)
 	}
 }
 
+void World::teleport(f32 x, f32 y, f32 z)
+{
+	if (player_)
+		player_->setPosition(vector3df(x, y + feet_, z));
+	follow();
+}
+
 void World::advanceClock(f32 seconds)
 {
 	setTimeOfDay(timeOfDay_ + seconds * compression_ / 3600.0f);
@@ -210,6 +216,11 @@ bool World::onEvent(const SEvent& event)
 {
 	if (event.EventType != EET_KEY_INPUT_EVENT)
 		return false;
+	if (event.KeyInput.Key == KEY_F3 && event.KeyInput.PressedDown)
+	{
+		debugShown_ = !debugShown_;
+		return true;
+	}
 	if (dead())
 		return event.KeyInput.Key == KEY_ESCAPE;
 	if (event.KeyInput.Key == KEY_ESCAPE && event.KeyInput.PressedDown)
@@ -252,7 +263,7 @@ void World::update(f32 seconds)
 		if (walking)
 		{
 			step.normalize();
-			move(step * walkSpeed * seconds);
+			move(step * speed_ * seconds);
 			player_->setRotation(vector3df(0.0f, step.getHorizontalAngle().Y, 0.0f));
 		}
 		animate(walking);

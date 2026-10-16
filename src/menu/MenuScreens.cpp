@@ -2,6 +2,7 @@
 #include "Outfits.h"
 #include "World.h"
 #include "Hud.h"
+#include "DebugOverlay.h"
 #include "MenuScene.h"
 #include "SoundEngine.h"
 #include "Theme.h"
@@ -497,6 +498,8 @@ void MenuScreens::draw()
 	else if (world_ && built_ == Screen::Playing)
 	{
 		drawVitals(canvas_, world_->sheet());
+		if (world_->debugShown())
+			DebugOverlay(device_, canvas_, nullptr).draw(world_->player() ? world_->player()->getPosition() : vector3df());
 		if (world_->dead())
 			canvas_.drawText(canvas_.loadFont(titleFont), L"YOU DIED", rect<s32>(0, 0, (s32)screen.Width, (s32)screen.Height), theme::accent,
 				true, true, false);

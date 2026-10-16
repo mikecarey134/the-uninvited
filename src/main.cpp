@@ -23,6 +23,9 @@
 #include "World.h"
 #include "client/NetSession.h"
 #include "Multiplayer.h"
+#include "ChatQueue.h"
+#include "DebugCommands.h"
+#include "UiAnchor.h"
 #include "Autosave.h"
 #include "CharacterProfile.h"
 #include "RemoteStatsCommand.h"
@@ -64,10 +67,10 @@ namespace
 		};
 		std::unique_ptr<World> world;
 		std::map<uint16_t, character::CharacterSheet> remoteSheets;
-		NetClient::Events events = remoteEvents([&world] { return world.get(); }, [&status](const std::string& text) {
-			status.push_back(text);
-			if (status.size() > 8)
-				status.pop_front();
+		ChatQueue chat(device, canvas, anchored(core::rect<s32>(0, 420, 580, 500), 0.0f, 1.0f, canvas.screenSize()), 5000, true, 500, true, false);
+		chat.setFont(canvas.loadFont("assets/fonts/console.bmp"));
+		NetClient::Events events = remoteEvents([&world] { return world.get(); }, [&chat](const std::string& text, NetClient::LineKind kind) {
+			chat.addMessage(core::stringw(text.c_str()), lineColour(kind));
 		}, remoteSheets);
 		EnetTransport clientTransport;
 		EnetTransport serverTransport;
@@ -86,6 +89,13 @@ namespace
 		console.loadDefaultCommands(device);
 		console.registerCommand(new PlayerStatsCommand([&flow] { return flow.chosen(); }));
 		console.registerCommand(new RemoteStatsCommand(remoteSheets));
+		LuaVM lua;
+		lua.setLogger([&console](const std::string& message) {
+			console.logMessage_ANSI(ELL_ERROR, message.c_str());
+			std::cerr << message << std::endl;
+		});
+		for (std::unique_ptr<IC_Command>& command : debugCommands([&world] { return world.get(); }, [&client](const std::string& text) { client.sendChat(text); }, lua))
+			console.registerCommand(command.release());
 		console.getConfig().fontName = "assets/fonts/label.png";
 		core::dimension2d<u32> screen = device->getVideoDriver()->getScreenSize();
 		console.initializeConsole(canvas, core::dimension2d<s32>((s32)screen.Width, (s32)screen.Height));
@@ -174,7 +184,10 @@ namespace
 			device->getVideoDriver()->beginScene(true, true, video::SColor(255,0,0,0));
 			screens.draw();
 			if (world)
+			{
+				chat.draw();
 				notebook.draw(canvas, world->sheet());
+			}
 			console.renderConsole(0);
 			device->getVideoDriver()->endScene();
 

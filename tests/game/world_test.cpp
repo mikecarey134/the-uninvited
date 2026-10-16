@@ -611,3 +611,55 @@ TEST_CASE("no prop gives off its own light, so night darkens every one of them")
 			}
 	CHECK(props > 10);
 }
+
+TEST_CASE("F3 toggles the debug panel, even for a dead player, and other keys leave it alone")
+{
+	Fixture fixture;
+	CHECK_FALSE(fixture.world->debugShown());
+	fixture.key(KEY_F3, true);
+	CHECK(fixture.world->debugShown());
+	fixture.key(KEY_F3, false);
+	CHECK(fixture.world->debugShown());
+	fixture.key(KEY_KEY_W, true);
+	CHECK(fixture.world->debugShown());
+	fixture.key(KEY_F3, true);
+	CHECK_FALSE(fixture.world->debugShown());
+
+	Fixture doomed(survivor(0, 0, 1));
+	doomed.world->setTimeCompression(3600.0f);
+	doomed.world->update(1.0f);
+	REQUIRE(doomed.world->dead());
+	doomed.key(KEY_F3, true);
+	CHECK(doomed.world->debugShown());
+}
+
+TEST_CASE("teleport puts the player's feet at the given point, speed sets how fast they walk, and health can be set or knocked down by five")
+{
+	Fixture fixture;
+	fixture.world->teleport(12.0f, 0.0f, -7.5f);
+	fixture.world->player()->updateAbsolutePosition();
+	CHECK(fixture.world->player()->getPosition().X == doctest::Approx(12.0f));
+	CHECK(fixture.world->player()->getPosition().Z == doctest::Approx(-7.5f));
+	CHECK(fixture.world->player()->getTransformedBoundingBox().MinEdge.Y == doctest::Approx(0.0f).epsilon(0.05));
+	CHECK(fixture.world->localState().pos[1] == doctest::Approx(0.0f));
+	fixture.world->teleport(1.0f, 3.0f, 1.0f);
+	CHECK(fixture.world->localState().pos[1] == doctest::Approx(3.0f));
+	fixture.world->teleport(12.0f, 0.0f, -30.0f);
+
+	CHECK(fixture.world->speed() == doctest::Approx(3.5f));
+	fixture.world->setSpeed(10.0f);
+	fixture.walk(KEY_KEY_D, 1.0f);
+	CHECK(fixture.world->player()->getPosition().X == doctest::Approx(22.0f));
+
+	fixture.world->setHealth(40);
+	CHECK(fixture.world->sheet().health() == 40);
+	fixture.world->hurt();
+	CHECK(fixture.world->sheet().health() == 35);
+	fixture.world->setHealth(500);
+	CHECK(fixture.world->sheet().health() == character::CharacterSheet::MAX_HEALTH);
+	fixture.world->setHealth(-3);
+	CHECK(fixture.world->sheet().health() == 0);
+	CHECK(fixture.world->dead());
+	fixture.world->hurt();
+	CHECK(fixture.world->sheet().health() == 0);
+}

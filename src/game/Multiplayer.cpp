@@ -21,11 +21,27 @@ namespace
 	}
 }
 
-NetClient::Events remoteEvents(std::function<World*()> world, std::function<void(const std::string&)> line,
+irr::video::SColor lineColour(NetClient::LineKind kind)
+{
+	switch (kind)
+	{
+	case NetClient::JoinedLine:
+	case NetClient::InfoLine:
+		return irr::video::SColor(255, 0, 255, 0);
+	case NetClient::LeftLine:
+	case NetClient::DiedLine:
+	case NetClient::ErrorLine:
+		return irr::video::SColor(255, 255, 0, 0);
+	default:
+		return irr::video::SColor(255, 255, 255, 255);
+	}
+}
+
+NetClient::Events remoteEvents(std::function<World*()> world, std::function<void(const std::string&, NetClient::LineKind)> line,
 	std::map<uint16_t, character::CharacterSheet>& sheets)
 {
 	NetClient::Events events;
-	events.line = [line](const std::string& text, NetClient::LineKind) { line(text); };
+	events.line = line;
 	events.joined = [world, &sheets](const NetClient::Remote& remote) {
 		character::Gender gender;
 		int outfit;

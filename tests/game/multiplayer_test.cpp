@@ -18,8 +18,8 @@ namespace
 		Match()
 			: device(createDevice(video::EDT_NULL, core::dimension2d<u32>(1280, 720))), serverTransport(network), hostTransport(network),
 			  guestTransport(network),
-			  host(hostTransport, [this] { return now; }, remoteEvents([this] { return hostWorld.get(); }, [](const std::string&) {}, hostSheets)),
-			  guest(guestTransport, [this] { return now; }, remoteEvents([this] { return guestWorld.get(); }, [](const std::string&) {}, guestSheets)),
+			  host(hostTransport, [this] { return now; }, remoteEvents([this] { return hostWorld.get(); }, [](const std::string&, NetClient::LineKind) {}, hostSheets)),
+			  guest(guestTransport, [this] { return now; }, remoteEvents([this] { return guestWorld.get(); }, [](const std::string&, NetClient::LineKind) {}, guestSheets)),
 			  session(serverTransport, host, [this] { return now; }, [](const std::string&) {})
 		{
 			hostWorld.reset(new World(device, menu::characterModel(character::Gender::Male), menu::outfitSkin(character::Gender::Male, 2).c_str(), [] {}));
@@ -227,4 +227,48 @@ TEST_CASE("everyone who joins, the host included, takes the server's time of day
 	CHECK(match.guestWorld->timeCompression() == 72.0f);
 	CHECK(match.guestWorld->timeOfDay() == doctest::Approx(6.0f).epsilon(0.01));
 	CHECK(match.guestWorld->timeOfDay() == doctest::Approx(match.hostWorld->timeOfDay()).epsilon(0.002));
+}
+
+TEST_CASE("chat lines keep the colours Mike's game gave them: green for joins and info, red for leaving, deaths and errors, white for chat")
+{
+	CHECK(lineColour(NetClient::JoinedLine) == video::SColor(255, 0, 255, 0));
+	CHECK(lineColour(NetClient::InfoLine) == video::SColor(255, 0, 255, 0));
+	CHECK(lineColour(NetClient::LeftLine) == video::SColor(255, 255, 0, 0));
+	CHECK(lineColour(NetClient::DiedLine) == video::SColor(255, 255, 0, 0));
+	CHECK(lineColour(NetClient::ErrorLine) == video::SColor(255, 255, 0, 0));
+	CHECK(lineColour(NetClient::ChatLine) == video::SColor(255, 255, 255, 255));
+	CHECK(lineColour(NetClient::ServerLine) == video::SColor(255, 255, 255, 255));
+}
+
+TEST_CASE("a chat line reaches the other player's line handler with its kind")
+{
+	Match match;
+	std::vector<std::pair<std::string, NetClient::LineKind> > heard;
+	LoopbackTransport ear(match.network);
+	NetClient listener(ear, [&match] { return match.now; },
+		remoteEvents([] { return (World*)nullptr; }, [&heard](const std::string& text, NetClient::LineKind kind) { heard.push_back({ text, kind }); },
+			match.guestSheets));
+	REQUIRE(match.session.host(4304, "Rook", 0));
+	REQUIRE(listener.connect("127.0.0.1", 4304, "Dana", 0));
+	protocol::State still{ 0, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, 0 };
+	for (int i = 0; i < 10; ++i)
+	{
+		match.now += 50;
+		match.session.tick();
+		match.host.update(still);
+		listener.update(still);
+	}
+	REQUIRE(listener.isJoined());
+	match.host.sendChat("evening");
+	for (int i = 0; i < 5; ++i)
+	{
+		match.now += 50;
+		match.session.tick();
+		match.host.update(still);
+		listener.update(still);
+	}
+	bool found = false;
+	for (const auto& line : heard)
+		found = found || (line.first == "Rook: evening" && line.second == NetClient::ChatLine);
+	CHECK(found);
 }

@@ -112,6 +112,7 @@ namespace character
 		int health() const { return health_; }
 		int maxHealth() const { return MAX_HEALTH; }
 		bool isDead() const { return health_ <= 0; }
+		void setHealth(int health) { health_ = health < 0 ? 0 : (health > MAX_HEALTH ? MAX_HEALTH : health); }
 		void survivalTick(double gameSeconds);
 		float water() const { return (float)water_; }
 		float hunger() const { return (float)hunger_; }

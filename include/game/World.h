@@ -16,6 +16,7 @@ public:
 	static const uint8_t IDLE_STATE = 0;
 	static const uint8_t WALKING_STATE = 3;
 	static constexpr irr::f32 START_HOUR = 8.0f;
+	static const int HURT_DAMAGE = 5;
 
 	World(irr::IrrlichtDevice* device, const char* model, const char* skin, std::function<void()> leave,
 		const character::CharacterSheet& sheet = character::CharacterSheet::create("", character::Gender::Male, character::Profession()));
@@ -38,6 +39,12 @@ public:
 	irr::f32 timeOfDay() const { return timeOfDay_; }
 	void setTimeOfDay(irr::f32 hours);
 	void advanceClock(irr::f32 seconds);
+	bool debugShown() const { return debugShown_; }
+	void teleport(irr::f32 x, irr::f32 y, irr::f32 z);
+	irr::f32 speed() const { return speed_; }
+	void setSpeed(irr::f32 speed) { speed_ = speed; }
+	void setHealth(int health) { sheet_.setHealth(health); }
+	void hurt() { sheet_.setHealth(sheet_.health() - HURT_DAMAGE); }
 	irr::scene::ILightSceneNode* sun() const { return sun_; }
 	irr::video::SColor skyZenith() const { return zenith_; }
 	irr::video::SColor skyHorizon() const { return horizon_; }
@@ -84,6 +91,8 @@ private:
 	irr::f32 unticked_;
 	irr::f32 compression_;
 	irr::f32 timeOfDay_;
+	irr::f32 speed_;
+	bool debugShown_;
 	irr::scene::ILightSceneNode* sun_;
 	irr::video::SColor zenith_;
 	irr::video::SColor horizon_;

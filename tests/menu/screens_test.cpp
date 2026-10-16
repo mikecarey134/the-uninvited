@@ -658,3 +658,63 @@ TEST_CASE("the HUD follows the world's draining character, and death puts YOU DI
 	std::filesystem::remove_all(directory);
 	device->drop();
 }
+
+TEST_CASE("with F3 on, Mike's debug panel is drawn over the game with the frame rate and the player's position, and it goes when F3 is pressed again")
+{
+	IrrlichtDevice* device = createDevice(video::EDT_NULL, core::dimension2d<u32>(1280, 720));
+	RecordingCanvas canvas;
+	canvas.screenDimension = core::dimension2d<u32>(1280, 720);
+	std::string directory = (std::filesystem::temp_directory_path() / "screens_debug").string();
+	std::filesystem::remove_all(directory);
+	{
+		menu::CharacterStore store(directory);
+		menu::MenuFlow flow(store, professions(), 3);
+		std::deque<std::string> status;
+		MenuScene backdrop(device);
+		MenuScreens screens(device, canvas, flow, nullptr, status, &backdrop);
+		flow.play();
+		flow.newCharacter();
+		REQUIRE(flow.create("Rook", character::Gender::Male, 0));
+		flow.highlight(0);
+		REQUIRE(flow.select());
+		flow.host();
+		flow.startServer();
+		World world(device, menu::characterModel(character::Gender::Male), menu::outfitSkin(character::Gender::Male, 0).c_str(), [] {});
+		world.teleport(5.0f, 0.0f, 6.0f);
+		screens.setWorld(&world);
+		auto panel = [&canvas]() -> std::wstring {
+			for (const RecordingCanvas::Call& call : canvas.calls)
+				if (call.kind == RecordingCanvas::TEXT && call.text.find(L"FPS:") != std::wstring::npos)
+					return call.text;
+			return L"";
+		};
+		canvas.calls.clear();
+		screens.draw();
+		CHECK(panel().empty());
+
+		SEvent f3;
+		f3.EventType = EET_KEY_INPUT_EVENT;
+		f3.KeyInput.Key = KEY_F3;
+		f3.KeyInput.PressedDown = true;
+		f3.KeyInput.Char = 0;
+		f3.KeyInput.Shift = false;
+		f3.KeyInput.Control = false;
+		world.onEvent(f3);
+		canvas.calls.clear();
+		screens.draw();
+		std::wstring text = panel();
+		REQUIRE_FALSE(text.empty());
+		CHECK(text.find(L"---GameCorev0.1.1---") != std::wstring::npos);
+		CHECK(text.find(L"X:5") != std::wstring::npos);
+		CHECK(text.find(L"Z:6") != std::wstring::npos);
+		CHECK(text.find(L"Prim Drawn:") != std::wstring::npos);
+
+		world.onEvent(f3);
+		canvas.calls.clear();
+		screens.draw();
+		CHECK(panel().empty());
+		screens.setWorld(nullptr);
+	}
+	std::filesystem::remove_all(directory);
+	device->drop();
+}

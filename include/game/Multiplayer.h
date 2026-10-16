@@ -6,10 +6,13 @@
 #include <string>
 #include "CharacterSheet.h"
 #include "client/NetClient.h"
+#include <irrlicht.h>
 
 class World;
 
-NetClient::Events remoteEvents(std::function<World*()> world, std::function<void(const std::string&)> line,
+irr::video::SColor lineColour(NetClient::LineKind kind);
+
+NetClient::Events remoteEvents(std::function<World*()> world, std::function<void(const std::string&, NetClient::LineKind)> line,
 	std::map<uint16_t, character::CharacterSheet>& sheets);
 
 #endif
