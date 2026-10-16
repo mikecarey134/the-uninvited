@@ -21,9 +21,8 @@ namespace
 	const rect<s32> pouchArt(20, 159, 1389, 957);
 	const s32 pouchWidth = 280;
 	const s32 pouchHeight = 163;
-	const s32 frameWidth = 140;
-	const rect<s32> weaponArt(22, 35, 1516, 976);
-	const rect<s32> weaponWindow(201, 171, 1335, 873);
+	const s32 slotWidth = 140;
+	const s32 slotHeight = 84;
 	const rect<s32> fistArt(260, 165, 1093, 1603);
 	const rect<s32> reticleArt(364, 349, 892, 887);
 	const rect<s32> frameArt(40, 42, 1215, 1203);
@@ -106,24 +105,14 @@ void drawVitals(Canvas& canvas, const character::CharacterSheet& sheet)
 	canvas.drawImage(canvas.loadTexture("assets/hud/weapon_panel.png"), pouch, pouchArt, seeThrough);
 	rect<s32> inside(pouch.UpperLeftCorner.X + pouchWidth * 58 / 1000, pouch.UpperLeftCorner.Y + pouchHeight * 164 / 1000,
 		pouch.UpperLeftCorner.X + pouchWidth * 833 / 1000, pouch.UpperLeftCorner.Y + pouchHeight * 903 / 1000);
-	s32 frameHeight = frameWidth * weaponArt.getHeight() / weaponArt.getWidth();
 	s32 middle = inside.getCenter().X;
-	rect<s32> weapon(middle - frameWidth / 2, inside.UpperLeftCorner.Y + 4, middle - frameWidth / 2 + frameWidth,
-		inside.UpperLeftCorner.Y + 4 + frameHeight);
-	f32 across = (f32)weapon.getWidth() / weaponArt.getWidth();
-	f32 down = (f32)weapon.getHeight() / weaponArt.getHeight();
-	rect<s32> window(weapon.UpperLeftCorner.X + (s32)((weaponWindow.UpperLeftCorner.X - weaponArt.UpperLeftCorner.X) * across),
-		weapon.UpperLeftCorner.Y + (s32)((weaponWindow.UpperLeftCorner.Y - weaponArt.UpperLeftCorner.Y) * down),
-		weapon.UpperLeftCorner.X + (s32)((weaponWindow.LowerRightCorner.X - weaponArt.UpperLeftCorner.X) * across),
-		weapon.UpperLeftCorner.Y + (s32)((weaponWindow.LowerRightCorner.Y - weaponArt.UpperLeftCorner.Y) * down));
-	s32 padding = window.getHeight() / 10;
-	rect<s32> room(window.UpperLeftCorner.X + padding, window.UpperLeftCorner.Y + padding, window.LowerRightCorner.X - padding,
-		window.LowerRightCorner.Y - padding);
-	canvas.drawImage(canvas.loadTexture(fistFile), fitted(fistArt, room), fistArt, opaque);
-	canvas.drawImage(canvas.loadTexture("assets/hud/weapon_frame.png"), weapon, weaponArt, opaque);
+	rect<s32> slot(middle - slotWidth / 2, inside.UpperLeftCorner.Y + 6, middle - slotWidth / 2 + slotWidth,
+		inside.UpperLeftCorner.Y + 6 + slotHeight);
+	rect<s32> fist = fitted(fistArt, slot);
+	canvas.drawImage(canvas.loadTexture(fistFile), fist, fistArt, opaque);
 	const wchar_t* ammo = L"--/--";
 	s32 textHeight = (s32)canvas.textSize(font, ammo).Height;
-	canvas.drawText(font, ammo, rect<s32>(middle - 60, weapon.LowerRightCorner.Y + 2, middle + 60, weapon.LowerRightCorner.Y + 4 + textHeight),
+	canvas.drawText(font, ammo, rect<s32>(middle - 60, fist.LowerRightCorner.Y + 4, middle + 60, fist.LowerRightCorner.Y + 6 + textHeight),
 		theme::text, true, true, false);
 
 	position2d<s32> centre((s32)screen.Width / 2, (s32)screen.Height / 2);

@@ -85,8 +85,7 @@ TEST_CASE("the vitals cluster sits tight in the top-left corner on the sheet-met
 	CHECK(panel.area.getHeight() >= 72 * 3 / 2);
 	CHECK(panel.area.getHeight() <= 72 * 2);
 	for (const RecordingCanvas::Call& call : canvas.calls)
-		if (call.kind != RecordingCanvas::TEXT && call.texture != image(canvas, "weapon_frame.png")->texture &&
-			call.texture != image(canvas, "reticle.png")->texture && call.texture != image(canvas, "weapon_panel.png")->texture &&
+		if (call.kind != RecordingCanvas::TEXT && call.texture != image(canvas, "reticle.png")->texture && call.texture != image(canvas, "weapon_panel.png")->texture &&
 			(call.kind != RecordingCanvas::IMAGE || canvas.pathOf(call.texture).find("hand") == std::string::npos))
 			CHECK(within(panel.area, call.area));
 }
@@ -200,32 +199,6 @@ TEST_CASE("a small crosshair is drawn last, centred exactly on the screen")
 	CHECK(image(canvas, "weapon_panel.png")->area.LowerRightCorner.X == 1920 - 12);
 }
 
-TEST_CASE("Mike's fist fills the weapon frame's window with padding, drawn under the frame, as the unarmed state")
-{
-	RecordingCanvas canvas;
-	canvas.screenDimension = dimension2d<u32>(1280, 720);
-	drawVitals(canvas, hurt(100, 100, 100));
-	const RecordingCanvas::Call* frame = image(canvas, "weapon_frame.png");
-	REQUIRE(frame != nullptr);
-	const RecordingCanvas::Call* fist = nullptr;
-	for (const RecordingCanvas::Call& call : canvas.calls)
-		if (call.kind == RecordingCanvas::IMAGE && canvas.pathOf(call.texture) == "engine/gamecorev0.1.1/gamecorev0.1.1/bill/icons/hand.jpg")
-			fist = &call;
-	REQUIRE(fist != nullptr);
-	CHECK(order(canvas, fist) < order(canvas, frame));
-	CHECK(fist->source.getWidth() > 0);
-	CHECK(fist->area.getCenter().X == doctest::Approx(frame->area.getCenter().X).epsilon(0.01));
-	CHECK(fist->area.getCenter().Y == doctest::Approx(frame->area.getCenter().Y).epsilon(0.02));
-	CHECK(fist->area.UpperLeftCorner.X > frame->area.UpperLeftCorner.X + frame->area.getWidth() / 8);
-	CHECK(fist->area.UpperLeftCorner.Y > frame->area.UpperLeftCorner.Y + frame->area.getHeight() / 7);
-	CHECK(fist->area.LowerRightCorner.Y < frame->area.LowerRightCorner.Y - frame->area.getHeight() / 9);
-	CHECK(fist->area.getHeight() > frame->area.getHeight() / 2);
-	f32 shape = (f32)fist->area.getWidth() / (f32)fist->area.getHeight();
-	f32 artShape = (f32)fist->source.getWidth() / (f32)fist->source.getHeight();
-	CHECK(shape == doctest::Approx(artShape).epsilon(0.05));
-}
-
-
 TEST_CASE("a see-through leather pouch sits in the bottom-right corner with the cluster's margin")
 {
 	RecordingCanvas canvas;
@@ -243,39 +216,47 @@ TEST_CASE("a see-through leather pouch sits in the bottom-right corner with the 
 	CHECK(pouch->source.getWidth() > 0);
 }
 
-TEST_CASE("the rusted metal frame sits on the leather in its upper part, holding only the unarmed fist")
+
+namespace
 {
-	RecordingCanvas canvas;
-	canvas.screenDimension = dimension2d<u32>(1280, 720);
-	drawVitals(canvas, hurt(100, 100, 100));
-	const RecordingCanvas::Call* pouch = image(canvas, "weapon_panel.png");
-	const RecordingCanvas::Call* frame = image(canvas, "weapon_frame.png");
-	REQUIRE(pouch != nullptr);
-	REQUIRE(frame != nullptr);
-	CHECK(order(canvas, pouch) < order(canvas, frame));
-	CHECK(within(pouch->area, frame->area));
-	CHECK(frame->area.getCenter().Y < pouch->area.getCenter().Y);
-	CHECK(frame->area.getWidth() >= pouch->area.getWidth() / 3);
-	CHECK(frame->source.getWidth() > 0);
-	for (const RecordingCanvas::Call& call : canvas.calls)
+	const RecordingCanvas::Call* fistOf(const RecordingCanvas& canvas)
 	{
-		if (&call == frame || &call == pouch || call.kind == RecordingCanvas::TEXT)
-			continue;
-		if (call.kind == RecordingCanvas::IMAGE && canvas.pathOf(call.texture).find("hand") != std::string::npos)
-			continue;
-		CHECK_FALSE(frame->area.isRectCollided(call.area));
+		for (const RecordingCanvas::Call& call : canvas.calls)
+			if (call.kind == RecordingCanvas::IMAGE && canvas.pathOf(call.texture) == "engine/gamecorev0.1.1/gamecorev0.1.1/bill/icons/hand.jpg")
+				return &call;
+		return nullptr;
 	}
 }
 
-TEST_CASE("the ammo readout shows --/-- on the leather, centred under the frame, in the bar numbers' style")
+TEST_CASE("Mike's fist sits straight on the leather, in its upper part, with no metal frame round it")
+{
+	RecordingCanvas canvas;
+	canvas.screenDimension = dimension2d<u32>(1280, 720);
+	drawVitals(canvas, hurt(100, 100, 100));
+	CHECK(image(canvas, "weapon_frame.png") == nullptr);
+	const RecordingCanvas::Call* pouch = image(canvas, "weapon_panel.png");
+	const RecordingCanvas::Call* fist = fistOf(canvas);
+	REQUIRE(pouch != nullptr);
+	REQUIRE(fist != nullptr);
+	CHECK(order(canvas, pouch) < order(canvas, fist));
+	CHECK(within(pouch->area, fist->area));
+	CHECK(fist->area.getCenter().Y < pouch->area.getCenter().Y);
+	CHECK(fist->area.getHeight() >= pouch->area.getHeight() / 3);
+	CHECK(fist->area.getCenter().X < pouch->area.getCenter().X);
+	f32 shape = (f32)fist->area.getWidth() / (f32)fist->area.getHeight();
+	f32 artShape = (f32)fist->source.getWidth() / (f32)fist->source.getHeight();
+	CHECK(shape == doctest::Approx(artShape).epsilon(0.05));
+}
+
+TEST_CASE("the ammo readout shows --/-- on the leather, centred under the fist, in the bar numbers' style")
 {
 	RecordingCanvas canvas;
 	canvas.screenDimension = dimension2d<u32>(1280, 720);
 	drawVitals(canvas, hurt(100, 100, 100));
 	const RecordingCanvas::Call* pouch = image(canvas, "weapon_panel.png");
-	const RecordingCanvas::Call* frame = image(canvas, "weapon_frame.png");
+	const RecordingCanvas::Call* fist = fistOf(canvas);
 	REQUIRE(pouch != nullptr);
-	REQUIRE(frame != nullptr);
+	REQUIRE(fist != nullptr);
 	const RecordingCanvas::Call* ammo = nullptr;
 	const RecordingCanvas::Call* number = nullptr;
 	for (const RecordingCanvas::Call& call : canvas.calls)
@@ -291,8 +272,7 @@ TEST_CASE("the ammo readout shows --/-- on the leather, centred under the frame,
 	CHECK(canvas.pathOf(ammo->font) == canvas.pathOf(number->font));
 	CHECK(ammo->colour == number->colour);
 	CHECK(ammo->hcenter);
-	CHECK(std::abs(ammo->area.getCenter().X - frame->area.getCenter().X) <= 1);
-	CHECK(ammo->area.UpperLeftCorner.Y >= frame->area.LowerRightCorner.Y);
+	CHECK(std::abs(ammo->area.getCenter().X - fist->area.getCenter().X) <= 1);
+	CHECK(ammo->area.UpperLeftCorner.Y >= fist->area.LowerRightCorner.Y);
 	CHECK(within(pouch->area, ammo->area));
-	CHECK(order(canvas, pouch) < order(canvas, ammo));
 }
