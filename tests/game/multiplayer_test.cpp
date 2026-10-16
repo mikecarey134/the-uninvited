@@ -56,6 +56,8 @@ namespace
 				guest.update(guestWorld->localState());
 				hostWorld->updateRemotes(0.05f);
 				guestWorld->updateRemotes(0.05f);
+				hostWorld->advanceClock(0.05f);
+				guestWorld->advanceClock(0.05f);
 			}
 		}
 
@@ -204,4 +206,25 @@ TEST_CASE("each player's full character arrives on the other side when they join
 	Lines none;
 	CHECK(command.invoke(array<WideString>(), nullptr, &none));
 	CHECK(none.text == std::vector<std::string>{ "No other players are connected" });
+}
+
+TEST_CASE("everyone who joins, the host included, takes the server's time of day and time compression from the welcome")
+{
+	Match match;
+	match.session.setClock(5.5f, 72.0f);
+	REQUIRE(match.session.host(4303, "Rook", menu::packAppearance(character::Gender::Male, 2), 2));
+	match.pump(5);
+	REQUIRE(match.host.isJoined());
+	CHECK(match.hostWorld->timeCompression() == 72.0f);
+	CHECK(match.hostWorld->timeOfDay() == doctest::Approx(5.5f).epsilon(0.01));
+	CHECK(match.guestWorld->timeCompression() == 1.0f);
+	CHECK(match.guestWorld->timeOfDay() == doctest::Approx(World::START_HOUR).epsilon(0.001));
+
+	match.pump(495);
+	REQUIRE(match.guest.connect("127.0.0.1", 4303, "Dana", menu::packAppearance(character::Gender::Female, 0)));
+	match.pump(5);
+	REQUIRE(match.guest.isJoined());
+	CHECK(match.guestWorld->timeCompression() == 72.0f);
+	CHECK(match.guestWorld->timeOfDay() == doctest::Approx(6.0f).epsilon(0.01));
+	CHECK(match.guestWorld->timeOfDay() == doctest::Approx(match.hostWorld->timeOfDay()).epsilon(0.002));
 }

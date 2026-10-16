@@ -1,5 +1,6 @@
 #include "doctest.h"
 #include "World.h"
+#include "Sky.h"
 #include <cmath>
 #include <algorithm>
 #include <string>
@@ -515,4 +516,98 @@ TEST_CASE("the state sent for the local player is where it stands, the way it fa
 	doomed.world->update(1.0f);
 	REQUIRE(doomed.world->dead());
 	CHECK_FALSE(protocol::isAlive(doomed.world->localState().state));
+}
+
+namespace
+{
+	vector3df sunDirection(World& world)
+	{
+		ILightSceneNode* sun = world.sun();
+		sun->updateAbsolutePosition();
+		vector3df direction(0.0f, 0.0f, 1.0f);
+		sun->getAbsoluteTransformation().rotateVect(direction);
+		return direction.normalize();
+	}
+}
+
+TEST_CASE("the world's clock starts at eight in the morning and runs at real seconds times the time compression, wrapping at midnight")
+{
+	Fixture fixture;
+	CHECK(World::START_HOUR == 8.0f);
+	CHECK(fixture.world->timeOfDay() == doctest::Approx(8.0f));
+	fixture.world->advanceClock(1800.0f);
+	CHECK(fixture.world->timeOfDay() == doctest::Approx(8.5f));
+	fixture.world->setTimeCompression(72.0f);
+	fixture.world->advanceClock(50.0f);
+	CHECK(fixture.world->timeOfDay() == doctest::Approx(9.5f));
+	fixture.world->advanceClock(20.0f * 60.0f);
+	CHECK(fixture.world->timeOfDay() == doctest::Approx(9.5f).epsilon(0.001));
+	fixture.world->setTimeOfDay(23.5f);
+	fixture.world->advanceClock(100.0f);
+	CHECK(fixture.world->timeOfDay() == doctest::Approx(1.5f).epsilon(0.001));
+	fixture.world->setTimeOfDay(-2.0f);
+	CHECK(fixture.world->timeOfDay() == doctest::Approx(22.0f));
+	fixture.world->setTimeOfDay(50.0f);
+	CHECK(fixture.world->timeOfDay() == doctest::Approx(2.0f));
+}
+
+TEST_CASE("pausing the world's survival does not stop its clock")
+{
+	Fixture fixture;
+	fixture.world->setTimeCompression(72.0f);
+	fixture.world->update(0.0f);
+	fixture.world->advanceClock(50.0f);
+	CHECK(fixture.world->timeOfDay() == doctest::Approx(9.0f));
+}
+
+TEST_CASE("the world's light, sun and sky follow its clock")
+{
+	Fixture fixture;
+	CHECK(fixture.world->scene()->getSceneNodeFromName("sky") == nullptr);
+	for (f32 hour : { 3.0f, 6.0f, 6.5f, 12.0f, 18.0f, 21.0f })
+	{
+		INFO(hour);
+		fixture.world->setTimeOfDay(hour);
+		SkyLook look = skyAt(hour);
+		video::SColorf ambient = fixture.world->scene()->getAmbientLight();
+		CHECK(ambient.r == doctest::Approx(look.ambient.r));
+		CHECK(ambient.b == doctest::Approx(look.ambient.b));
+		video::SColorf sun = fixture.world->sun()->getLightData().DiffuseColor;
+		CHECK(sun.r == doctest::Approx(look.sun.r));
+		CHECK(sun.g == doctest::Approx(look.sun.g));
+		CHECK(fixture.world->sun()->getLightType() == video::ELT_DIRECTIONAL);
+		vector3df direction = sunDirection(*fixture.world);
+		CHECK(direction.X == doctest::Approx(look.sunDirection.X).epsilon(0.01));
+		CHECK(direction.Y == doctest::Approx(look.sunDirection.Y).epsilon(0.01));
+		CHECK(direction.Z == doctest::Approx(look.sunDirection.Z).epsilon(0.01));
+		CHECK(fixture.world->skyHorizon() == look.horizon);
+		CHECK(fixture.world->skyZenith() == look.zenith);
+		fixture.world->draw();
+		video::SColor fog;
+		video::E_FOG_TYPE type;
+		f32 start, end, density;
+		bool pixel, range;
+		fixture.device->getVideoDriver()->getFog(fog, type, start, end, density, pixel, range);
+		CHECK(fog == look.horizon);
+	}
+	fixture.world->setTimeOfDay(11.0f);
+	fixture.world->advanceClock(3600.0f);
+	CHECK(fixture.world->skyHorizon() == skyAt(12.0f).horizon);
+	CHECK(fixture.world->scene()->getAmbientLight().g == doctest::Approx(skyAt(12.0f).ambient.g));
+}
+
+TEST_CASE("no prop gives off its own light, so night darkens every one of them")
+{
+	Fixture fixture;
+	int props = 0;
+	for (ISceneNode* node : fixture.world->scene()->getRootSceneNode()->getChildren())
+		if (std::string(node->getName()).compare(0, 5, "prop ") == 0)
+			for (u32 i = 0; i < node->getMaterialCount(); ++i)
+			{
+				INFO(node->getName());
+				video::SColor glow = node->getMaterial(i).EmissiveColor;
+				CHECK(glow.getRed() + glow.getGreen() + glow.getBlue() == 0u);
+				++props;
+			}
+	CHECK(props > 10);
 }

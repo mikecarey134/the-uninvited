@@ -43,6 +43,13 @@ NetClient::Events remoteEvents(std::function<World*()> world, std::function<void
 		if (World* at = world())
 			place(*at, remote);
 	};
+	events.clock = [world](float timeOfDay, float timeScale) {
+		if (World* at = world())
+		{
+			at->setTimeCompression(timeScale);
+			at->setTimeOfDay(timeOfDay);
+		}
+	};
 	events.left = [world, &sheets](uint16_t id) {
 		sheets.erase(id);
 		if (World* at = world())

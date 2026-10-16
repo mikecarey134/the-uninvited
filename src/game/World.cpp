@@ -1,4 +1,5 @@
 #include "World.h"
+#include "Sky.h"
 #include <algorithm>
 #include <cmath>
 #include <string>
@@ -10,7 +11,6 @@ using namespace video;
 
 namespace
 {
-	const SColor haze(255, 84, 54, 36);
 	const f32 groundSize = 200.0f;
 	const f32 groundTile = 4.0f;
 	const f32 fogStart = 20.0f;
@@ -50,12 +50,10 @@ const uint8_t World::WALKING_STATE;
 World::World(IrrlichtDevice* device, const char* model, const char* skin, std::function<void()> leave,
 	const character::CharacterSheet& sheet)
 	: device_(device), scene_(device->getSceneManager()->createNewSceneManager(false)), camera_(0), player_(0), leave_(leave),
-	walking_(false), yaw_(0.0f), feet_(0.0f), sheet_(sheet), unticked_(0.0f), compression_(1.0f), clock_(0.0f)
+	walking_(false), yaw_(0.0f), feet_(0.0f), sheet_(sheet), unticked_(0.0f), compression_(1.0f), timeOfDay_(START_HOUR), sun_(0), clock_(0.0f)
 {
 	for (bool& held : held_)
 		held = false;
-	if (ITexture* sky = device->getVideoDriver()->getTexture("menu-sky"))
-		scene_->addSkyDomeSceneNode(sky, 16, 8, 1.0f, 1.0f, 3000.0f)->setName("sky");
 	camera_ = scene_->addCameraSceneNode();
 	camera_->setNearValue(0.1f);
 	camera_->setFarValue(4000.0f);
@@ -120,7 +118,6 @@ void World::addProp(const char* name, const char* file, f32 x, f32 z, const vect
 		{
 			material.ColorMaterial = ECM_NONE;
 			material.AmbientColor = colour;
-			material.EmissiveColor = SColor(255, colour.getRed() * 3 / 10, colour.getGreen() * 3 / 10, colour.getBlue() * 3 / 10);
 		}
 		material.FogEnable = true;
 		material.NormalizeNormals = true;
@@ -182,10 +179,31 @@ IAnimatedMeshSceneNode* World::addCharacter(const char* model, const char* skin,
 
 void World::addLights()
 {
-	scene_->setAmbientLight(SColorf(0.35f, 0.3f, 0.26f));
-	ILightSceneNode* sun = scene_->addLightSceneNode(0, vector3df(), SColorf(0.85f, 0.7f, 0.55f));
-	sun->setLightType(ELT_DIRECTIONAL);
-	sun->setRotation(vector3df(50.0f, 30.0f, 0.0f));
+	sun_ = scene_->addLightSceneNode(0, vector3df(), SColorf(0.0f, 0.0f, 0.0f));
+	sun_->setLightType(ELT_DIRECTIONAL);
+	setTimeOfDay(timeOfDay_);
+}
+
+void World::setTimeOfDay(f32 hours)
+{
+	timeOfDay_ = std::fmod(hours, 24.0f);
+	if (timeOfDay_ < 0.0f)
+		timeOfDay_ += 24.0f;
+	SkyLook look = skyAt(timeOfDay_);
+	zenith_ = look.zenith;
+	horizon_ = look.horizon;
+	scene_->setAmbientLight(look.ambient);
+	if (sun_)
+	{
+		sun_->getLightData().DiffuseColor = look.sun;
+		sun_->getLightData().SpecularColor = look.sun;
+		sun_->setRotation(look.sunDirection.getHorizontalAngle());
+	}
+}
+
+void World::advanceClock(f32 seconds)
+{
+	setTimeOfDay(timeOfDay_ + seconds * compression_ / 3600.0f);
 }
 
 bool World::onEvent(const SEvent& event)
@@ -349,7 +367,7 @@ void World::draw()
 	IVideoDriver* driver = device_->getVideoDriver();
 	dimension2d<u32> screen = driver->getScreenSize();
 	camera_->setAspectRatio((f32)screen.Width / (f32)screen.Height);
-	driver->draw2DRectangle(haze, rect<s32>(0, 0, (s32)screen.Width, (s32)screen.Height));
-	driver->setFog(haze, EFT_FOG_LINEAR, fogStart, fogEnd, 0.01f, true, false);
+	driver->draw2DRectangle(rect<s32>(0, 0, (s32)screen.Width, (s32)screen.Height), zenith_, zenith_, horizon_, horizon_);
+	driver->setFog(horizon_, EFT_FOG_LINEAR, fogStart, fogEnd, 0.01f, true, false);
 	scene_->drawAll();
 }

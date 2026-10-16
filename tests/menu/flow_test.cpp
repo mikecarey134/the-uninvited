@@ -285,6 +285,7 @@ TEST_CASE("host game plays on the local server at the default port")
 	Fixture fixture("host");
 	fixture.createAndSelect("Fay");
 	fixture.flow.host();
+	fixture.flow.startServer();
 	CHECK(fixture.flow.screen() == Screen::Playing);
 	CHECK(fixture.flow.session() == Session::Host);
 	CHECK(fixture.flow.address() == "127.0.0.1");
@@ -292,6 +293,74 @@ TEST_CASE("host game plays on the local server at the default port")
 	CHECK(fixture.flow.chosen()->name() == "Fay");
 	fixture.flow.back();
 	CHECK(fixture.flow.screen() == Screen::Playing);
+}
+
+TEST_CASE("host game opens the world settings with a new world at real time for eight players, and back returns to world select")
+{
+	Fixture fixture("world_settings");
+	fixture.createAndSelect("Fay");
+	fixture.flow.host();
+	CHECK(fixture.flow.screen() == Screen::WorldSettings);
+	CHECK(fixture.flow.session() == Session::None);
+	CHECK(fixture.flow.worldName() == "New World");
+	CHECK(fixture.flow.timeMode() == TimeMode::RealTime);
+	CHECK(fixture.flow.maxPlayers() == 8);
+	fixture.flow.back();
+	CHECK(fixture.flow.screen() == Screen::WorldSelect);
+	fixture.flow.join();
+	CHECK(fixture.flow.screen() == Screen::JoinGame);
+	fixture.flow.host();
+	CHECK(fixture.flow.screen() == Screen::JoinGame);
+}
+
+TEST_CASE("the three time modes run a game day in 24 real hours, 12 real hours and 20 real minutes")
+{
+	CHECK(timeScale(TimeMode::RealTime) == 1.0f);
+	CHECK(timeScale(TimeMode::HalfSpeed) == 2.0f);
+	CHECK(timeScale(TimeMode::Fast) == 72.0f);
+	CHECK(24.0f * 3600.0f / timeScale(TimeMode::RealTime) == 24.0f * 3600.0f);
+	CHECK(24.0f * 3600.0f / timeScale(TimeMode::HalfSpeed) == 12.0f * 3600.0f);
+	CHECK(24.0f * 3600.0f / timeScale(TimeMode::Fast) == 20.0f * 60.0f);
+}
+
+TEST_CASE("start server checks the world name and player limit, then hosts with the chosen settings")
+{
+	Fixture fixture("start_server");
+	fixture.createAndSelect("Fay");
+	fixture.flow.host();
+	CHECK_FALSE(fixture.flow.startServer("   ", TimeMode::Fast, "4"));
+	CHECK(fixture.flow.message() == "Enter a world name");
+	const char* badCounts[] = { "", "0", "33", "x", "-2", "4 4", "999999999" };
+	for (const char* count : badCounts)
+	{
+		INFO(count);
+		CHECK_FALSE(fixture.flow.startServer("Ashes", TimeMode::Fast, count));
+		CHECK(fixture.flow.message() == "Max players must be a number from 1 to 32");
+	}
+	CHECK(fixture.flow.screen() == Screen::WorldSettings);
+
+	REQUIRE(fixture.flow.startServer("  Ashes  ", TimeMode::Fast, " 4 "));
+	CHECK(fixture.flow.message().empty());
+	CHECK(fixture.flow.screen() == Screen::Playing);
+	CHECK(fixture.flow.session() == Session::Host);
+	CHECK(fixture.flow.worldName() == "Ashes");
+	CHECK(fixture.flow.timeMode() == TimeMode::Fast);
+	CHECK(fixture.flow.timeScale() == 72.0f);
+	CHECK(fixture.flow.maxPlayers() == 4);
+	CHECK(fixture.flow.port() == DEFAULT_PORT);
+	CHECK_FALSE(fixture.flow.startServer("Again", TimeMode::RealTime, "8"));
+
+	fixture.flow.returnToTitle();
+	fixture.flow.play();
+	fixture.flow.highlight(0);
+	REQUIRE(fixture.flow.select());
+	fixture.flow.host();
+	CHECK(fixture.flow.worldName() == "New World");
+	CHECK(fixture.flow.timeMode() == TimeMode::RealTime);
+	CHECK(fixture.flow.maxPlayers() == 8);
+	REQUIRE(fixture.flow.startServer("Small", TimeMode::HalfSpeed, "1"));
+	CHECK(fixture.flow.timeScale() == 2.0f);
+	CHECK(fixture.flow.maxPlayers() == 1);
 }
 
 TEST_CASE("the menu's default port is the server's")
@@ -340,6 +409,7 @@ TEST_CASE("leaving the game returns to the title with no session")
 	Fixture fixture("leave");
 	fixture.createAndSelect("Ike");
 	fixture.flow.host();
+	fixture.flow.startServer();
 	fixture.flow.returnToTitle();
 	CHECK(fixture.flow.screen() == Screen::Title);
 	CHECK(fixture.flow.session() == Session::None);
@@ -355,6 +425,7 @@ TEST_CASE("buttons from other screens do nothing")
 	Fixture fixture("other_screens");
 	fixture.flow.newCharacter();
 	fixture.flow.host();
+	fixture.flow.startServer();
 	fixture.flow.join();
 	CHECK_FALSE(fixture.flow.select());
 	CHECK_FALSE(fixture.flow.connect("a", "1"));
@@ -405,6 +476,7 @@ TEST_CASE("player_stats in a hosted session prints the created character exactly
 	session.highlight(0);
 	REQUIRE(session.select());
 	session.host();
+	session.startServer();
 	REQUIRE(session.screen() == Screen::Playing);
 
 	PlayerStatsCommand command([&session] { return session.chosen(); });
@@ -447,6 +519,7 @@ TEST_CASE("a character without a bloodline reports none after a restart")
 	session.highlight(0);
 	REQUIRE(session.select());
 	session.host();
+	session.startServer();
 	PlayerStatsCommand command([&session] { return session.chosen(); });
 	Lines out;
 	command.invoke(array<WideString>(), nullptr, &out);

@@ -111,6 +111,7 @@ TEST_CASE("the character stands in the scene from create or select onward, and n
 	CHECK(menu.backdrop->character() != nullptr);
 	menu.flow.back();
 	menu.flow.host();
+	menu.flow.startServer();
 	menu.screens->draw();
 	CHECK(menu.flow.screen() == menu::Screen::Playing);
 	CHECK(menu.backdrop->character() != nullptr);
@@ -120,6 +121,79 @@ TEST_CASE("the character stands in the scene from create or select onward, and n
 	menu.flow.settings();
 	menu.screens->draw();
 	CHECK(menu.backdrop->character() == nullptr);
+}
+
+TEST_CASE("host game opens world settings: a world name, three time modes, a player limit and Start Server, which hosts with them")
+{
+	Menu menu("screens_world_settings");
+	menu.flow.play();
+	menu.flow.newCharacter();
+	REQUIRE(menu.flow.create("Dana", character::Gender::Female, 0));
+	menu.flow.highlight(0);
+	REQUIRE(menu.flow.select());
+	menu.screens->draw();
+	IGUIElement* root = menu.device->getGUIEnvironment()->getRootGUIElement();
+	CHECK(root->getElementFromId(MenuScreens::GUI_ID_START, true) == nullptr);
+	CHECK(root->getElementFromId(MenuScreens::GUI_ID_WORLD_NAME, true) == nullptr);
+
+	menu.press(MenuScreens::GUI_ID_HOST);
+	CHECK(menu.flow.screen() == menu::Screen::WorldSettings);
+	menu.screens->draw();
+	IGUIElement* name = root->getElementFromId(MenuScreens::GUI_ID_WORLD_NAME, true);
+	IGUIElement* players = root->getElementFromId(MenuScreens::GUI_ID_MAX_PLAYERS, true);
+	REQUIRE(name != nullptr);
+	REQUIRE(players != nullptr);
+	CHECK(std::wstring(name->getText()) == L"New World");
+	CHECK(std::wstring(players->getText()) == L"8");
+	IGUIElement* start = root->getElementFromId(MenuScreens::GUI_ID_START, true);
+	REQUIRE(start != nullptr);
+	for (int i = 0; i < 3; ++i)
+	{
+		IGUIElement* mode = root->getElementFromId(MenuScreens::GUI_ID_TIME_FIRST + i, true);
+		REQUIRE(mode != nullptr);
+		CHECK(mode->getAbsolutePosition().UpperLeftCorner.Y > name->getAbsolutePosition().LowerRightCorner.Y);
+		CHECK(mode->getAbsolutePosition().LowerRightCorner.Y < players->getAbsolutePosition().UpperLeftCorner.Y);
+	}
+
+	menu.press(MenuScreens::GUI_ID_TIME_FIRST + 2);
+	name->setText(L"Ashes");
+	players->setText(L"3");
+	menu.press(MenuScreens::GUI_ID_START);
+	CHECK(menu.flow.screen() == menu::Screen::Playing);
+	CHECK(menu.flow.worldName() == "Ashes");
+	CHECK(menu.flow.timeMode() == menu::TimeMode::Fast);
+	CHECK(menu.flow.maxPlayers() == 3);
+}
+
+TEST_CASE("the host and join cards switch between world settings and the address form, and back returns to the characters")
+{
+	Menu menu("screens_world_cards");
+	menu.flow.play();
+	menu.flow.newCharacter();
+	REQUIRE(menu.flow.create("Dana", character::Gender::Female, 0));
+	menu.flow.highlight(0);
+	REQUIRE(menu.flow.select());
+	menu.screens->draw();
+	menu.press(MenuScreens::GUI_ID_HOST);
+	menu.screens->draw();
+	menu.press(MenuScreens::GUI_ID_TIME_FIRST + 1);
+	menu.press(MenuScreens::GUI_ID_JOIN);
+	CHECK(menu.flow.screen() == menu::Screen::JoinGame);
+	menu.screens->draw();
+	menu.press(MenuScreens::GUI_ID_HOST);
+	CHECK(menu.flow.screen() == menu::Screen::WorldSettings);
+	menu.screens->draw();
+	menu.press(MenuScreens::GUI_ID_START);
+	CHECK(menu.flow.timeMode() == menu::TimeMode::RealTime);
+	menu.flow.returnToTitle();
+	menu.flow.play();
+	menu.flow.highlight(0);
+	REQUIRE(menu.flow.select());
+	menu.screens->draw();
+	menu.press(MenuScreens::GUI_ID_HOST);
+	menu.screens->draw();
+	menu.press(MenuScreens::GUI_ID_BACK);
+	CHECK(menu.flow.screen() == menu::Screen::CharacterSelect);
 }
 
 TEST_CASE("a click on a widget never starts turning the character, even on the scene side")
@@ -218,6 +292,7 @@ TEST_CASE("select and the game screens stand each saved character as their own g
 	menu.flow.highlight(dana);
 	REQUIRE(menu.flow.select());
 	menu.flow.host();
+	menu.flow.startServer();
 	menu.screens->draw();
 	CHECK(endsWith(menu.backdrop->characterModel(), "stick_dan.ms3d"));
 }
@@ -292,6 +367,7 @@ TEST_CASE("the outfit picked on create is saved and worn on select and in the ga
 	CHECK(endsWith(skinOf(menu.backdrop), "playerskin_m3.jpg"));
 	REQUIRE(menu.flow.select());
 	menu.flow.host();
+	menu.flow.startServer();
 	menu.screens->draw();
 	CHECK(endsWith(skinOf(menu.backdrop), "playerskin_m3.jpg"));
 }
@@ -410,6 +486,7 @@ TEST_CASE("once a world is attached the game screen hands the scene over to it, 
 	menu.flow.highlight(0);
 	REQUIRE(menu.flow.select());
 	menu.flow.host();
+	menu.flow.startServer();
 	menu.screens->draw();
 	REQUIRE(menu.backdrop->character() != nullptr);
 	World world(menu.device, menu::characterModel(character::Gender::Female), menu::outfitSkin(character::Gender::Female, 0).c_str(), [] {});
@@ -462,6 +539,7 @@ TEST_CASE("the vitals HUD shows only in the world, replacing the big name headin
 		screens.draw();
 		CHECK_FALSE(hud());
 		flow.host();
+		flow.startServer();
 		canvas.calls.clear();
 		screens.draw();
 		CHECK_FALSE(hud());
@@ -501,6 +579,7 @@ TEST_CASE("the HUD follows the world's draining character, and death puts YOU DI
 		flow.highlight(0);
 		REQUIRE(flow.select());
 		flow.host();
+		flow.startServer();
 		std::string text = flow.chosen()->toText();
 		for (const char* key : { "water", "hunger" })
 		{

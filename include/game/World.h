@@ -15,6 +15,7 @@ class World : public InputLayer
 public:
 	static const uint8_t IDLE_STATE = 0;
 	static const uint8_t WALKING_STATE = 3;
+	static constexpr irr::f32 START_HOUR = 8.0f;
 
 	World(irr::IrrlichtDevice* device, const char* model, const char* skin, std::function<void()> leave,
 		const character::CharacterSheet& sheet = character::CharacterSheet::create("", character::Gender::Male, character::Profession()));
@@ -34,6 +35,12 @@ public:
 	bool dead() const { return sheet_.isDead(); }
 	irr::f32 timeCompression() const { return compression_; }
 	void setTimeCompression(irr::f32 compression) { compression_ = compression; }
+	irr::f32 timeOfDay() const { return timeOfDay_; }
+	void setTimeOfDay(irr::f32 hours);
+	void advanceClock(irr::f32 seconds);
+	irr::scene::ILightSceneNode* sun() const { return sun_; }
+	irr::video::SColor skyZenith() const { return zenith_; }
+	irr::video::SColor skyHorizon() const { return horizon_; }
 	protocol::State localState() const;
 
 	void addRemote(uint16_t id, const char* model, const char* skin);
@@ -76,6 +83,10 @@ private:
 	character::CharacterSheet sheet_;
 	irr::f32 unticked_;
 	irr::f32 compression_;
+	irr::f32 timeOfDay_;
+	irr::scene::ILightSceneNode* sun_;
+	irr::video::SColor zenith_;
+	irr::video::SColor horizon_;
 	std::map<uint16_t, Remote> remotes_;
 	irr::f32 clock_;
 };

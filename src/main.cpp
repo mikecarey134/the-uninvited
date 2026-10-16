@@ -108,7 +108,9 @@ namespace
 				uint8_t look = flow.chosen() ? menu::packAppearance(flow.chosen()->gender(), flow.chosen()->outfit()) : 0;
 				client.setProfile(flow.chosen() ? character::packProfile(*flow.chosen()) : std::vector<uint8_t>());
 				bool hosting = flow.session() == menu::Session::Host;
-				bool connecting = hosting ? session.host(flow.port(), name, look) : session.join(flow.address(), flow.port(), name, look);
+				if (hosting)
+					session.setClock(World::START_HOUR, flow.timeScale());
+				bool connecting = hosting ? session.host(flow.port(), name, look, flow.maxPlayers()) : session.join(flow.address(), flow.port(), name, look);
 				if (!connecting)
 					status.push_back(hosting ? "Port " + std::to_string(flow.port()) + " is already in use"
 						: "Unable to reach " + flow.address() + ":" + std::to_string(flow.port()));
@@ -117,6 +119,8 @@ namespace
 				{
 					world.reset(new World(device, menu::characterModel(chosen->gender()),
 						menu::outfitSkin(chosen->gender(), chosen->outfit()).c_str(), [&flow] { flow.returnToTitle(); }, *chosen));
+					if (hosting)
+						world->setTimeCompression(flow.timeScale());
 					screens.setWorld(world.get());
 					router.push(world.get());
 					router.push(&notebook);
@@ -156,7 +160,10 @@ namespace
 			session.tick();
 			client.update(world ? world->localState() : protocol::State{ 0, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, 0 });
 			if (world)
+			{
 				world->updateRemotes(seconds);
+				world->advanceClock(seconds);
+			}
 
 			device->getVideoDriver()->beginScene(true, true, video::SColor(255,0,0,0));
 			screens.draw();

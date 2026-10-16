@@ -83,13 +83,13 @@ MenuScreens::MenuScreens(IrrlichtDevice* device, Canvas& canvas, menu::MenuFlow&
 	const std::deque<std::string>& status, MenuScene* backdrop)
 	: device_(device), canvas_(canvas), flow_(flow), sound_(sound), status_(status),
 	panel_(device->getGUIEnvironment(), canvas.screenSize()), built_(Screen::Title), hasBuilt_(false),
-	gender_(character::Gender::Male), outfit_(0), backdrop_(backdrop), world_(nullptr), turning_(false), turnFromX_(0)
+	gender_(character::Gender::Male), outfit_(0), timeMode_(menu::TimeMode::RealTime), backdrop_(backdrop), world_(nullptr), turning_(false), turnFromX_(0)
 {
 }
 
 void MenuScreens::showCharacter()
 {
-	bool playing = built_ == Screen::WorldSelect || built_ == Screen::JoinGame || built_ == Screen::Playing;
+	bool playing = built_ == Screen::WorldSelect || built_ == Screen::WorldSettings || built_ == Screen::JoinGame || built_ == Screen::Playing;
 	bool wanted = built_ == Screen::CharacterCreation || (built_ == Screen::CharacterSelect && flow_.highlighted() >= 0) ||
 		(playing && flow_.chosen() && !(world_ && built_ == Screen::Playing));
 	if (!backdrop_)
@@ -269,6 +269,7 @@ void MenuScreens::build()
 	}
 
 	case Screen::WorldSelect:
+	case Screen::WorldSettings:
 	case Screen::JoinGame:
 	{
 		header("Host or Join");
@@ -280,7 +281,18 @@ void MenuScreens::build()
 			addTextBox(GUI_ID_ADDRESS, rect<s32>(left, 210, middle + 96, 246), "", 253, true);
 			addTextBox(GUI_ID_PORT, rect<s32>(middle + 104, 210, right, 246), std::to_string(menu::DEFAULT_PORT), 5, false);
 		}
-		addButton(GUI_ID_START, rect<s32>(left + 128, bottomTop, right, bottomBottom), joining ? "Connect" : "Start Server", Style::Primary);
+		if (built_ == Screen::WorldSettings)
+		{
+			timeMode_ = menu::TimeMode::RealTime;
+			addTextBox(GUI_ID_WORLD_NAME, rect<s32>(left, 210, right, 246), menu::DEFAULT_WORLD_NAME, 32, true);
+			const char* const modes[] = { "Real Time (1:1)", "Half Speed", "Fast" };
+			s32 width = (right - left - 16) / 3;
+			for (s32 i = 0; i < 3; ++i)
+				addButton(GUI_ID_TIME_FIRST + i, rect<s32>(left + i * (width + 8), 282, left + i * (width + 8) + width, 314), modes[i], Style::Choice);
+			addTextBox(GUI_ID_MAX_PLAYERS, rect<s32>(left, 376, left + 120, 412), std::to_string(menu::DEFAULT_MAX_PLAYERS), 2, false);
+		}
+		if (built_ != Screen::WorldSelect)
+			addButton(GUI_ID_START, rect<s32>(left + 128, bottomTop, right, bottomBottom), joining ? "Connect" : "Start Server", Style::Primary);
 		break;
 	}
 
@@ -333,7 +345,10 @@ bool MenuScreens::isChosen(s32 id) const
 	{
 	case GUI_ID_MALE: return gender_ == character::Gender::Male;
 	case GUI_ID_FEMALE: return gender_ == character::Gender::Female;
-	case GUI_ID_HOST: return built_ == Screen::WorldSelect;
+	case GUI_ID_TIME_FIRST: return timeMode_ == menu::TimeMode::RealTime;
+	case GUI_ID_TIME_FIRST + 1: return timeMode_ == menu::TimeMode::HalfSpeed;
+	case GUI_ID_TIME_FIRST + 2: return timeMode_ == menu::TimeMode::Fast;
+	case GUI_ID_HOST: return built_ == Screen::WorldSettings;
 	case GUI_ID_JOIN: return built_ == Screen::JoinGame;
 	default: return false;
 	}
@@ -469,7 +484,7 @@ void MenuScreens::draw()
 	showCharacter();
 	if (built_ == Screen::CharacterCreation)
 		drawAegis();
-	if (built_ == Screen::WorldSelect || built_ == Screen::JoinGame || built_ == Screen::Playing)
+	if (built_ == Screen::WorldSelect || built_ == Screen::WorldSettings || built_ == Screen::JoinGame || built_ == Screen::Playing)
 		drawNameplate();
 
 	if (built_ == Screen::Title)
@@ -504,6 +519,15 @@ void MenuScreens::draw()
 		}
 		break;
 	}
+	case Screen::WorldSettings:
+	{
+		label("WORLD NAME", left, 192);
+		label("TIME", left, 264);
+		const char* const days[] = { "24 real hours per game day", "12 real hours per game day", "20 real minutes per game day" };
+		text(canvas_.loadFont(bodyFont), days[(int)timeMode_], left, 322, theme::muted);
+		label("MAX PLAYERS", left, 358);
+		break;
+	}
 	case Screen::JoinGame:
 		label("SERVER ADDRESS", left, 192);
 		label("PORT", middle + 104, 192);
@@ -511,7 +535,7 @@ void MenuScreens::draw()
 	case Screen::Playing:
 	{
 		std::string where = flow_.session() == menu::Session::Host
-			? "Hosting on port " + std::to_string(flow_.port())
+			? "Hosting " + flow_.worldName() + " on port " + std::to_string(flow_.port())
 			: "Joining " + flow_.address() + ":" + std::to_string(flow_.port());
 		s32 y = world_ ? 152 : contentY;
 		text(canvas_.loadFont(bodyFont), where, left, y, theme::muted);
@@ -554,7 +578,7 @@ bool MenuScreens::clicked(s32 id)
 	case GUI_ID_SETTINGS: flow_.settings(); break;
 	case GUI_ID_QUIT: flow_.quit(); break;
 	case GUI_ID_BACK:
-		if (flow_.screen() == Screen::JoinGame)
+		if (flow_.screen() == Screen::JoinGame || flow_.screen() == Screen::WorldSettings)
 			flow_.back();
 		flow_.back();
 		break;
@@ -580,13 +604,22 @@ bool MenuScreens::clicked(s32 id)
 	case GUI_ID_HOST:
 		if (flow_.screen() == Screen::JoinGame)
 			flow_.back();
+		flow_.host();
 		break;
-	case GUI_ID_JOIN: flow_.join(); break;
+	case GUI_ID_JOIN:
+		if (flow_.screen() == Screen::WorldSettings)
+			flow_.back();
+		flow_.join();
+		break;
+	case GUI_ID_WORLD_NAME:
+	case GUI_ID_MAX_PLAYERS:
+		flow_.startServer(panel_.text(GUI_ID_WORLD_NAME), timeMode_, panel_.text(GUI_ID_MAX_PLAYERS));
+		break;
 	case GUI_ID_ADDRESS:
 	case GUI_ID_PORT:
 	case GUI_ID_START:
-		if (flow_.screen() == Screen::WorldSelect)
-			flow_.host();
+		if (flow_.screen() == Screen::WorldSettings)
+			flow_.startServer(panel_.text(GUI_ID_WORLD_NAME), timeMode_, panel_.text(GUI_ID_MAX_PLAYERS));
 		else
 			flow_.connect(panel_.text(GUI_ID_ADDRESS), panel_.text(GUI_ID_PORT));
 		break;
@@ -596,6 +629,8 @@ bool MenuScreens::clicked(s32 id)
 			flow_.adjust(id - GUI_ID_MINUS_FIRST, -1);
 		else if (id >= GUI_ID_PLUS_FIRST && id < GUI_ID_PLUS_FIRST + character::ATTRIBUTE_COUNT)
 			flow_.adjust(id - GUI_ID_PLUS_FIRST, 1);
+		else if (id >= GUI_ID_TIME_FIRST && id < GUI_ID_TIME_FIRST + 3)
+			timeMode_ = (menu::TimeMode)(id - GUI_ID_TIME_FIRST);
 		else
 			return false;
 	}

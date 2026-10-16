@@ -8,10 +8,16 @@
 
 namespace menu
 {
-	enum class Screen { Title, Settings, CharacterSelect, CharacterCreation, WorldSelect, JoinGame, Playing, Quit };
+	enum class Screen { Title, Settings, CharacterSelect, CharacterCreation, WorldSelect, WorldSettings, JoinGame, Playing, Quit };
 	enum class Session { None, Host, Join };
+	enum class TimeMode { RealTime, HalfSpeed, Fast };
+
+	float timeScale(TimeMode mode);
 
 	const uint16_t DEFAULT_PORT = 25515;
+	const char* const DEFAULT_WORLD_NAME = "New World";
+	const int DEFAULT_MAX_PLAYERS = 8;
+	const int MOST_PLAYERS = 32;
 
 	class MenuFlow
 	{
@@ -41,6 +47,8 @@ namespace menu
 
 		void host();
 		void join();
+		bool startServer(const std::string& worldName = DEFAULT_WORLD_NAME, TimeMode mode = TimeMode::RealTime,
+			const std::string& maxPlayers = std::to_string(DEFAULT_MAX_PLAYERS));
 		bool connect(const std::string& address, const std::string& port);
 		void returnToTitle();
 
@@ -48,6 +56,10 @@ namespace menu
 		Session session() const { return session_; }
 		const std::string& address() const { return address_; }
 		uint16_t port() const { return port_; }
+		const std::string& worldName() const { return worldName_; }
+		TimeMode timeMode() const { return timeMode_; }
+		float timeScale() const { return menu::timeScale(timeMode_); }
+		int maxPlayers() const { return maxPlayers_; }
 
 	private:
 		void reload();
@@ -62,6 +74,9 @@ namespace menu
 		Session session_ = Session::None;
 		std::string address_;
 		uint16_t port_ = DEFAULT_PORT;
+		std::string worldName_ = DEFAULT_WORLD_NAME;
+		TimeMode timeMode_ = TimeMode::RealTime;
+		int maxPlayers_ = DEFAULT_MAX_PLAYERS;
 		std::mt19937 random_;
 		int bloodlineOneIn_;
 		character::Aegis draft_;
