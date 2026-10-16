@@ -92,3 +92,24 @@ TEST_CASE("each skill has exactly its governing attributes, and Cooking has none
 	CHECK(governingAttributes(SPEECH) == Attributes{ GUILE });
 	CHECK(governingAttributes(CONSTRUCTION) == Attributes{ STRENGTH, ENDURANCE });
 }
+
+TEST_CASE("the starting skill pool is forty times Intelligence over Intelligence plus twenty, to the nearest point")
+{
+	CHECK(skillPointPool(20) == 20);
+	CHECK(skillPointPool(50) == 29);
+	CHECK(skillPointPool(100) == 33);
+	CHECK(skillPointPool(250) == 37);
+	CHECK(skillPointPool(10) == 13);
+	CHECK(skillPointPool(0) == 0);
+	CHECK(skillPointPool(1000000) == 40);
+}
+
+TEST_CASE("setSkill sets a skill's starting value by its id, the same as its named setter")
+{
+	CharacterSheet sheet = CharacterSheet::create("Ivy", Gender::Female, Profession{ "Chef", { { COOKING, 30 } }, {} });
+	sheet.setSkill(COOKING, 37);
+	sheet.setSkill(SPEECH, 4);
+	CHECK(sheet.getCooking() == 37);
+	CHECK(sheet.getSpeech() == 4);
+	CHECK(sheet.skill(MEDICINE) == 0);
+}

@@ -10,6 +10,7 @@ namespace character
 	const double WATER_EMPTY_DAYS = 3.0;
 	const double HUNGER_EMPTY_DAYS = 7.0;
 
+	int skillPointPool(int intelligence);
 	double waterDrainPerSecond(int endurance);
 	double hungerDrainPerSecond(int endurance);
 
@@ -86,6 +87,7 @@ namespace character
 		const std::string& bloodlineName() const { return aegis_.bloodline; }
 
 		int skill(int skill) const;
+		void setSkill(int skill, int value) { startingSkills_[skill] = value; }
 		int getSmithing() const { return skill(SMITHING); }
 		void setSmithing(int value) { startingSkills_[SMITHING] = value; }
 		int getChemistry() const { return skill(CHEMISTRY); }

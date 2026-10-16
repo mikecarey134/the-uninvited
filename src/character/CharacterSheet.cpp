@@ -1,4 +1,5 @@
 #include "CharacterSheet.h"
+#include <cmath>
 #include <algorithm>
 #include <cstdio>
 
@@ -171,6 +172,11 @@ namespace character
 			double base = 2.0 * 100.0 / (emptyDays * GAME_DAY_SECONDS);
 			return base / (1.0 + endurance / 20.0);
 		}
+	}
+
+	int skillPointPool(int intelligence)
+	{
+		return (int)std::lround(40.0 * intelligence / (intelligence + 20.0));
 	}
 
 	double waterDrainPerSecond(int endurance)

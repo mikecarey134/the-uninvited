@@ -23,6 +23,8 @@ namespace
 	const s32 formRight = 448;
 	const s32 statTop = 428;
 	const s32 statRow = 28;
+	const s32 skillTop = 150;
+	const s32 skillRow = 32;
 	const s32 headingY = 40;
 	const s32 contentY = 104;
 	const s32 bottomTop = 632;
@@ -91,7 +93,7 @@ MenuScreens::MenuScreens(IrrlichtDevice* device, Canvas& canvas, menu::MenuFlow&
 void MenuScreens::showCharacter()
 {
 	bool playing = built_ == Screen::WorldSelect || built_ == Screen::WorldSettings || built_ == Screen::JoinGame || built_ == Screen::Playing;
-	bool wanted = built_ == Screen::CharacterCreation || (built_ == Screen::CharacterSelect && flow_.highlighted() >= 0) ||
+	bool wanted = built_ == Screen::CharacterCreation || built_ == Screen::SkillAllocation || (built_ == Screen::CharacterSelect && flow_.highlighted() >= 0) ||
 		(playing && flow_.chosen() && !(world_ && built_ == Screen::Playing));
 	if (!backdrop_)
 		return;
@@ -236,15 +238,16 @@ void MenuScreens::build()
 	case Screen::CharacterCreation:
 	{
 		header("New Character");
-		gender_ = character::Gender::Male;
-		outfit_ = 0;
-		addTextBox(GUI_ID_NAME, rect<s32>(left, 118, formRight, 154), "", menu::MAX_NAME_LENGTH, true);
+		const menu::PendingCharacter* pending = flow_.pending();
+		gender_ = pending ? pending->gender : character::Gender::Male;
+		outfit_ = pending ? pending->outfit : 0;
+		addTextBox(GUI_ID_NAME, rect<s32>(left, 118, formRight, 154), pending ? pending->name : "", menu::MAX_NAME_LENGTH, true);
 		addButton(GUI_ID_MALE, rect<s32>(left, 184, (left + formRight) / 2 - 4, 216), "Male", Style::Choice);
 		addButton(GUI_ID_FEMALE, rect<s32>((left + formRight) / 2 + 4, 184, formRight, 216), "Female", Style::Choice);
 		std::vector<std::string> professions;
 		for (const character::Profession& profession : flow_.professions())
 			professions.push_back("  " + profession.name + "   -   " + bonuses(profession));
-		IGUIListBox* list = panel_.list(place(rect<s32>(left, 244, formRight, 418)), GUI_ID_PROFESSION, professions, 0);
+		IGUIListBox* list = panel_.list(place(rect<s32>(left, 244, formRight, 418)), GUI_ID_PROFESSION, professions, pending ? pending->profession : 0);
 		IGUISkin* skin = device_->getGUIEnvironment()->getSkin();
 		s32 room = list->getAbsolutePosition().getWidth() - skin->getSize(EGDS_SCROLLBAR_SIZE) - 2 * skin->getSize(EGDS_TEXT_DISTANCE_X);
 		IGUIFont* font = device_->getGUIEnvironment()->getFont(bodyFont);
@@ -267,6 +270,19 @@ void MenuScreens::build()
 		addButton(GUI_ID_OUTFIT_PREVIOUS, outfitPrevious, "<", Style::Choice);
 		addButton(GUI_ID_OUTFIT_NEXT, outfitNext, ">", Style::Choice);
 		addButton(GUI_ID_CREATE, rect<s32>(left + 128, bottomTop, formRight, bottomBottom), "Create Character", Style::Primary);
+		break;
+	}
+
+	case Screen::SkillAllocation:
+	{
+		header("Skills");
+		for (s32 i = 0; i < character::SKILL_COUNT; ++i)
+		{
+			s32 y = skillTop + i * skillRow;
+			addButton(GUI_ID_SKILL_MINUS_FIRST + i, rect<s32>(left + 268, y + 4, left + 292, y + 28), "-", Style::Step);
+			addButton(GUI_ID_SKILL_PLUS_FIRST + i, rect<s32>(left + 300, y + 4, left + 324, y + 28), "+", Style::Step);
+		}
+		addButton(GUI_ID_CONFIRM, rect<s32>(left + 128, bottomTop, formRight, bottomBottom), "Confirm", Style::Primary);
 		break;
 	}
 
@@ -315,6 +331,10 @@ bool MenuScreens::isEnabled(s32 id) const
 		return draft.unplaced() > 0;
 	if (id >= GUI_ID_MINUS_FIRST && id < GUI_ID_MINUS_FIRST + character::ATTRIBUTE_COUNT)
 		return draft.placed[id - GUI_ID_MINUS_FIRST] > 0;
+	if (id >= GUI_ID_SKILL_PLUS_FIRST && id < GUI_ID_SKILL_PLUS_FIRST + character::SKILL_COUNT)
+		return flow_.skillsUnplaced() > 0;
+	if (id >= GUI_ID_SKILL_MINUS_FIRST && id < GUI_ID_SKILL_MINUS_FIRST + character::SKILL_COUNT)
+		return flow_.skillPlaced(id - GUI_ID_SKILL_MINUS_FIRST) > 0;
 	if (id == GUI_ID_OUTFIT_PREVIOUS || id == GUI_ID_OUTFIT_NEXT)
 		return menu::outfitSkins(gender_).size() > 1;
 	return true;
@@ -339,6 +359,24 @@ void MenuScreens::drawAegis()
 	if (draft.hasBloodline)
 		canvas_.drawText(bodyType, wide("Bloodline: " + draft.bloodline).c_str(), rect<s32>(left, y + statRow, formRight, y + 2 * statRow),
 			theme::text, false, true);
+}
+
+void MenuScreens::drawSkills()
+{
+	FontHandle bodyType = canvas_.loadFont(bodyFont);
+	for (s32 i = 0; i < character::SKILL_COUNT; ++i)
+	{
+		s32 y = skillTop + i * skillRow;
+		canvas_.drawText(bodyType, wide(character::skillName(i)).c_str(), rect<s32>(left, y, left + 200, y + skillRow), theme::muted, false, true);
+		canvas_.drawText(bodyType, wide(std::to_string(flow_.skillValue(i))).c_str(), rect<s32>(left + 200, y, left + 256, y + skillRow),
+			theme::text, false, true);
+	}
+	s32 y = skillTop + character::SKILL_COUNT * skillRow + 8;
+	canvas_.drawText(bodyType, wide("Points remaining: " + std::to_string(flow_.skillsUnplaced())).c_str(), rect<s32>(left, y, formRight, y + statRow),
+		flow_.skillsUnplaced() > 0 ? theme::accent : theme::muted, false, true);
+	std::string why = "Intelligence " + std::to_string(flow_.draft().value(character::INTELLIGENCE)) + " gives " +
+		std::to_string(flow_.skillPool()) + " points";
+	canvas_.drawText(bodyType, wide(why).c_str(), rect<s32>(left, y + statRow, formRight, y + 2 * statRow), theme::muted, false, true);
 }
 
 bool MenuScreens::isChosen(s32 id) const
@@ -486,6 +524,8 @@ void MenuScreens::draw()
 	showCharacter();
 	if (built_ == Screen::CharacterCreation)
 		drawAegis();
+	if (built_ == Screen::SkillAllocation)
+		drawSkills();
 	if (built_ == Screen::WorldSelect || built_ == Screen::WorldSettings || built_ == Screen::JoinGame || built_ == Screen::Playing)
 		drawNameplate();
 
@@ -607,8 +647,9 @@ bool MenuScreens::clicked(s32 id)
 	}
 	case GUI_ID_NAME:
 	case GUI_ID_CREATE:
-		flow_.create(panel_.text(GUI_ID_NAME), gender_, panel_.selected(GUI_ID_PROFESSION), outfit_);
+		flow_.toSkills(panel_.text(GUI_ID_NAME), gender_, panel_.selected(GUI_ID_PROFESSION), outfit_);
 		break;
+	case GUI_ID_CONFIRM: flow_.confirmSkills(); break;
 	case GUI_ID_REROLL: flow_.reroll(); break;
 	case GUI_ID_HOST:
 		if (flow_.screen() == Screen::JoinGame)
@@ -638,6 +679,10 @@ bool MenuScreens::clicked(s32 id)
 			flow_.adjust(id - GUI_ID_MINUS_FIRST, -1);
 		else if (id >= GUI_ID_PLUS_FIRST && id < GUI_ID_PLUS_FIRST + character::ATTRIBUTE_COUNT)
 			flow_.adjust(id - GUI_ID_PLUS_FIRST, 1);
+		else if (id >= GUI_ID_SKILL_MINUS_FIRST && id < GUI_ID_SKILL_MINUS_FIRST + character::SKILL_COUNT)
+			flow_.adjustSkill(id - GUI_ID_SKILL_MINUS_FIRST, -1);
+		else if (id >= GUI_ID_SKILL_PLUS_FIRST && id < GUI_ID_SKILL_PLUS_FIRST + character::SKILL_COUNT)
+			flow_.adjustSkill(id - GUI_ID_SKILL_PLUS_FIRST, 1);
 		else if (id >= GUI_ID_TIME_FIRST && id < GUI_ID_TIME_FIRST + 3)
 			timeMode_ = (menu::TimeMode)(id - GUI_ID_TIME_FIRST);
 		else

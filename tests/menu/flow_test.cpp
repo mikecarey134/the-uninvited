@@ -668,3 +668,136 @@ TEST_CASE("moving the highlight away and back cancels a delete that was waiting 
 	fixture.flow.highlight(0);
 	CHECK(fixture.flow.deleteHighlighted());
 }
+
+namespace
+{
+	int skillTotal(const MenuFlow& flow)
+	{
+		int total = 0;
+		for (int i = 0; i < SKILL_COUNT; ++i)
+			total += flow.skillValue(i);
+		return total;
+	}
+}
+
+TEST_CASE("Create Character leads to the skills step once the name and profession are good, with a pool set by the draft's Intelligence")
+{
+	Fixture fixture("skills_pool");
+	fixture.flow.play();
+	fixture.flow.newCharacter();
+	int doctor = fixture.professionNamed("Doctor");
+	CHECK_FALSE(fixture.flow.toSkills("", Gender::Male, doctor));
+	CHECK(fixture.flow.screen() == Screen::CharacterCreation);
+	CHECK(fixture.flow.message() == "Enter a name");
+	CHECK_FALSE(fixture.flow.toSkills("Ann", Gender::Male, -1));
+	CHECK(fixture.flow.screen() == Screen::CharacterCreation);
+	REQUIRE(fixture.flow.adjust(INTELLIGENCE, 10));
+	REQUIRE(skillPointPool(fixture.flow.draft().value(INTELLIGENCE)) != skillPointPool(fixture.flow.draft().rolled[INTELLIGENCE]));
+	REQUIRE(fixture.flow.toSkills("Ann", Gender::Female, doctor, 0));
+	CHECK(fixture.flow.screen() == Screen::SkillAllocation);
+	int intelligence = fixture.flow.draft().value(INTELLIGENCE);
+	CHECK(fixture.flow.skillPool() == skillPointPool(intelligence));
+	CHECK(fixture.flow.skillsUnplaced() == fixture.flow.skillPool());
+	CHECK(fixture.flow.skillValue(MEDICINE) == 30);
+	CHECK(fixture.flow.skillValue(SPEECH) == 0);
+	CHECK_FALSE(std::filesystem::exists(fixture.store.pathFor("Ann")));
+}
+
+TEST_CASE("plus and minus move points between the pool and a skill, never below the profession's baseline and never past the pool")
+{
+	Fixture fixture("skills_adjust");
+	fixture.flow.play();
+	fixture.flow.newCharacter();
+	REQUIRE(fixture.flow.toSkills("Ann", Gender::Female, fixture.professionNamed("Doctor")));
+	int pool = fixture.flow.skillPool();
+	REQUIRE(pool > 3);
+	CHECK_FALSE(fixture.flow.adjustSkill(MEDICINE, -1));
+	CHECK(fixture.flow.skillValue(MEDICINE) == 30);
+	CHECK(fixture.flow.adjustSkill(MEDICINE, 1));
+	CHECK(fixture.flow.adjustSkill(MEDICINE, 1));
+	CHECK(fixture.flow.adjustSkill(SPEECH, 1));
+	CHECK(fixture.flow.skillValue(MEDICINE) == 32);
+	CHECK(fixture.flow.skillValue(SPEECH) == 1);
+	CHECK(fixture.flow.skillsUnplaced() == pool - 3);
+	CHECK(fixture.flow.adjustSkill(MEDICINE, -1));
+	CHECK(fixture.flow.skillsUnplaced() == pool - 2);
+	CHECK(fixture.flow.adjustSkill(MEDICINE, -1));
+	CHECK_FALSE(fixture.flow.adjustSkill(MEDICINE, -1));
+	CHECK(fixture.flow.skillValue(MEDICINE) == 30);
+	while (fixture.flow.skillsUnplaced() > 0)
+		REQUIRE(fixture.flow.adjustSkill(COOKING, 1));
+	CHECK_FALSE(fixture.flow.adjustSkill(COOKING, 1));
+	CHECK_FALSE(fixture.flow.adjustSkill(SMITHING, 1));
+	CHECK(fixture.flow.skillValue(COOKING) == pool - 1);
+	CHECK(skillTotal(fixture.flow) == 30 + pool);
+	CHECK_FALSE(fixture.flow.adjustSkill(-1, 1));
+	CHECK_FALSE(fixture.flow.adjustSkill(SKILL_COUNT, 1));
+}
+
+TEST_CASE("Back from the skills step returns to New Character with the same AEGIS draft and remembers the name, gender, profession and outfit")
+{
+	Fixture fixture("skills_back");
+	fixture.flow.play();
+	fixture.flow.newCharacter();
+	REQUIRE(fixture.flow.adjust(STRENGTH, 3));
+	Aegis before = fixture.flow.draft();
+	int doctor = fixture.professionNamed("Doctor");
+	REQUIRE(fixture.flow.toSkills("Ann", Gender::Female, doctor, 0));
+	fixture.flow.adjustSkill(SPEECH, 2);
+	fixture.flow.back();
+	CHECK(fixture.flow.screen() == Screen::CharacterCreation);
+	for (int i = 0; i < ATTRIBUTE_COUNT; ++i)
+	{
+		CHECK(fixture.flow.draft().rolled[i] == before.rolled[i]);
+		CHECK(fixture.flow.draft().placed[i] == before.placed[i]);
+	}
+	REQUIRE(fixture.flow.pending() != nullptr);
+	CHECK(fixture.flow.pending()->name == "Ann");
+	CHECK(fixture.flow.pending()->gender == Gender::Female);
+	CHECK(fixture.flow.pending()->profession == doctor);
+	CHECK(fixture.flow.pending()->outfit == 0);
+	CHECK_FALSE(fixture.flow.adjustSkill(SPEECH, 1));
+	REQUIRE(fixture.flow.toSkills("Ann", Gender::Female, doctor, 0));
+	CHECK(fixture.flow.skillValue(SPEECH) == 0);
+	fixture.flow.back();
+	fixture.flow.back();
+	fixture.flow.newCharacter();
+	CHECK(fixture.flow.pending() == nullptr);
+}
+
+TEST_CASE("Confirm saves the character with each skill at its profession bonus plus the points placed, and returns to the list with it picked")
+{
+	Fixture fixture("skills_confirm");
+	fixture.flow.play();
+	fixture.flow.newCharacter();
+	REQUIRE(fixture.flow.toSkills("Ann", Gender::Female, fixture.professionNamed("Doctor"), 0));
+	CHECK_FALSE(fixture.flow.create("Bo", Gender::Male, 0));
+	fixture.flow.adjustSkill(MEDICINE, 5);
+	fixture.flow.adjustSkill(SPEECH, 1);
+	fixture.flow.adjustSkill(SPEECH, 1);
+	fixture.flow.adjustSkill(LOCKPICKING, 1);
+	REQUIRE(fixture.flow.confirmSkills());
+	CHECK(fixture.flow.screen() == Screen::CharacterSelect);
+	REQUIRE(fixture.flow.highlighted() >= 0);
+	const CharacterSheet& ann = fixture.flow.characters()[fixture.flow.highlighted()];
+	CHECK(ann.name() == "Ann");
+	CHECK(ann.getMedicine() == 35);
+	CHECK(ann.getSpeech() == 2);
+	CHECK(ann.getLockpicking() == 1);
+	CHECK(ann.getCooking() == 0);
+	CHECK(fixture.flow.pending() == nullptr);
+
+	std::ifstream file(fixture.store.pathFor("Ann"));
+	std::stringstream text;
+	text << file.rdbuf();
+	CHECK(text.str().find("skill.Medicine = 35\n") != std::string::npos);
+	CHECK(text.str().find("skill.Speech = 2\n") != std::string::npos);
+	CHECK(text.str().find("skill.Lockpicking = 1\n") != std::string::npos);
+
+	MenuFlow later(fixture.store, shippedProfessions());
+	later.play();
+	REQUIRE(later.characters().size() == 1);
+	CHECK(later.characters()[0].getMedicine() == 35);
+	CHECK(later.characters()[0].getSpeech() == 2);
+	CHECK_FALSE(fixture.flow.confirmSkills());
+}

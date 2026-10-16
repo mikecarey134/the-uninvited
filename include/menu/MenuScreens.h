@@ -22,7 +22,8 @@ public:
 		GUI_ID_SELECT, GUI_ID_NAME, GUI_ID_MALE, GUI_ID_FEMALE, GUI_ID_PROFESSION, GUI_ID_CREATE, GUI_ID_HOST, GUI_ID_JOIN,
 		GUI_ID_ADDRESS, GUI_ID_PORT, GUI_ID_START, GUI_ID_LEAVE, GUI_ID_REROLL = 300, GUI_ID_MINUS_FIRST = 310,
 		GUI_ID_PLUS_FIRST = 320, GUI_ID_OUTFIT_PREVIOUS = 330, GUI_ID_OUTFIT_NEXT,
-		GUI_ID_WORLD_NAME = 340, GUI_ID_MAX_PLAYERS, GUI_ID_TIME_FIRST = 350, GUI_ID_DELETE = 360 };
+		GUI_ID_WORLD_NAME = 340, GUI_ID_MAX_PLAYERS, GUI_ID_TIME_FIRST = 350, GUI_ID_DELETE = 360,
+		GUI_ID_SKILL_MINUS_FIRST = 370, GUI_ID_SKILL_PLUS_FIRST = 380, GUI_ID_CONFIRM = 390 };
 
 	MenuScreens(irr::IrrlichtDevice* device, Canvas& canvas, menu::MenuFlow& flow, gamecore::SoundEngine* sound,
 		const std::deque<std::string>& status, MenuScene* backdrop);
@@ -61,6 +62,7 @@ private:
 	void drawNameplate();
 	bool onScene(irr::core::position2d<irr::s32> point) const;
 	void drawAegis();
+	void drawSkills();
 	bool isEnabled(irr::s32 id) const;
 
 	void drawButton(const Button& button);

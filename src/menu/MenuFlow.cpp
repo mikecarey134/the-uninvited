@@ -133,6 +133,7 @@ namespace menu
 		screens_.push(Screen::CharacterCreation);
 		message_.clear();
 		draft_ = character::Aegis::roll(random_, bloodlineOneIn_);
+		hasPending_ = false;
 	}
 
 	void MenuFlow::reroll()
@@ -148,10 +149,8 @@ namespace menu
 		return change > 0 ? draft_.place(attribute, change) : draft_.remove(attribute, -change);
 	}
 
-	bool MenuFlow::create(const std::string& name, character::Gender gender, int profession, int outfit)
+	bool MenuFlow::ready(const std::string& name, int profession)
 	{
-		if (screen() != Screen::CharacterCreation)
-			return false;
 		std::string problem;
 		if (!validName(name, problem))
 		{
@@ -168,20 +167,93 @@ namespace menu
 			message_ = professions_.empty() ? "No professions are loaded" : "Pick a profession";
 			return false;
 		}
-		character::CharacterSheet sheet = character::CharacterSheet::create(name, gender, professions_[profession], draft_);
-		sheet.setOutfit(outfit);
+		return true;
+	}
+
+	bool MenuFlow::save(const character::CharacterSheet& sheet)
+	{
+		std::string problem;
 		if (!store_.save(sheet, problem))
 		{
 			message_ = problem;
 			return false;
 		}
-		screens_.back();
+		while (screen() != Screen::CharacterSelect && screens_.back())
+		{
+		}
 		message_.clear();
+		hasPending_ = false;
 		reload();
 		for (std::size_t i = 0; i < characters_.size(); ++i)
-			if (characters_[i].name() == name)
+			if (characters_[i].name() == sheet.name())
 				highlighted_ = (int)i;
 		return true;
+	}
+
+	bool MenuFlow::create(const std::string& name, character::Gender gender, int profession, int outfit)
+	{
+		if (screen() != Screen::CharacterCreation || !ready(name, profession))
+			return false;
+		character::CharacterSheet sheet = character::CharacterSheet::create(name, gender, professions_[profession], draft_);
+		sheet.setOutfit(outfit);
+		return save(sheet);
+	}
+
+	bool MenuFlow::toSkills(const std::string& name, character::Gender gender, int profession, int outfit)
+	{
+		if (screen() != Screen::CharacterCreation || !ready(name, profession))
+			return false;
+		pending_ = PendingCharacter{ name, gender, profession, outfit };
+		hasPending_ = true;
+		for (int& placed : skillPlaced_)
+			placed = 0;
+		screens_.push(Screen::SkillAllocation);
+		message_.clear();
+		return true;
+	}
+
+	int MenuFlow::skillPool() const
+	{
+		return character::skillPointPool(draft_.value(character::INTELLIGENCE));
+	}
+
+	int MenuFlow::skillsUnplaced() const
+	{
+		int placed = 0;
+		for (int points : skillPlaced_)
+			placed += points;
+		return skillPool() - placed;
+	}
+
+	int MenuFlow::skillValue(int skill) const
+	{
+		int value = skillPlaced_[skill];
+		if (hasPending_)
+			for (const std::pair<int, int>& bonus : professions_[pending_.profession].skillBonuses)
+				if (bonus.first == skill)
+					value += bonus.second;
+		return value;
+	}
+
+	bool MenuFlow::adjustSkill(int skill, int change)
+	{
+		if (screen() != Screen::SkillAllocation || skill < 0 || skill >= character::SKILL_COUNT)
+			return false;
+		if (change > 0 ? change > skillsUnplaced() : -change > skillPlaced_[skill])
+			return false;
+		skillPlaced_[skill] += change;
+		return true;
+	}
+
+	bool MenuFlow::confirmSkills()
+	{
+		if (screen() != Screen::SkillAllocation)
+			return false;
+		character::CharacterSheet sheet = character::CharacterSheet::create(pending_.name, pending_.gender, professions_[pending_.profession], draft_);
+		sheet.setOutfit(pending_.outfit);
+		for (int i = 0; i < character::SKILL_COUNT; ++i)
+			sheet.setSkill(i, skillValue(i));
+		return save(sheet);
 	}
 
 	void MenuFlow::host()

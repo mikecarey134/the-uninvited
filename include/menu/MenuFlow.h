@@ -9,7 +9,7 @@
 
 namespace menu
 {
-	enum class Screen { Title, Settings, CharacterSelect, CharacterCreation, WorldSelect, WorldSettings, JoinGame, Playing, Quit };
+	enum class Screen { Title, Settings, CharacterSelect, CharacterCreation, SkillAllocation, WorldSelect, WorldSettings, JoinGame, Playing, Quit };
 	enum class Session { None, Host, Join };
 	enum class TimeMode { RealTime, HalfSpeed, Fast };
 
@@ -19,6 +19,14 @@ namespace menu
 	const char* const DEFAULT_WORLD_NAME = "New World";
 	const int DEFAULT_MAX_PLAYERS = 8;
 	const int MOST_PLAYERS = 32;
+
+	struct PendingCharacter
+	{
+		std::string name;
+		character::Gender gender;
+		int profession;
+		int outfit;
+	};
 
 	class MenuFlow
 	{
@@ -48,6 +56,14 @@ namespace menu
 		void reroll();
 		bool adjust(int attribute, int change);
 		bool create(const std::string& name, character::Gender gender, int profession, int outfit = 0);
+		bool toSkills(const std::string& name, character::Gender gender, int profession, int outfit = 0);
+		const PendingCharacter* pending() const { return hasPending_ ? &pending_ : nullptr; }
+		int skillPool() const;
+		int skillsUnplaced() const;
+		int skillValue(int skill) const;
+		int skillPlaced(int skill) const { return skillPlaced_[skill]; }
+		bool adjustSkill(int skill, int change);
+		bool confirmSkills();
 
 		void host();
 		void join();
@@ -67,6 +83,8 @@ namespace menu
 
 	private:
 		void reload();
+		bool ready(const std::string& name, int profession);
+		bool save(const character::CharacterSheet& sheet);
 
 		const CharacterStore& store_;
 		std::vector<character::Profession> professions_;
@@ -86,5 +104,8 @@ namespace menu
 		int deleting_ = -1;
 		std::function<void(const std::string&)> warn_;
 		character::Aegis draft_;
+		PendingCharacter pending_;
+		bool hasPending_ = false;
+		int skillPlaced_[character::SKILL_COUNT] = {};
 	};
 }

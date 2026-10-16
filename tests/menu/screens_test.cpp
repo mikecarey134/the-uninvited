@@ -4,6 +4,7 @@
 #include "MenuFlow.h"
 #include "MenuScene.h"
 #include "MenuScreens.h"
+#include "Theme.h"
 #include "Outfits.h"
 #include "World.h"
 #include "Hud.h"
@@ -227,6 +228,106 @@ TEST_CASE("the delete button under the character list removes the selected chara
 	CHECK(menu.flow.screen() == menu::Screen::CharacterSelect);
 }
 
+TEST_CASE("Create Character opens the skills step: ten skills with minus and plus, points left, Back keeps what was chosen, and Confirm saves the totals")
+{
+	Menu menu("screens_skills");
+	menu.flow.play();
+	menu.flow.newCharacter();
+	menu.screens->draw();
+	IGUIElement* root = menu.device->getGUIEnvironment()->getRootGUIElement();
+	root->getElementFromId(MenuScreens::GUI_ID_NAME, true)->setText(L"Ann");
+	menu.press(MenuScreens::GUI_ID_FEMALE);
+	menu.press(MenuScreens::GUI_ID_CREATE);
+	CHECK(menu.flow.screen() == menu::Screen::SkillAllocation);
+	CHECK_FALSE(std::filesystem::exists(menu.store.pathFor("Ann")));
+	menu.screens->draw();
+	for (int i = 0; i < character::SKILL_COUNT; ++i)
+	{
+		INFO(i);
+		IGUIElement* minus = root->getElementFromId(MenuScreens::GUI_ID_SKILL_MINUS_FIRST + i, true);
+		IGUIElement* plus = root->getElementFromId(MenuScreens::GUI_ID_SKILL_PLUS_FIRST + i, true);
+		REQUIRE(minus != nullptr);
+		REQUIRE(plus != nullptr);
+		CHECK(minus->getAbsolutePosition().UpperLeftCorner.Y == plus->getAbsolutePosition().UpperLeftCorner.Y);
+		if (i > 0)
+			CHECK(plus->getAbsolutePosition().UpperLeftCorner.Y >
+				root->getElementFromId(MenuScreens::GUI_ID_SKILL_PLUS_FIRST + i - 1, true)->getAbsolutePosition().UpperLeftCorner.Y);
+	}
+	CHECK(root->getElementFromId(MenuScreens::GUI_ID_CONFIRM, true) != nullptr);
+	CHECK(root->getElementFromId(MenuScreens::GUI_ID_BACK, true) != nullptr);
+	CHECK(root->getElementFromId(MenuScreens::GUI_ID_NAME, true) == nullptr);
+	int pool = menu.flow.skillPool();
+	menu.press(MenuScreens::GUI_ID_SKILL_PLUS_FIRST + character::SPEECH);
+	menu.press(MenuScreens::GUI_ID_SKILL_PLUS_FIRST + character::SPEECH);
+	menu.press(MenuScreens::GUI_ID_SKILL_PLUS_FIRST + character::COOKING);
+	menu.press(MenuScreens::GUI_ID_SKILL_MINUS_FIRST + character::COOKING);
+	CHECK(menu.flow.skillsUnplaced() == pool - 2);
+	CHECK(menu.flow.skillValue(character::SPEECH) == 2);
+
+	menu.press(MenuScreens::GUI_ID_BACK);
+	CHECK(menu.flow.screen() == menu::Screen::CharacterCreation);
+	menu.screens->draw();
+	CHECK(std::wstring(root->getElementFromId(MenuScreens::GUI_ID_NAME, true)->getText()) == L"Ann");
+	CHECK(std::string(menu.backdrop->characterModel()).find("stick_dan.ms3d") != std::string::npos);
+	menu.press(MenuScreens::GUI_ID_CREATE);
+	menu.screens->draw();
+	menu.press(MenuScreens::GUI_ID_SKILL_PLUS_FIRST + character::SPEECH);
+	menu.press(MenuScreens::GUI_ID_CONFIRM);
+	CHECK(menu.flow.screen() == menu::Screen::CharacterSelect);
+	REQUIRE(menu.flow.characters().size() == 1);
+	CHECK(menu.flow.characters()[0].name() == "Ann");
+	CHECK(menu.flow.characters()[0].gender() == character::Gender::Female);
+	CHECK(menu.flow.characters()[0].getSpeech() == 1);
+}
+
+TEST_CASE("the skills step lists every skill with its value and shows the points left in the AEGIS style")
+{
+	IrrlichtDevice* device = createDevice(video::EDT_NULL, core::dimension2d<u32>(1280, 720));
+	RecordingCanvas canvas;
+	canvas.screenDimension = core::dimension2d<u32>(1280, 720);
+	std::string directory = (std::filesystem::temp_directory_path() / "screens_skill_draw").string();
+	std::filesystem::remove_all(directory);
+	{
+		menu::CharacterStore store(directory);
+		menu::MenuFlow flow(store, professions(), 3);
+		std::deque<std::string> status;
+		MenuScreens screens(device, canvas, flow, nullptr, status, nullptr);
+		flow.play();
+		flow.newCharacter();
+		int doctor = -1;
+		for (size_t i = 0; i < flow.professions().size(); ++i)
+			if (flow.professions()[i].name == "Doctor")
+				doctor = (int)i;
+		REQUIRE(flow.toSkills("Ann", character::Gender::Male, doctor));
+		flow.adjustSkill(character::SPEECH, 1);
+		screens.draw();
+		auto says = [&canvas](const std::wstring& line) -> const RecordingCanvas::Call* {
+			for (const RecordingCanvas::Call& call : canvas.calls)
+				if (call.kind == RecordingCanvas::TEXT && call.text == line)
+					return &call;
+			return nullptr;
+		};
+		for (int i = 0; i < character::SKILL_COUNT; ++i)
+		{
+			std::string skill = character::skillName(i);
+			const RecordingCanvas::Call* name = says(std::wstring(skill.begin(), skill.end()));
+			INFO(character::skillName(i));
+			REQUIRE(name != nullptr);
+			CHECK(name->colour == theme::muted);
+		}
+		CHECK(says(L"30") != nullptr);
+		CHECK(says(L"1") != nullptr);
+		const RecordingCanvas::Call* left = says(L"Points remaining: " + std::to_wstring(flow.skillPool() - 1));
+		REQUIRE(left != nullptr);
+		CHECK(left->colour == theme::accent);
+		const RecordingCanvas::Call* why = says(L"Intelligence " + std::to_wstring(flow.draft().value(character::INTELLIGENCE)) + L" gives " +
+			std::to_wstring(flow.skillPool()) + L" points");
+		CHECK(why != nullptr);
+	}
+	std::filesystem::remove_all(directory);
+	device->drop();
+}
+
 TEST_CASE("a click on a widget never starts turning the character, even on the scene side")
 {
 	Menu menu("screens_widget");
@@ -385,6 +486,8 @@ TEST_CASE("the outfit picked on create is saved and worn on select and in the ga
 	REQUIRE(name != nullptr);
 	name->setText(L"Ivy");
 	menu.press(MenuScreens::GUI_ID_CREATE);
+	menu.screens->draw();
+	menu.press(MenuScreens::GUI_ID_CONFIRM);
 	REQUIRE(menu.flow.screen() == menu::Screen::CharacterSelect);
 	REQUIRE(menu.flow.characters().size() == 1);
 	CHECK(menu.flow.characters()[0].outfit() == 2);
@@ -503,6 +606,8 @@ TEST_CASE("switching to female after picking a male outfit saves her on her own 
 	REQUIRE(name != nullptr);
 	name->setText(L"Ada");
 	menu.press(MenuScreens::GUI_ID_CREATE);
+	menu.screens->draw();
+	menu.press(MenuScreens::GUI_ID_CONFIRM);
 	REQUIRE(menu.flow.characters().size() == 1);
 	CHECK(menu.flow.characters()[0].gender() == character::Gender::Female);
 	CHECK(menu.flow.characters()[0].outfit() == 0);
