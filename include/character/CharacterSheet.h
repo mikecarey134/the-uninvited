@@ -116,7 +116,6 @@ namespace character
 		bool isDehydrated() const { return dehydrated_; }
 		bool isStarving() const { return starving_; }
 		bool isInsane() const { return insane_; }
-		void tick(float deltaSeconds, float timeCompression);
 
 	private:
 		CharacterSheet() {}
@@ -138,11 +137,7 @@ namespace character
 		bool insane_ = false;
 	};
 
-	const float WATER_HOURS = 72.0f;
-	const float HUNGER_HOURS = 144.0f;
-	const float SANITY_HOURS = 336.0f;
 
 	std::vector<std::string> describe(const CharacterSheet& sheet);
 	double experienceMultiplier(int intelligence);
-	float drainSlowdown(int attribute);
 }

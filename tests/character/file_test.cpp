@@ -67,7 +67,9 @@ TEST_CASE("a played character round trips exactly, fractions and bloodline inclu
 	REQUIRE(sheet.placePoints(STRENGTH, 4));
 	sheet.addExperience(SPEECH, 123.456789);
 	sheet.addExperience(SMITHING, 1.0 / 3.0);
-	sheet.tick(1.0f, 3600.0f * 50.0f);
+	for (int i = 0; i < 7; ++i)
+		sheet.survivalTick();
+	REQUIRE(sheet.water() != (float)(int)sheet.water());
 	checkSame(sheet, reloaded(sheet));
 }
 
@@ -75,11 +77,19 @@ TEST_CASE("empty meters come back with their flags set")
 {
 	std::mt19937 random(2);
 	CharacterSheet sheet = CharacterSheet::create("Jo", Gender::Female, bartender, random, 1000000);
-	sheet.tick(1.0f, 3600.0f * 10000.0f);
-	REQUIRE(sheet.isDehydrated());
-	REQUIRE(sheet.isStarving());
-	REQUIRE(sheet.isInsane());
-	checkSame(sheet, reloaded(sheet));
+	for (int i = 0; i < 1000; ++i)
+		sheet.survivalTick();
+	std::string text = sheet.toText();
+	std::string::size_type at = text.find("\nsanity = ");
+	REQUIRE(at != std::string::npos);
+	text.replace(at + 1, text.find('\n', at + 1) - at - 1, "sanity = 0");
+	std::string problem;
+	CharacterSheet empty = CharacterSheet::fromText(text, problem);
+	REQUIRE(problem.empty());
+	REQUIRE(empty.isDehydrated());
+	REQUIRE(empty.isStarving());
+	REQUIRE(empty.isInsane());
+	checkSame(empty, reloaded(empty));
 }
 
 TEST_CASE("a profession without items round trips")

@@ -15,16 +15,6 @@ namespace character
 	const int CharacterSheet::MAX_HEALTH;
 	const int CharacterSheet::EXPERIENCE_PER_LEVEL;
 
-	namespace
-	{
-		float drained(float meter, float gameSeconds, float hoursToEmpty, int attribute)
-		{
-			float perSecond = 100.0f / (hoursToEmpty * 3600.0f) / drainSlowdown(attribute);
-			float left = meter - perSecond * gameSeconds;
-			return left > 0.0f ? left : 0.0f;
-		}
-	}
-
 	Aegis Aegis::roll(std::mt19937& random, int bloodlineOneIn)
 	{
 		Aegis aegis;
@@ -126,11 +116,6 @@ namespace character
 		return 1.0 + intelligence / 100.0;
 	}
 
-	float drainSlowdown(int attribute)
-	{
-		return 1.0f + attribute / 100.0f;
-	}
-
 	CharacterSheet CharacterSheet::create(const std::string& name, Gender gender, const Profession& profession)
 	{
 		std::random_device device;
@@ -176,17 +161,4 @@ namespace character
 		health_ = std::max(health_ - empty * SURVIVAL_HEALTH_DRAIN, 0);
 	}
 
-	void CharacterSheet::tick(float deltaSeconds, float timeCompression)
-	{
-		float gameSeconds = deltaSeconds * timeCompression;
-		if (gameSeconds <= 0.0f)
-			return;
-		int endurance = getEndurance();
-		water_ = drained(water_, gameSeconds, WATER_HOURS, endurance);
-		hunger_ = drained(hunger_, gameSeconds, HUNGER_HOURS, endurance);
-		sanity_ = drained(sanity_, gameSeconds, SANITY_HOURS, getIntelligence());
-		dehydrated_ = water_ <= 0.0f;
-		starving_ = hunger_ <= 0.0f;
-		insane_ = sanity_ <= 0.0f;
-	}
 }
