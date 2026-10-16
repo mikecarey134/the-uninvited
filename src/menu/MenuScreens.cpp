@@ -486,8 +486,9 @@ void MenuScreens::draw()
 		std::string where = flow_.session() == menu::Session::Host
 			? "Hosting on port " + std::to_string(flow_.port())
 			: "Joining " + flow_.address() + ":" + std::to_string(flow_.port());
-		text(canvas_.loadFont(bodyFont), where, left, contentY, theme::muted);
-		s32 y = contentY + 32;
+		s32 y = world_ ? 152 : contentY;
+		text(canvas_.loadFont(bodyFont), where, left, y, theme::muted);
+		y += 32;
 		for (const std::string& line : status_)
 		{
 			text(canvas_.loadFont(bodyFont), line, left, y, theme::text);

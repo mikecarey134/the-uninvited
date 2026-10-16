@@ -167,6 +167,11 @@ int main(int argc, char** argv)
 	if (!device)
 		return 1;
 	device->setWindowCaption(L"The Uninvited");
+	video::SMaterial& flat = device->getVideoDriver()->getMaterial2D();
+	flat.UseMipMaps = true;
+	flat.TextureLayer[0].BilinearFilter = true;
+	flat.TextureLayer[0].TrilinearFilter = true;
+	device->getVideoDriver()->enableMaterial2D(true);
 	gui::IGUIEnvironment* gui = device->getGUIEnvironment();
 	gui::IGUISkin* skin = new MenuSkin(gui, gui->getSkin());
 	gui->setSkin(skin);
