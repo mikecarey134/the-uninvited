@@ -453,8 +453,10 @@ void MenuScreens::draw()
 	}
 	else if (world_ && built_ == Screen::Playing)
 	{
-		if (const character::CharacterSheet* chosen = flow_.chosen())
-			drawVitals(canvas_, *chosen);
+		drawVitals(canvas_, world_->sheet());
+		if (world_->dead())
+			canvas_.drawText(canvas_.loadFont(titleFont), L"YOU DIED", rect<s32>(0, 0, (s32)screen.Width, (s32)screen.Height), theme::accent,
+				true, true, false);
 	}
 	else if (!title_.empty())
 		text(canvas_.loadFont(headingFont), title_, left - 2, headingY, theme::text);

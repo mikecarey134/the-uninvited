@@ -422,3 +422,68 @@ TEST_CASE("the vitals HUD shows only in the world, replacing the big name headin
 	std::filesystem::remove_all(directory);
 	device->drop();
 }
+
+TEST_CASE("the HUD follows the world's draining character, and death puts YOU DIED in big letters in the middle of the screen")
+{
+	IrrlichtDevice* device = createDevice(video::EDT_NULL, core::dimension2d<u32>(1280, 720));
+	RecordingCanvas canvas;
+	canvas.screenDimension = core::dimension2d<u32>(1280, 720);
+	std::string directory = (std::filesystem::temp_directory_path() / "screens_death").string();
+	std::filesystem::remove_all(directory);
+	{
+		menu::CharacterStore store(directory);
+		menu::MenuFlow flow(store, professions(), 3);
+		std::deque<std::string> status;
+		MenuScene backdrop(device);
+		MenuScreens screens(device, canvas, flow, nullptr, status, &backdrop);
+		flow.play();
+		flow.newCharacter();
+		REQUIRE(flow.create("Rook", character::Gender::Male, 0));
+		flow.highlight(0);
+		REQUIRE(flow.select());
+		flow.host();
+		std::string text = flow.chosen()->toText();
+		for (const char* key : { "water", "hunger" })
+		{
+			std::string::size_type at = text.find(std::string("\n") + key + " = ");
+			REQUIRE(at != std::string::npos);
+			std::string::size_type end = text.find('\n', at + 1);
+			text.replace(at + 1, end - at - 1, std::string(key) + " = 0");
+		}
+		std::string::size_type at = text.find("\nhealth = ");
+		std::string::size_type end = text.find('\n', at + 1);
+		text.replace(at + 1, end - at - 1, "health = 3");
+		std::string problem;
+		character::CharacterSheet dying = character::CharacterSheet::fromText(text, problem);
+		REQUIRE(problem.empty());
+		World world(device, menu::characterModel(character::Gender::Male), menu::outfitSkin(character::Gender::Male, 0).c_str(), [] {}, dying);
+		screens.setWorld(&world);
+		auto says = [&canvas](const std::wstring& line) -> const RecordingCanvas::Call* {
+			for (const RecordingCanvas::Call& call : canvas.calls)
+				if (call.kind == RecordingCanvas::TEXT && call.text == line)
+					return &call;
+			return nullptr;
+		};
+		canvas.calls.clear();
+		screens.draw();
+		CHECK(says(L"3") != nullptr);
+		CHECK(says(L"YOU DIED") == nullptr);
+		world.update(1.0f);
+		canvas.calls.clear();
+		screens.draw();
+		CHECK(says(L"1") != nullptr);
+		CHECK(flow.chosen()->health() == 100);
+		world.update(1.0f);
+		canvas.calls.clear();
+		screens.draw();
+		CHECK(says(L"0") != nullptr);
+		const RecordingCanvas::Call* died = says(L"YOU DIED");
+		REQUIRE(died != nullptr);
+		CHECK(canvas.pathOf(died->font).find("title") != std::string::npos);
+		CHECK(died->hcenter);
+		CHECK((died->area.UpperLeftCorner.X + died->area.LowerRightCorner.X) / 2 == 640);
+		CHECK((died->area.UpperLeftCorner.Y + died->area.LowerRightCorner.Y) / 2 == 360);
+	}
+	std::filesystem::remove_all(directory);
+	device->drop();
+}

@@ -29,9 +29,10 @@ namespace
 	const EKEY_CODE moveKeys[4] = { KEY_KEY_W, KEY_KEY_S, KEY_KEY_A, KEY_KEY_D };
 }
 
-World::World(IrrlichtDevice* device, const char* model, const char* skin, std::function<void()> leave)
+World::World(IrrlichtDevice* device, const char* model, const char* skin, std::function<void()> leave,
+	const character::CharacterSheet& sheet)
 	: device_(device), scene_(device->getSceneManager()->createNewSceneManager(false)), camera_(0), player_(0), leave_(leave),
-	walking_(false), yaw_(0.0f), feet_(0.0f)
+	walking_(false), yaw_(0.0f), feet_(0.0f), sheet_(sheet), unticked_(0.0f)
 {
 	for (bool& held : held_)
 		held = false;
@@ -166,6 +167,8 @@ bool World::onEvent(const SEvent& event)
 {
 	if (event.EventType != EET_KEY_INPUT_EVENT)
 		return false;
+	if (dead())
+		return event.KeyInput.Key == KEY_ESCAPE;
 	if (event.KeyInput.Key == KEY_ESCAPE && event.KeyInput.PressedDown)
 	{
 		leave_();
@@ -184,6 +187,18 @@ void World::look(f32 degrees)
 
 void World::update(f32 seconds)
 {
+	unticked_ += seconds;
+	while (unticked_ >= 1.0f && !dead())
+	{
+		sheet_.survivalTick();
+		unticked_ -= 1.0f;
+	}
+	if (dead())
+	{
+		if (player_)
+			player_->setAnimationSpeed(0.0f);
+		return;
+	}
 	if (player_)
 	{
 		f32 radians = yaw_ * DEGTORAD;
