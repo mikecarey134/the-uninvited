@@ -66,7 +66,7 @@ namespace
 	}
 }
 
-TEST_CASE("the vitals cluster sits tight in the top-left corner on the sheet-metal backing art, see-through")
+TEST_CASE("the vitals cluster sits tight in the top-left corner on the clean dark panel strip")
 {
 	RecordingCanvas canvas;
 	canvas.screenDimension = dimension2d<u32>(1280, 720);
@@ -74,9 +74,7 @@ TEST_CASE("the vitals cluster sits tight in the top-left corner on the sheet-met
 	REQUIRE_FALSE(canvas.calls.empty());
 	const RecordingCanvas::Call& panel = canvas.calls.front();
 	REQUIRE(panel.kind == RecordingCanvas::IMAGE);
-	CHECK(canvas.pathOf(panel.texture) == "assets/hud/backing_panel.png");
-	CHECK(panel.colour.getAlpha() < 255);
-	CHECK(panel.colour.getAlpha() > 80);
+	CHECK(canvas.pathOf(panel.texture) == "assets/hud/hud_vitals_panel.png");
 	CHECK(panel.source.getWidth() > 0);
 	CHECK(panel.area.UpperLeftCorner.X <= 16);
 	CHECK(panel.area.UpperLeftCorner.Y <= 16);
@@ -85,8 +83,8 @@ TEST_CASE("the vitals cluster sits tight in the top-left corner on the sheet-met
 	CHECK(panel.area.getHeight() >= 72 * 3 / 2);
 	CHECK(panel.area.getHeight() <= 72 * 2);
 	for (const RecordingCanvas::Call& call : canvas.calls)
-		if (call.kind != RecordingCanvas::TEXT && call.texture != image(canvas, "reticle.png")->texture && call.texture != image(canvas, "weapon_panel.png")->texture &&
-			(call.kind != RecordingCanvas::IMAGE || canvas.pathOf(call.texture).find("hand") == std::string::npos))
+		if (call.kind != RecordingCanvas::TEXT && call.texture != image(canvas, "reticle.png")->texture &&
+			(call.kind != RecordingCanvas::IMAGE || canvas.pathOf(call.texture).find("hud_weapon") == std::string::npos))
 			CHECK(within(panel.area, call.area));
 }
 
@@ -196,83 +194,102 @@ TEST_CASE("a small crosshair is drawn last, centred exactly on the screen")
 	drawVitals(canvas, hurt(100, 100, 100));
 	CHECK(canvas.calls.back().area.getCenter().X == 960);
 	CHECK(canvas.calls.back().area.getCenter().Y == 540);
-	CHECK(image(canvas, "weapon_panel.png")->area.LowerRightCorner.X == 1920 - 12);
+	CHECK(image(canvas, "hud_weapon_panel.png")->area.LowerRightCorner.X == 1920 - 12);
 }
-
-TEST_CASE("a see-through leather pouch sits in the bottom-right corner with the cluster's margin")
-{
-	RecordingCanvas canvas;
-	canvas.screenDimension = dimension2d<u32>(1280, 720);
-	drawVitals(canvas, hurt(100, 100, 100));
-	const RecordingCanvas::Call* pouch = image(canvas, "weapon_panel.png");
-	REQUIRE(pouch != nullptr);
-	CHECK(pouch->area.LowerRightCorner.X == 1280 - 12);
-	CHECK(pouch->area.LowerRightCorner.Y == 720 - 12);
-	CHECK(pouch->area.getWidth() >= 180);
-	CHECK(pouch->area.getWidth() <= 320);
-	CHECK(pouch->area.getHeight() >= 120);
-	CHECK(pouch->area.getHeight() <= 200);
-	CHECK(pouch->colour.getAlpha() == 200);
-	CHECK(pouch->source.getWidth() > 0);
-}
-
 
 namespace
 {
-	const RecordingCanvas::Call* fistOf(const RecordingCanvas& canvas)
+	const RecordingCanvas::Call* text(const RecordingCanvas& canvas, const std::wstring& line)
 	{
 		for (const RecordingCanvas::Call& call : canvas.calls)
-			if (call.kind == RecordingCanvas::IMAGE && canvas.pathOf(call.texture) == "engine/gamecorev0.1.1/gamecorev0.1.1/bill/icons/hand.jpg")
+			if (call.kind == RecordingCanvas::TEXT && call.text == line)
 				return &call;
 		return nullptr;
 	}
 }
 
-TEST_CASE("Mike's fist sits straight on the leather, in its upper part, with no metal frame round it")
+TEST_CASE("the old rusted panel, leather pouch and Mike's hand photo are no longer drawn")
 {
 	RecordingCanvas canvas;
 	canvas.screenDimension = dimension2d<u32>(1280, 720);
 	drawVitals(canvas, hurt(100, 100, 100));
-	CHECK(image(canvas, "weapon_frame.png") == nullptr);
-	const RecordingCanvas::Call* pouch = image(canvas, "weapon_panel.png");
-	const RecordingCanvas::Call* fist = fistOf(canvas);
-	REQUIRE(pouch != nullptr);
-	REQUIRE(fist != nullptr);
-	CHECK(order(canvas, pouch) < order(canvas, fist));
-	CHECK(within(pouch->area, fist->area));
-	CHECK(fist->area.getCenter().Y < pouch->area.getCenter().Y);
-	CHECK(fist->area.getHeight() >= pouch->area.getHeight() / 3);
-	CHECK(fist->area.getCenter().X < pouch->area.getCenter().X);
-	f32 shape = (f32)fist->area.getWidth() / (f32)fist->area.getHeight();
-	f32 artShape = (f32)fist->source.getWidth() / (f32)fist->source.getHeight();
-	CHECK(shape == doctest::Approx(artShape).epsilon(0.05));
+	for (const RecordingCanvas::Call& call : canvas.calls)
+		if (call.kind == RecordingCanvas::IMAGE)
+		{
+			std::string path = canvas.pathOf(call.texture);
+			INFO(path);
+			CHECK(path != "assets/hud/backing_panel.png");
+			CHECK(path != "assets/hud/weapon_panel.png");
+			CHECK(path.find("hand.jpg") == std::string::npos);
+		}
 }
 
-TEST_CASE("the ammo readout shows --/-- on the leather, centred under the fist, in the bar numbers' style")
+TEST_CASE("the clean dark weapon box sits in the bottom-right corner with the cluster's margin")
 {
 	RecordingCanvas canvas;
 	canvas.screenDimension = dimension2d<u32>(1280, 720);
 	drawVitals(canvas, hurt(100, 100, 100));
-	const RecordingCanvas::Call* pouch = image(canvas, "weapon_panel.png");
-	const RecordingCanvas::Call* fist = fistOf(canvas);
-	REQUIRE(pouch != nullptr);
-	REQUIRE(fist != nullptr);
-	const RecordingCanvas::Call* ammo = nullptr;
-	const RecordingCanvas::Call* number = nullptr;
-	for (const RecordingCanvas::Call& call : canvas.calls)
-		if (call.kind == RecordingCanvas::TEXT)
-		{
-			if (call.text == L"--/--")
-				ammo = &call;
-			if (call.text == L"100")
-				number = &call;
-		}
+	const RecordingCanvas::Call* box = image(canvas, "hud_weapon_panel.png");
+	REQUIRE(box != nullptr);
+	CHECK(box->area.LowerRightCorner.X == 1280 - 12);
+	CHECK(box->area.LowerRightCorner.Y == 720 - 12);
+	CHECK(box->area.getWidth() >= 110);
+	CHECK(box->area.getWidth() <= 220);
+	CHECK(box->area.getHeight() >= 110);
+	CHECK(box->area.getHeight() <= 260);
+	CHECK(box->source.getWidth() > 0);
+	f32 shape = (f32)box->area.getWidth() / (f32)box->area.getHeight();
+	CHECK(shape == doctest::Approx((f32)box->source.getWidth() / (f32)box->source.getHeight()).epsilon(0.05));
+}
+
+TEST_CASE("unarmed, the fist is cut from the silhouette sheet, white, in the box's upper part, with a dash for ammo under it")
+{
+	RecordingCanvas canvas;
+	canvas.screenDimension = dimension2d<u32>(1280, 720);
+	drawVitals(canvas, hurt(100, 100, 100));
+	const RecordingCanvas::Call* box = image(canvas, "hud_weapon_panel.png");
+	const RecordingCanvas::Call* icon = image(canvas, "hud_weapon_icons.png");
+	REQUIRE(box != nullptr);
+	REQUIRE(icon != nullptr);
+	CHECK(icon->source.UpperLeftCorner.X < 512);
+	CHECK(icon->source.LowerRightCorner.Y < 512);
+	CHECK(icon->colour == video::SColor(255, 255, 255, 255));
+	CHECK(order(canvas, box) < order(canvas, icon));
+	CHECK(within(box->area, icon->area));
+	CHECK(icon->area.getCenter().Y < box->area.getCenter().Y);
+	CHECK(std::abs(icon->area.getCenter().X - box->area.getCenter().X) <= 1);
+	f32 shape = (f32)icon->area.getWidth() / (f32)icon->area.getHeight();
+	CHECK(shape == doctest::Approx((f32)icon->source.getWidth() / (f32)icon->source.getHeight()).epsilon(0.05));
+	const RecordingCanvas::Call* ammo = text(canvas, L"-");
 	REQUIRE(ammo != nullptr);
-	REQUIRE(number != nullptr);
-	CHECK(canvas.pathOf(ammo->font) == canvas.pathOf(number->font));
-	CHECK(ammo->colour == number->colour);
+	CHECK(ammo->colour == video::SColor(255, 255, 255, 255));
 	CHECK(ammo->hcenter);
-	CHECK(std::abs(ammo->area.getCenter().X - fist->area.getCenter().X) <= 1);
-	CHECK(ammo->area.UpperLeftCorner.Y >= fist->area.LowerRightCorner.Y);
-	CHECK(within(pouch->area, ammo->area));
+	CHECK(std::abs(ammo->area.getCenter().X - icon->area.getCenter().X) <= 1);
+	CHECK(ammo->area.UpperLeftCorner.Y >= icon->area.LowerRightCorner.Y);
+	CHECK(within(box->area, ammo->area));
+	CHECK(text(canvas, L"--/--") == nullptr);
+}
+
+TEST_CASE("each weapon cuts its own silhouette from the 3 by 2 sheet, guns show the ammo pair and melee a dash")
+{
+	const int weapons[] = { HUD_FIST, HUD_BAT, HUD_PIPE, HUD_PISTOL, HUD_SHOTGUN, HUD_KNIFE };
+	std::vector<rect<s32> > cuts;
+	for (int weapon : weapons)
+	{
+		INFO(weapon);
+		RecordingCanvas canvas;
+		canvas.screenDimension = dimension2d<u32>(1280, 720);
+		drawVitals(canvas, hurt(100, 100, 100), weapon);
+		const RecordingCanvas::Call* icon = image(canvas, "hud_weapon_icons.png");
+		REQUIRE(icon != nullptr);
+		cuts.push_back(icon->source);
+		bool gun = weapon == HUD_PISTOL || weapon == HUD_SHOTGUN;
+		CHECK((text(canvas, L"--/--") != nullptr) == gun);
+		CHECK((text(canvas, L"-") != nullptr) == !gun);
+		CHECK((icon->source.getCenter().Y > 512) == (weapon >= HUD_PISTOL));
+		CHECK(icon->source.getCenter().X / 512 == weapon % 3);
+	}
+	for (size_t a = 0; a < cuts.size(); ++a)
+		for (size_t b = a + 1; b < cuts.size(); ++b)
+			CHECK_FALSE(cuts[a].isRectCollided(cuts[b]));
 }

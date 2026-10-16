@@ -16,14 +16,12 @@ namespace
 	const SColor portraitColour(255, 20, 18, 14);
 	const SColor opaque(255, 255, 255, 255);
 	const char* const labelFont = "assets/fonts/label.png";
-	const char* const fistFile = "engine/gamecorev0.1.1/gamecorev0.1.1/bill/icons/hand.jpg";
-	const rect<s32> backingArt(19, 119, 2154, 592);
-	const rect<s32> pouchArt(20, 159, 1389, 957);
-	const s32 pouchWidth = 280;
-	const s32 pouchHeight = 163;
-	const s32 slotWidth = 140;
-	const s32 slotHeight = 84;
-	const rect<s32> fistArt(260, 165, 1093, 1603);
+	const SColor white(255, 255, 255, 255);
+	const rect<s32> vitalsArt(47, 198, 1937, 604);
+	const rect<s32> weaponBoxArt(63, 113, 1024, 1348);
+	const s32 weaponBoxWidth = 150;
+	const rect<s32> weaponArt[6] = { rect<s32>(76, 128, 449, 437), rect<s32>(553, 71, 994, 484), rect<s32>(1106, 95, 1486, 468),
+		rect<s32>(53, 584, 481, 883), rect<s32>(500, 656, 1128, 831), rect<s32>(1136, 546, 1489, 949) };
 	const rect<s32> reticleArt(364, 349, 892, 887);
 	const rect<s32> frameArt(40, 42, 1215, 1203);
 	const rect<s32> trackArt(28, 271, 2144, 487);
@@ -85,9 +83,9 @@ namespace
 	}
 }
 
-void drawVitals(Canvas& canvas, const character::CharacterSheet& sheet)
+void drawVitals(Canvas& canvas, const character::CharacterSheet& sheet, int weapon)
 {
-	canvas.drawImage(canvas.loadTexture("assets/hud/backing_panel.png"), cluster(0, 0, 288, 72), backingArt, seeThrough);
+	canvas.drawImage(canvas.loadTexture("assets/hud/hud_vitals_panel.png"), cluster(0, 0, 288, 72), vitalsArt, seeThrough);
 	rect<s32> portrait = cluster(8, 8, 64, 64);
 	canvas.drawRect(portrait, portraitColour);
 	canvas.drawRect(cluster(29, 18, 43, 34), theme::dim);
@@ -101,19 +99,19 @@ void drawVitals(Canvas& canvas, const character::CharacterSheet& sheet)
 	dimension2d<u32> screen = canvas.screenSize();
 	s32 right = (s32)screen.Width - margin;
 	s32 bottom = (s32)screen.Height - margin;
-	rect<s32> pouch(right - pouchWidth, bottom - pouchHeight, right, bottom);
-	canvas.drawImage(canvas.loadTexture("assets/hud/weapon_panel.png"), pouch, pouchArt, seeThrough);
-	rect<s32> inside(pouch.UpperLeftCorner.X + pouchWidth * 58 / 1000, pouch.UpperLeftCorner.Y + pouchHeight * 164 / 1000,
-		pouch.UpperLeftCorner.X + pouchWidth * 833 / 1000, pouch.UpperLeftCorner.Y + pouchHeight * 903 / 1000);
-	s32 middle = inside.getCenter().X;
-	rect<s32> slot(middle - slotWidth / 2, inside.UpperLeftCorner.Y + 6, middle - slotWidth / 2 + slotWidth,
-		inside.UpperLeftCorner.Y + 6 + slotHeight);
-	rect<s32> fist = fitted(fistArt, slot);
-	canvas.drawImage(canvas.loadTexture(fistFile), fist, fistArt, opaque);
-	const wchar_t* ammo = L"--/--";
+	s32 boxHeight = weaponBoxWidth * weaponBoxArt.getHeight() / weaponBoxArt.getWidth();
+	rect<s32> box(right - weaponBoxWidth, bottom - boxHeight, right, bottom);
+	canvas.drawImage(canvas.loadTexture("assets/hud/hud_weapon_panel.png"), box, weaponBoxArt, seeThrough);
+	s32 middle = box.getCenter().X;
+	rect<s32> room(middle - weaponBoxWidth * 3 / 8, box.UpperLeftCorner.Y + boxHeight / 8, middle + weaponBoxWidth * 3 / 8,
+		box.UpperLeftCorner.Y + boxHeight * 9 / 16);
+	const rect<s32>& art = weaponArt[weapon];
+	rect<s32> icon = fitted(art, room);
+	canvas.drawImage(canvas.loadTexture("assets/hud/hud_weapon_icons.png"), icon, art, white);
+	const wchar_t* ammo = weapon == HUD_PISTOL || weapon == HUD_SHOTGUN ? L"--/--" : L"-";
 	s32 textHeight = (s32)canvas.textSize(font, ammo).Height;
-	canvas.drawText(font, ammo, rect<s32>(middle - 60, fist.LowerRightCorner.Y + 4, middle + 60, fist.LowerRightCorner.Y + 6 + textHeight),
-		theme::text, true, true, false);
+	canvas.drawText(font, ammo, rect<s32>(middle - 60, icon.LowerRightCorner.Y + 8, middle + 60, icon.LowerRightCorner.Y + 10 + textHeight),
+		white, true, true, false);
 
 	position2d<s32> centre((s32)screen.Width / 2, (s32)screen.Height / 2);
 	canvas.drawImage(canvas.loadTexture("assets/hud/reticle.png"), rect<s32>(centre.X - reticleSize / 2, centre.Y - reticleSize / 2,
