@@ -219,7 +219,7 @@ TEST_CASE("the grid sits on the right page and the eight slots on the left, and 
 			CHECK_FALSE(layout.slots[i].isRectCollided(layout.slots[j]));
 	}
 	CHECK(layout.slots[pack.slot("head")].UpperLeftCorner.Y < layout.slots[pack.slot("boots")].UpperLeftCorner.Y);
-	CHECK(layout.slots[pack.slot("gloves")].UpperLeftCorner.X < layout.slots[pack.slot("off_hand")].UpperLeftCorner.X);
+	CHECK(layout.slots[pack.slot("off_hand")].UpperLeftCorner.X < layout.slots[pack.slot("main_hand")].UpperLeftCorner.X);
 	CHECK(layout.slotAt(position2d<s32>(rightPage.getCenter())) == -1);
 	Placed armour{ Item{ "body_armor", 1, true }, Cell{ 1, 1 } };
 	CHECK(layout.footprint(armour).getWidth() == 3 * layout.cell);
