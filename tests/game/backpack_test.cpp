@@ -57,17 +57,17 @@ namespace
 	const rect<s32> rightPage(700, 100, 1000, 560);
 }
 
-TEST_CASE("the backpack is an eight by five grid loaded from the engine's item files, and a new game starts with a knife, bandages, ammo and body armour")
+TEST_CASE("the backpack is an eight by five grid loaded from the engine's item files, and a new game starts with a knife, bandages, ammo, body armour and both backpacks")
 {
 	Pack pack;
-	CHECK(pack.catalog.slotCount() == 8);
+	CHECK(pack.catalog.slotCount() == 9);
 	REQUIRE(pack.catalog.itemType("body_armor") != nullptr);
 	backpack::addStartingItems(pack.inventory);
 	std::vector<Placed> contents = pack.inventory.backpackContents();
 	std::set<std::string> types;
 	for (const Placed& placed : contents)
 		types.insert(placed.item.type);
-	CHECK(types == std::set<std::string>{ "knife", "bandage", "ammo_box", "body_armor" });
+	CHECK(types == std::set<std::string>{ "knife", "bandage", "ammo_box", "body_armor", "small_backpack", "large_backpack" });
 	for (const Placed& placed : contents)
 	{
 		if (placed.item.type == "bandage")
@@ -75,7 +75,7 @@ TEST_CASE("the backpack is an eight by five grid loaded from the engine's item f
 		if (placed.item.type == "ammo_box")
 			CHECK(placed.item.count == 6);
 	}
-	CHECK(pack.inventory.itemAt(Cell{ 7, 4 }) == nullptr);
+	CHECK(pack.inventory.rows() == 5);
 }
 
 TEST_CASE("clicking an item picks it up where it was grabbed, and clicking empty cells puts it down with the same grab")
@@ -207,7 +207,7 @@ TEST_CASE("the grid sits on the right page and the eight slots on the left, and 
 	CHECK_FALSE(layout.cellAt(position2d<s32>(layout.grid.LowerRightCorner.X + 2, layout.grid.UpperLeftCorner.Y + 2), cell));
 	CHECK_FALSE(layout.cellAt(position2d<s32>(layout.grid.LowerRightCorner.X, layout.grid.UpperLeftCorner.Y + 2), cell));
 	CHECK_FALSE(layout.cellAt(position2d<s32>(layout.grid.UpperLeftCorner.X + 2, layout.grid.LowerRightCorner.Y), cell));
-	REQUIRE(layout.slots.size() == 8);
+	REQUIRE(layout.slots.size() == 9);
 	for (size_t i = 0; i < layout.slots.size(); ++i)
 	{
 		INFO(pack.catalog.slotId((int)i));
@@ -237,4 +237,80 @@ TEST_CASE("clicks on the page reach the right cell or slot")
 	REQUIRE(pack.inventory.equippedIn("off_hand") != nullptr);
 	pack.page.click(layout, position2d<s32>(5, 5));
 	CHECK_FALSE(pack.page.isHolding());
+}
+
+namespace
+{
+	Cell anchorOf(const Inventory& inventory, const std::string& type)
+	{
+		for (const Placed& placed : inventory.backpackContents())
+			if (placed.item.type == type)
+				return placed.anchor;
+		return Cell{ -1, -1 };
+	}
+}
+
+TEST_CASE("wearing a backpack grows the grid, and an item in the extra rows keeps it on with a message until it is moved")
+{
+	Pack pack;
+	REQUIRE(pack.inventory.placeAt(Item{ "small_backpack", 1 }, Cell{ 0, 0 }).outcome == Outcome::Done);
+	pack.page.clickCell(Cell{ 0, 0 });
+	pack.page.clickSlot(pack.slot("back"));
+	CHECK_FALSE(pack.page.isHolding());
+	CHECK(pack.inventory.rows() == 7);
+	CHECK(pack.inventory.columns() == 8);
+	REQUIRE(pack.inventory.placeAt(Item{ "key", 1 }, Cell{ 3, 6 }).outcome == Outcome::Done);
+	pack.page.clickSlot(pack.slot("back"));
+	CHECK(pack.page.message() == "Clear items from extended slots first.");
+	CHECK(pack.inventory.equippedIn("back") != nullptr);
+	CHECK(pack.inventory.rows() == 7);
+	pack.page.clickCell(Cell{ 3, 6 });
+	pack.page.clickCell(Cell{ 3, 0 });
+	pack.page.clickSlot(pack.slot("back"));
+	CHECK(pack.page.message().empty());
+	CHECK(pack.inventory.equippedIn("back") == nullptr);
+	CHECK(pack.inventory.rows() == 5);
+}
+
+TEST_CASE("the large backpack grows the grid to nine rows, and trading down to the small one needs its extra rows clear")
+{
+	Pack pack;
+	REQUIRE(pack.inventory.placeAt(Item{ "large_backpack", 1 }, Cell{ 0, 0 }).outcome == Outcome::Done);
+	REQUIRE(pack.inventory.placeAt(Item{ "small_backpack", 1 }, Cell{ 4, 0 }).outcome == Outcome::Done);
+	pack.page.clickCell(Cell{ 0, 0 });
+	pack.page.clickSlot(pack.slot("back"));
+	CHECK(pack.inventory.rows() == 9);
+	REQUIRE(pack.inventory.placeAt(Item{ "key", 1 }, Cell{ 7, 8 }).outcome == Outcome::Done);
+	pack.page.clickCell(anchorOf(pack.inventory, "small_backpack"));
+	pack.page.clickSlot(pack.slot("back"));
+	CHECK(pack.page.isHolding());
+	CHECK(pack.page.message() == "Not enough room to downgrade backpack.");
+	CHECK(pack.inventory.equippedIn("back")->type == "large_backpack");
+	CHECK(pack.inventory.rows() == 9);
+	pack.page.cancel();
+	pack.page.clickCell(Cell{ 7, 8 });
+	pack.page.clickCell(Cell{ 7, 0 });
+	pack.page.clickCell(anchorOf(pack.inventory, "small_backpack"));
+	pack.page.clickSlot(pack.slot("back"));
+	CHECK(pack.inventory.equippedIn("back")->type == "small_backpack");
+	CHECK(pack.inventory.rows() == 7);
+	CHECK(anchorOf(pack.inventory, "large_backpack").row >= 0);
+}
+
+TEST_CASE("a nine-row grid still fits the page with usable cells, and the back slot sits beside the chest")
+{
+	Pack pack;
+	backpack::Layout layout(pack.catalog, leftPage, rightPage, 8, 9);
+	CHECK(layout.cell >= 32);
+	CHECK(layout.grid.getHeight() == 9 * layout.cell);
+	CHECK(layout.grid.getWidth() == 8 * layout.cell);
+	CHECK(layout.grid.LowerRightCorner.Y <= rightPage.LowerRightCorner.Y);
+	Cell cell{ -1, -1 };
+	REQUIRE(layout.cellAt(layout.cellArea(Cell{ 2, 8 }).getCenter(), cell));
+	CHECK(cell.row == 8);
+	REQUIRE(layout.slots.size() == 9);
+	const rect<s32>& back = layout.slots[pack.slot("back")];
+	const rect<s32>& chest = layout.slots[pack.slot("chest")];
+	CHECK(back.UpperLeftCorner.Y == chest.UpperLeftCorner.Y);
+	CHECK(back.UpperLeftCorner.X > chest.LowerRightCorner.X);
 }

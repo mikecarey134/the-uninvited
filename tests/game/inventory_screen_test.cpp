@@ -262,3 +262,23 @@ TEST_CASE("without a backpack the screen still opens and says there is nothing t
 		said = said || (call.kind == RecordingCanvas::TEXT && call.text == L"Inventory unavailable");
 	CHECK(said);
 }
+
+TEST_CASE("after a backpack is put on, the screen draws the taller grid in the same panel")
+{
+	Bag bag;
+	REQUIRE(bag.pack->placeAt(Item{ "large_backpack", 1 }, Cell{ 0, 0 }).outcome == Outcome::Done);
+	REQUIRE(bag.pack->equipFrom(Cell{ 0, 0 }, "back").outcome == Outcome::Done);
+	bag.key(KEY_KEY_I);
+	bag.draw();
+	backpack::Layout layout = bag.screen.layout();
+	CHECK(layout.grid.getHeight() == 9 * layout.cell);
+	CHECK(layout.cell >= 40);
+	CHECK(layout.grid.LowerRightCorner.Y <= bag.screen.panel().LowerRightCorner.Y);
+	int across = 0;
+	for (const RecordingCanvas::Call& call : bag.canvas.calls)
+		if (call.kind == RecordingCanvas::LINE && call.from.Y == call.to.Y && layout.grid.isPointInside(call.from))
+			++across;
+	CHECK(across == 8);
+	REQUIRE(bag.image("large_backpack.png") != nullptr);
+	CHECK(layout.slots[8].isRectCollided(bag.image("large_backpack.png")->area));
+}

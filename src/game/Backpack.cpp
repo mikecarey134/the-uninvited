@@ -39,13 +39,16 @@ namespace backpack
 		inventory.pickUp(Item{ "bandage", 3 });
 		inventory.pickUp(Item{ "ammo_box", 6 });
 		inventory.pickUp(Item{ "body_armor", 1 });
+		inventory.pickUp(Item{ "small_backpack", 1 });
+		inventory.pickUp(Item{ "large_backpack", 1 });
 	}
 
-	Layout::Layout(const Catalog& catalog, const rect<s32>& left, const rect<s32>& right) : catalog(catalog), left(left), right(right)
+	Layout::Layout(const Catalog& catalog, const rect<s32>& left, const rect<s32>& right, int columns, int rows)
+		: catalog(catalog), left(left), right(right), columns(columns), rows(rows)
 	{
-		cell = std::min(right.getWidth() / COLUMNS, (right.getHeight() - heading - footer) / ROWS);
+		cell = std::min(right.getWidth() / columns, (right.getHeight() - heading - footer) / rows);
 		position2d<s32> corner(right.UpperLeftCorner.X, right.UpperLeftCorner.Y + heading);
-		grid = rect<s32>(corner.X, corner.Y, corner.X + cell * COLUMNS, corner.Y + cell * ROWS);
+		grid = rect<s32>(corner.X, corner.Y, corner.X + cell * columns, corner.Y + cell * rows);
 		s32 columnWidth = left.getWidth() / 3;
 		s32 rowHeight = (left.getHeight() - heading - footer) / 4;
 		s32 box = std::min(columnWidth, rowHeight) * 5 / 8;
@@ -111,6 +114,7 @@ namespace backpack
 		case Outcome::NoRoom: message_ = "No room in the backpack"; break;
 		case Outcome::NotAllowed: message_ = itemName(held_.type) + " doesn't go in the " + slot + " slot"; break;
 		case Outcome::Blocked: message_ = "The " + slot + " is blocked by a two-handed weapon"; break;
+		case Outcome::ItemsOutside: message_ = "Not enough room to downgrade backpack."; break;
 		default: message_ = "That can't be done"; break;
 		}
 	}
@@ -201,8 +205,13 @@ namespace backpack
 			return;
 		}
 		message_.clear();
-		if (inventory_.equippedIn(id) && inventory_.unequip(id).outcome != Outcome::Done)
-			explain(Outcome::NoRoom, "");
+		if (!inventory_.equippedIn(id))
+			return;
+		Outcome outcome = inventory_.unequip(id).outcome;
+		if (outcome == Outcome::ItemsOutside)
+			message_ = "Clear items from extended slots first.";
+		else if (outcome != Outcome::Done)
+			explain(outcome, "");
 	}
 
 	std::string Page::slotLine() const

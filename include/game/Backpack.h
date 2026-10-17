@@ -20,7 +20,8 @@ namespace backpack
 
 	struct Layout
 	{
-		Layout(const inventory::Catalog& catalog, const irr::core::rect<irr::s32>& left, const irr::core::rect<irr::s32>& right);
+		Layout(const inventory::Catalog& catalog, const irr::core::rect<irr::s32>& left, const irr::core::rect<irr::s32>& right,
+			int columns = COLUMNS, int rows = ROWS);
 
 		irr::core::rect<irr::s32> cellArea(inventory::Cell cell) const;
 		irr::core::rect<irr::s32> footprint(const inventory::Placed& placed) const;
@@ -30,6 +31,8 @@ namespace backpack
 		const inventory::Catalog& catalog;
 		irr::core::rect<irr::s32> left;
 		irr::core::rect<irr::s32> right;
+		int columns;
+		int rows;
 		irr::core::rect<irr::s32> grid;
 		irr::s32 cell;
 		std::vector<irr::core::rect<irr::s32> > slots;

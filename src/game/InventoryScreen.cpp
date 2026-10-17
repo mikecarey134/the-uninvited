@@ -77,7 +77,7 @@ backpack::Layout InventoryScreen::layout() const
 	s32 bottom = area.LowerRightCorner.Y - 20;
 	rect<s32> doll(area.UpperLeftCorner.X + 28, top, area.UpperLeftCorner.X + width * 36 / 100, bottom);
 	rect<s32> grid(area.UpperLeftCorner.X + width * 40 / 100, top, area.LowerRightCorner.X - 28, bottom);
-	return backpack::Layout(page_->catalog(), doll, grid);
+	return backpack::Layout(page_->catalog(), doll, grid, page_->inventory().columns(), page_->inventory().rows());
 }
 
 bool InventoryScreen::onEvent(const SEvent& event)
@@ -160,7 +160,7 @@ void InventoryScreen::draw(Canvas& canvas)
 		return grid.left.getCenter();
 	};
 	const char* const bones[][2] = { { "head", "chest" }, { "neck", "chest" }, { "chest", "belt" }, { "belt", "boots" },
-		{ "chest", "gloves" }, { "chest", "main_hand" }, { "chest", "off_hand" } };
+		{ "chest", "gloves" }, { "chest", "main_hand" }, { "chest", "off_hand" }, { "chest", "back" } };
 	for (const auto& bone : bones)
 		canvas.drawLine(centre(bone[0]), centre(bone[1]), boneLine);
 	for (int i = 0; i < catalog.slotCount(); ++i)
@@ -177,12 +177,12 @@ void InventoryScreen::draw(Canvas& canvas)
 		grid.left.LowerRightCorner.X, grid.left.LowerRightCorner.Y), text, false, true, false);
 
 	canvas.drawRect(grid.grid, emptyCells);
-	for (int column = 1; column < backpack::COLUMNS; ++column)
+	for (int column = 1; column < grid.columns; ++column)
 	{
 		s32 x = grid.grid.UpperLeftCorner.X + column * grid.cell;
 		canvas.drawLine(position2d<s32>(x, grid.grid.UpperLeftCorner.Y), position2d<s32>(x, grid.grid.LowerRightCorner.Y), gridLine);
 	}
-	for (int row = 1; row < backpack::ROWS; ++row)
+	for (int row = 1; row < grid.rows; ++row)
 	{
 		s32 y = grid.grid.UpperLeftCorner.Y + row * grid.cell;
 		canvas.drawLine(position2d<s32>(grid.grid.UpperLeftCorner.X, y), position2d<s32>(grid.grid.LowerRightCorner.X, y), gridLine);
