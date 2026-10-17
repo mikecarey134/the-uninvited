@@ -174,3 +174,78 @@ TEST_CASE("a character starts at full health, keeps it through a save, and saves
 	CharacterSheet::fromText(broken, problem);
 	CHECK(problem == "bad health: 150");
 }
+
+static Carried packed()
+{
+	Carried carried;
+	carried.columns = 8;
+	carried.rows = 7;
+	carried.items = { CarriedItem{ "knife", 0, 0, false, 1 }, CarriedItem{ "bandage", 2, 0, false, 3 }, CarriedItem{ "body_armor", 4, 5, true, 1 } };
+	carried.worn = { WornItem{ "main_hand", "pistol" }, WornItem{ "back", "small_backpack" } };
+	return carried;
+}
+
+TEST_CASE("the carried items and worn gear go into the character file as readable inv lines and come back the same")
+{
+	std::mt19937 random(5);
+	CharacterSheet sheet = CharacterSheet::create("Ivy", Gender::Male, bartender, random);
+	sheet.setCarried(packed());
+	std::string text = sheet.toText();
+	CHECK(text.find("\ninv.grid = 8,7\n") != std::string::npos);
+	CHECK(text.find("\ninv.item.0 = knife,0,0,false,1\n") != std::string::npos);
+	CHECK(text.find("\ninv.item.1 = bandage,2,0,false,3\n") != std::string::npos);
+	CHECK(text.find("\ninv.item.2 = body_armor,4,5,true,1\n") != std::string::npos);
+	CHECK(text.find("\ninv.equip.main_hand = pistol\n") != std::string::npos);
+	CHECK(text.find("\ninv.equip.back = small_backpack\n") != std::string::npos);
+	CharacterSheet back = reloaded(sheet);
+	checkSame(sheet, back);
+	const Carried& carried = back.carried();
+	CHECK(carried.columns == 8);
+	CHECK(carried.rows == 7);
+	REQUIRE(carried.items.size() == 3);
+	CHECK(carried.items[2].type == "body_armor");
+	CHECK(carried.items[2].column == 4);
+	CHECK(carried.items[2].row == 5);
+	CHECK(carried.items[2].rotated);
+	CHECK_FALSE(carried.items[1].rotated);
+	CHECK(carried.items[1].count == 3);
+	REQUIRE(carried.worn.size() == 2);
+	CHECK(carried.worn[0].slot == "main_hand");
+	CHECK(carried.worn[0].type == "pistol");
+	CHECK(carried.worn[1].slot == "back");
+	CHECK(carried.problems.empty());
+}
+
+TEST_CASE("a character file from before inventories loads with nothing carried, and a fresh character writes no inv lines")
+{
+	std::mt19937 random(6);
+	CharacterSheet sheet = CharacterSheet::create("Ivy", Gender::Male, bartender, random);
+	std::string text = sheet.toText();
+	CHECK(text.find("inv.") == std::string::npos);
+	std::string problem;
+	CharacterSheet loaded = CharacterSheet::fromText(text, problem);
+	REQUIRE(problem.empty());
+	CHECK(loaded.carried().items.empty());
+	CHECK(loaded.carried().worn.empty());
+	CHECK(loaded.carried().columns == 0);
+	CHECK(loaded.carried().problems.empty());
+}
+
+TEST_CASE("a garbled inv line is set aside with a note while the rest of the character and inventory still load")
+{
+	std::mt19937 random(7);
+	CharacterSheet sheet = CharacterSheet::create("Ivy", Gender::Male, bartender, random);
+	sheet.setCarried(packed());
+	std::string text = sheet.toText();
+	text += "inv.item.3 = shotgun,1,x,false,1\ninv.item.4 = pills,1\ninv.item.5 = pills,1,1,maybe,2\ninv.equip. = knife\ninv.item.6 = key,0,0,false,0\ninv.wobble = 1\n";
+	std::string problem;
+	CharacterSheet loaded = CharacterSheet::fromText(text, problem);
+	REQUIRE(problem.empty());
+	CHECK(loaded.name() == "Ivy");
+	CHECK(loaded.carried().items.size() == 3);
+	CHECK(loaded.carried().worn.size() == 2);
+	REQUIRE(loaded.carried().problems.size() == 6);
+	CHECK(loaded.carried().problems[0].find("inv.item.3") != std::string::npos);
+	CHECK(loaded.carried().problems[4].find("inv.item.6") != std::string::npos);
+	CHECK(loaded.carried().problems[5].find("inv.wobble") != std::string::npos);
+}

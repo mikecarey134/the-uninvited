@@ -10,10 +10,10 @@ namespace loot
 		return {
 			Container{ "Crate", 4.0f, 9.0f, 4, { Item{ "bandage", 2 }, Item{ "lockpick", 1 }, Item{ "ammo_box", 3 } } },
 			Container{ "Chest", 7.0f, -5.0f, 8, { Item{ "shotgun", 1 }, Item{ "body_armor", 1 }, Item{ "pills", 4 }, Item{ "ammo_box", 5 },
-				Item{ "helmet", 1 } } },
+				Item{ "helmet", 1 }, Item{ "small_backpack", 1 } } },
 			Container{ "Crate", -12.0f, -14.0f, 4, { Item{ "key", 1 }, Item{ "pills", 2 } } },
 			Container{ "Chest", 20.0f, 4.0f, 8, { Item{ "pistol", 1 }, Item{ "boots", 1 }, Item{ "gloves", 1 }, Item{ "bandage", 5 },
-				Item{ "utility_belt", 1 } } },
+				Item{ "utility_belt", 1 }, Item{ "large_backpack", 1 } } },
 		};
 	}
 

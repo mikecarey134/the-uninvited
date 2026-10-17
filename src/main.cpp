@@ -116,6 +116,12 @@ namespace
 		if (!itemsLoaded)
 			std::cerr << "Inventory data did not load: " << itemProblem << std::endl;
 		std::unique_ptr<inventory::Inventory> carried;
+		auto played = [&world, &carried, &itemCatalog] {
+			character::CharacterSheet sheet = world->sheet();
+			if (carried)
+				sheet.setCarried(backpack::capture(*carried, itemCatalog));
+			return sheet;
+		};
 		std::unique_ptr<backpack::Page> carriedPage;
 		Notebook* notebookOpen = nullptr;
 		LootScreen* lootOpen = nullptr;
@@ -173,7 +179,8 @@ namespace
 					if (itemsLoaded)
 					{
 						carried.reset(new inventory::Inventory(itemCatalog, backpack::COLUMNS, backpack::ROWS));
-						backpack::addStartingItems(*carried);
+						for (const std::string& warning : backpack::restore(chosen->carried(), *carried, itemCatalog))
+							std::cerr << "Inventory: " << warning << std::endl;
 						carriedPage.reset(new backpack::Page(*carried, itemCatalog));
 						inventoryScreen.attach(carriedPage.get());
 						lootScreen.attach(carried.get(), &itemCatalog);
@@ -188,7 +195,7 @@ namespace
 				playing = false;
 				if (world)
 				{
-					flow.keep(world->sheet());
+					flow.keep(played());
 					capture.setCaptured(false);
 					notebook.close();
 					inventoryScreen.close();
@@ -223,7 +230,7 @@ namespace
 				world->look(capture.delta().X * 0.25f);
 				world->update(paused ? 0.0f : seconds);
 				if (autosave.due(seconds))
-					flow.keep(world->sheet());
+					flow.keep(played());
 			}
 
 			session.tick();
@@ -254,7 +261,7 @@ namespace
 		}
 
 		if (world)
-			flow.keep(world->sheet());
+			flow.keep(played());
 		session.leave();
 		screens.hide();
 		device->setEventReceiver(0);

@@ -801,3 +801,27 @@ TEST_CASE("Confirm saves the character with each skill at its profession bonus p
 	CHECK(later.characters()[0].getSpeech() == 2);
 	CHECK_FALSE(fixture.flow.confirmSkills());
 }
+
+TEST_CASE("keep saves what the character carries, so it is there after a restart")
+{
+	Fixture fixture("keep_carried");
+	fixture.createAndSelect("Eli");
+	CharacterSheet played = *fixture.flow.chosen();
+	Carried carried;
+	carried.columns = 8;
+	carried.rows = 7;
+	carried.items = { CarriedItem{ "body_armor", 4, 5, true, 1 } };
+	carried.worn = { WornItem{ "back", "small_backpack" } };
+	played.setCarried(carried);
+	REQUIRE(fixture.flow.keep(played));
+	MenuFlow later(fixture.store, shippedProfessions());
+	later.play();
+	REQUIRE(later.characters().size() == 1);
+	const Carried& back = later.characters()[0].carried();
+	CHECK(back.rows == 7);
+	REQUIRE(back.items.size() == 1);
+	CHECK(back.items[0].type == "body_armor");
+	CHECK(back.items[0].rotated);
+	REQUIRE(back.worn.size() == 1);
+	CHECK(back.worn[0].type == "small_backpack");
+}

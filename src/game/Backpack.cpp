@@ -43,6 +43,69 @@ namespace backpack
 		inventory.pickUp(Item{ "large_backpack", 1 });
 	}
 
+	character::Carried capture(const Inventory& carried, const Catalog& catalog)
+	{
+		character::Carried saved;
+		saved.columns = carried.columns();
+		saved.rows = carried.rows();
+		for (const Placed& placed : carried.backpackContents())
+			saved.items.push_back(character::CarriedItem{ placed.item.type, placed.anchor.column, placed.anchor.row, placed.item.rotated,
+				placed.item.count });
+		for (int i = 0; i < catalog.slotCount(); ++i)
+			if (const Item* worn = carried.equippedIn(catalog.slotId(i)))
+				saved.worn.push_back(character::WornItem{ catalog.slotId(i), worn->type });
+		return saved;
+	}
+
+	std::vector<std::string> restore(const character::Carried& saved, Inventory& carried, const Catalog& catalog)
+	{
+		std::vector<std::string> warnings;
+		for (const std::string& problem : saved.problems)
+			warnings.push_back("Skipped " + problem);
+		for (const character::WornItem& worn : saved.worn)
+		{
+			if (!catalog.itemType(worn.type))
+			{
+				warnings.push_back("Skipped unknown item '" + worn.type + "' worn in " + worn.slot);
+				continue;
+			}
+			if (!catalog.hasSlot(worn.slot))
+			{
+				warnings.push_back("Skipped " + worn.type + " worn in unknown slot '" + worn.slot + "'");
+				continue;
+			}
+			if (carried.placeAt(Item{ worn.type, 1 }, Cell{ 0, 0 }).outcome != Outcome::Done)
+			{
+				warnings.push_back("Skipped " + worn.type + " worn in " + worn.slot + ": no room to put it on");
+				continue;
+			}
+			if (carried.equipFrom(Cell{ 0, 0 }, worn.slot).outcome != Outcome::Done)
+			{
+				carried.takeAt(Cell{ 0, 0 }, 1);
+				warnings.push_back("Skipped " + worn.type + ": it cannot be worn in " + worn.slot);
+			}
+		}
+		for (const character::CarriedItem& item : saved.items)
+		{
+			if (!catalog.itemType(item.type))
+			{
+				warnings.push_back("Skipped unknown item '" + item.type + "'");
+				continue;
+			}
+			Result placed = carried.placeAt(Item{ item.type, item.count, item.rotated }, Cell{ item.column, item.row });
+			if (placed.outcome == Outcome::Partial)
+				warnings.push_back("Kept " + std::to_string(placed.moved) + " of " + std::to_string(item.count) + " " + item.type + " at " +
+					std::to_string(item.column) + "," + std::to_string(item.row) + ": a stack holds no more");
+			else if (placed.outcome != Outcome::Done)
+				warnings.push_back("Skipped " + item.type + " x" + std::to_string(item.count) + " at " + std::to_string(item.column) + "," +
+					std::to_string(item.row) + ": it does not fit there");
+		}
+		if (saved.columns > 0 && (saved.columns != carried.columns() || saved.rows != carried.rows()))
+			warnings.push_back("The saved grid was " + std::to_string(saved.columns) + "x" + std::to_string(saved.rows) + " but the gear worn makes it " +
+				std::to_string(carried.columns()) + "x" + std::to_string(carried.rows()));
+		return warnings;
+	}
+
 	Layout::Layout(const Catalog& catalog, const rect<s32>& left, const rect<s32>& right, int columns, int rows)
 		: catalog(catalog), left(left), right(right), columns(columns), rows(rows)
 	{

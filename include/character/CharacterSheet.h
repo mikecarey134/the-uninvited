@@ -39,6 +39,30 @@ namespace character
 		std::string bloodline;
 	};
 
+	struct CarriedItem
+	{
+		std::string type;
+		int column;
+		int row;
+		bool rotated;
+		int count;
+	};
+
+	struct WornItem
+	{
+		std::string slot;
+		std::string type;
+	};
+
+	struct Carried
+	{
+		int columns = 0;
+		int rows = 0;
+		std::vector<CarriedItem> items;
+		std::vector<WornItem> worn;
+		std::vector<std::string> problems;
+	};
+
 	class CharacterSheet
 	{
 	public:
@@ -118,6 +142,8 @@ namespace character
 		void survivalTick(double gameSeconds);
 		float water() const { return (float)water_; }
 		float hunger() const { return (float)hunger_; }
+		const Carried& carried() const { return carried_; }
+		void setCarried(const Carried& carried) { carried_ = carried; }
 		float sanity() const { return sanity_; }
 		bool isDehydrated() const { return dehydrated_; }
 		bool isStarving() const { return starving_; }
@@ -142,6 +168,7 @@ namespace character
 		bool dehydrated_ = false;
 		bool starving_ = false;
 		bool insane_ = false;
+		Carried carried_;
 	};
 
 

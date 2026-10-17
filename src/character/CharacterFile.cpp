@@ -47,6 +47,63 @@ namespace character
 			return text.compare(0, line.size(), line) == 0 || text.find("\n" + line) != std::string::npos;
 		}
 
+		std::vector<std::string> fieldsOf(const std::string& value)
+		{
+			std::vector<std::string> fields;
+			std::string::size_type start = 0;
+			while (true)
+			{
+				std::string::size_type end = value.find(',', start);
+				fields.push_back(trim(value.substr(start, end == std::string::npos ? std::string::npos : end - start)));
+				if (end == std::string::npos)
+					return fields;
+				start = end + 1;
+			}
+		}
+
+		bool number(const std::string& text, int& value)
+		{
+			if (text.empty() || text.size() > 6 || text.find_first_not_of("0123456789") != std::string::npos)
+				return false;
+			value = std::atoi(text.c_str());
+			return true;
+		}
+
+		Carried readCarried(const std::string& text)
+		{
+			Carried carried;
+			std::string::size_type start = 0;
+			while (start < text.size())
+			{
+				std::string::size_type end = text.find('\n', start);
+				std::string line = trim(text.substr(start, end == std::string::npos ? std::string::npos : end - start));
+				start = end == std::string::npos ? text.size() : end + 1;
+				std::string::size_type equals = line.find('=');
+				if (line.compare(0, 4, "inv.") != 0 || equals == std::string::npos)
+					continue;
+				std::string key = trim(line.substr(0, equals));
+				std::vector<std::string> parts = fieldsOf(trim(line.substr(equals + 1)));
+				CarriedItem item{ "", 0, 0, false, 0 };
+				if (key == "inv.grid" && parts.size() == 2 && number(parts[0], carried.columns) && number(parts[1], carried.rows))
+					continue;
+				if (key.compare(0, 9, "inv.item.") == 0 && parts.size() == 5 && !parts[0].empty() && number(parts[1], item.column) &&
+					number(parts[2], item.row) && (parts[3] == "true" || parts[3] == "false") && number(parts[4], item.count) && item.count > 0)
+				{
+					item.type = parts[0];
+					item.rotated = parts[3] == "true";
+					carried.items.push_back(item);
+					continue;
+				}
+				if (key.compare(0, 10, "inv.equip.") == 0 && key.size() > 10 && parts.size() == 1 && !parts[0].empty())
+				{
+					carried.worn.push_back(WornItem{ key.substr(10), parts[0] });
+					continue;
+				}
+				carried.problems.push_back("unreadable " + line);
+			}
+			return carried;
+		}
+
 		bool attributeFromName(const std::string& name, int& attribute)
 		{
 			for (int i = 0; i < ATTRIBUTE_COUNT; ++i)
@@ -88,6 +145,16 @@ namespace character
 		out.add("water", water_, 9);
 		out.add("hunger", hunger_, 9);
 		out.add("sanity", sanity_, 9);
+		if (carried_.columns > 0)
+			out.add("inv.grid", std::to_string(carried_.columns) + "," + std::to_string(carried_.rows));
+		for (std::size_t i = 0; i < carried_.items.size(); ++i)
+		{
+			const CarriedItem& item = carried_.items[i];
+			out.add("inv.item." + std::to_string(i), item.type + "," + std::to_string(item.column) + "," + std::to_string(item.row) + "," +
+				(item.rotated ? "true" : "false") + "," + std::to_string(item.count));
+		}
+		for (const WornItem& worn : carried_.worn)
+			out.add("inv.equip." + worn.slot, worn.type);
 		return out.text();
 	}
 
@@ -160,6 +227,7 @@ namespace character
 		sheet.dehydrated_ = sheet.water_ <= 0.0f;
 		sheet.starving_ = sheet.hunger_ <= 0.0f;
 		sheet.insane_ = sheet.sanity_ <= 0.0f;
+		sheet.carried_ = readCarried(text);
 		return sheet;
 	}
 }

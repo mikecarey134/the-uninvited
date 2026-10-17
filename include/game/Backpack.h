@@ -6,6 +6,7 @@
 #include <irrlicht.h>
 #include "Catalog.h"
 #include "Inventory.h"
+#include "CharacterSheet.h"
 
 namespace backpack
 {
@@ -17,6 +18,8 @@ namespace backpack
 
 	bool loadCatalog(inventory::Catalog& catalog, std::string& problem);
 	void addStartingItems(inventory::Inventory& inventory);
+	character::Carried capture(const inventory::Inventory& carried, const inventory::Catalog& catalog);
+	std::vector<std::string> restore(const character::Carried& saved, inventory::Inventory& carried, const inventory::Catalog& catalog);
 
 	struct Layout
 	{

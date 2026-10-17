@@ -314,3 +314,101 @@ TEST_CASE("a nine-row grid still fits the page with usable cells, and the back s
 	CHECK(back.UpperLeftCorner.Y == chest.UpperLeftCorner.Y);
 	CHECK(back.UpperLeftCorner.X > chest.LowerRightCorner.X);
 }
+
+namespace
+{
+	std::vector<Placed> sorted(std::vector<Placed> contents)
+	{
+		std::sort(contents.begin(), contents.end(), [](const Placed& a, const Placed& b) {
+			return a.anchor.row != b.anchor.row ? a.anchor.row < b.anchor.row : a.anchor.column < b.anchor.column;
+		});
+		return contents;
+	}
+}
+
+TEST_CASE("what the player carries and wears is captured for the character file and restored exactly, backpack size included")
+{
+	Pack pack;
+	REQUIRE(pack.inventory.placeAt(Item{ "small_backpack", 1 }, Cell{ 0, 0 }).outcome == Outcome::Done);
+	REQUIRE(pack.inventory.equipFrom(Cell{ 0, 0 }, "back").outcome == Outcome::Done);
+	REQUIRE(pack.inventory.placeAt(Item{ "pistol", 1 }, Cell{ 0, 0 }).outcome == Outcome::Done);
+	REQUIRE(pack.inventory.equipFrom(Cell{ 0, 0 }, "main_hand").outcome == Outcome::Done);
+	REQUIRE(pack.inventory.placeAt(Item{ "body_armor", 1, true }, Cell{ 5, 5 }).outcome == Outcome::Done);
+	REQUIRE(pack.inventory.placeAt(Item{ "bandage", 4 }, Cell{ 1, 6 }).outcome == Outcome::Done);
+	REQUIRE(pack.inventory.placeAt(Item{ "knife", 1 }, Cell{ 0, 0 }).outcome == Outcome::Done);
+	character::Carried carried = backpack::capture(pack.inventory, pack.catalog);
+	CHECK(carried.columns == 8);
+	CHECK(carried.rows == 7);
+	CHECK(carried.items.size() == 3);
+	CHECK(carried.worn.size() == 2);
+
+	Inventory again(pack.catalog, backpack::COLUMNS, backpack::ROWS);
+	std::vector<std::string> warnings = backpack::restore(carried, again, pack.catalog);
+	CHECK(warnings.empty());
+	CHECK(again.columns() == 8);
+	CHECK(again.rows() == 7);
+	REQUIRE(again.equippedIn("back") != nullptr);
+	CHECK(again.equippedIn("back")->type == "small_backpack");
+	REQUIRE(again.equippedIn("main_hand") != nullptr);
+	CHECK(again.equippedIn("main_hand")->type == "pistol");
+	std::vector<Placed> before = sorted(pack.inventory.backpackContents()), after = sorted(again.backpackContents());
+	REQUIRE(after.size() == before.size());
+	for (size_t i = 0; i < before.size(); ++i)
+	{
+		INFO(before[i].item.type);
+		CHECK(after[i].item.type == before[i].item.type);
+		CHECK(after[i].item.count == before[i].item.count);
+		CHECK(after[i].item.rotated == before[i].item.rotated);
+		CHECK(after[i].anchor.column == before[i].anchor.column);
+		CHECK(after[i].anchor.row == before[i].anchor.row);
+	}
+}
+
+TEST_CASE("an unknown item, a slot that does not exist, an item that no longer fits and garbled lines are skipped with a warning each")
+{
+	Pack pack;
+	character::Carried carried;
+	carried.columns = 8;
+	carried.rows = 9;
+	carried.worn = { character::WornItem{ "back", "large_backpack" }, character::WornItem{ "tail", "knife" }, character::WornItem{ "head", "wizard_hat" } };
+	carried.items = { character::CarriedItem{ "knife", 0, 7, false, 1 }, character::CarriedItem{ "laser_rifle", 2, 0, false, 1 },
+		character::CarriedItem{ "pistol", 7, 7, false, 1 }, character::CarriedItem{ "key", 0, 8, false, 1 }, character::CarriedItem{ "bandage", 3, 3, false, 9 } };
+	carried.problems = { "unreadable inv.item.9 = junk" };
+	Inventory again(pack.catalog, backpack::COLUMNS, backpack::ROWS);
+	std::vector<std::string> warnings = backpack::restore(carried, again, pack.catalog);
+	CHECK(again.rows() == 9);
+	REQUIRE(again.itemAt(Cell{ 0, 8 }) != nullptr);
+	CHECK(again.itemAt(Cell{ 0, 8 })->type == "knife");
+	CHECK(again.backpackContents().size() == 2);
+	REQUIRE(again.itemAt(Cell{ 3, 3 }) != nullptr);
+	CHECK(again.itemAt(Cell{ 3, 3 })->count == 5);
+	REQUIRE(warnings.size() == 7);
+	auto mentions = [&warnings](const std::string& word) {
+		for (const std::string& line : warnings)
+			if (line.find(word) != std::string::npos)
+				return true;
+		return false;
+	};
+	CHECK(mentions("laser_rifle"));
+	CHECK(mentions("tail"));
+	CHECK(mentions("wizard_hat"));
+	CHECK(mentions("pistol"));
+	CHECK(mentions("key"));
+	CHECK(mentions("bandage"));
+	CHECK(mentions("inv.item.9"));
+}
+
+TEST_CASE("a character with nothing saved starts with an empty eight by five backpack and no warnings")
+{
+	Pack pack;
+	Inventory again(pack.catalog, backpack::COLUMNS, backpack::ROWS);
+	CHECK(backpack::restore(character::Carried(), again, pack.catalog).empty());
+	CHECK(again.backpackContents().empty());
+	CHECK(again.columns() == 8);
+	CHECK(again.rows() == 5);
+	for (int i = 0; i < pack.catalog.slotCount(); ++i)
+		CHECK(again.equippedIn(pack.catalog.slotId(i)) == nullptr);
+	character::Carried empty = backpack::capture(again, pack.catalog);
+	CHECK(empty.items.empty());
+	CHECK(empty.worn.empty());
+}
