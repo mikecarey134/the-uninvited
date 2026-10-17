@@ -686,6 +686,21 @@ TEST_CASE("the vitals HUD shows only in the world, replacing the big name headin
 		screens.draw();
 		CHECK(hud());
 		CHECK_FALSE(heading(L"Rook"));
+		auto drawn = [&canvas](const std::string& file) {
+			for (const RecordingCanvas::Call& call : canvas.calls)
+				if (call.kind == RecordingCanvas::IMAGE && canvas.pathOf(call.texture) == file)
+					return true;
+			return false;
+		};
+		CHECK_FALSE(drawn("assets/hud/hud_weapon_icons.png"));
+		world.arm(HudWeapon{ HUD_PISTOL, "", 9 });
+		canvas.calls.clear();
+		screens.draw();
+		CHECK(drawn("assets/hud/hud_weapon_icons.png"));
+		bool nine = false;
+		for (const RecordingCanvas::Call& call : canvas.calls)
+			nine = nine || (call.kind == RecordingCanvas::TEXT && call.text == L"9");
+		CHECK(nine);
 		flow.returnToTitle();
 		screens.setWorld(nullptr);
 		canvas.calls.clear();

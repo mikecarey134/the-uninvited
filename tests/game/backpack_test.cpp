@@ -412,3 +412,45 @@ TEST_CASE("a character with nothing saved starts with an empty eight by five bac
 	CHECK(empty.items.empty());
 	CHECK(empty.worn.empty());
 }
+
+TEST_CASE("the HUD shows what is in the main hand: sheet silhouettes for the knife and guns, the inventory icon otherwise, and ammo only for guns")
+{
+	Pack pack;
+	HudWeapon empty = backpack::hudWeapon(pack.inventory, pack.catalog);
+	CHECK(empty.frame == HUD_NONE);
+	CHECK(empty.icon.empty());
+	CHECK(empty.ammo == -1);
+	CHECK(backpack::wieldedWeapon(pack.inventory, pack.catalog).empty());
+
+	REQUIRE(pack.inventory.placeAt(Item{ "ammo_box", 10 }, Cell{ 4, 0 }).outcome == Outcome::Done);
+	REQUIRE(pack.inventory.placeAt(Item{ "ammo_box", 3 }, Cell{ 5, 0 }).outcome == Outcome::Done);
+	REQUIRE(pack.inventory.placeAt(Item{ "bandage", 2 }, Cell{ 6, 0 }).outcome == Outcome::Done);
+	const struct { const char* type; int frame; bool gun; } weapons[] = { { "knife", HUD_KNIFE, false }, { "pistol", HUD_PISTOL, true },
+		{ "shotgun", HUD_SHOTGUN, true }, { "hatchet", HUD_NONE, false } };
+	for (const auto& weapon : weapons)
+	{
+		INFO(weapon.type);
+		REQUIRE(pack.inventory.placeAt(Item{ weapon.type, 1 }, Cell{ 0, 0 }).outcome == Outcome::Done);
+		REQUIRE(pack.inventory.equipFrom(Cell{ 0, 0 }, "main_hand").outcome == Outcome::Done);
+		HudWeapon shown = backpack::hudWeapon(pack.inventory, pack.catalog);
+		CHECK(shown.frame == weapon.frame);
+		CHECK(shown.icon == (weapon.frame == HUD_NONE ? std::string(backpack::ICON_FOLDER) + weapon.type + ".png" : ""));
+		CHECK(shown.ammo == (weapon.gun ? 13 : -1));
+		CHECK(backpack::wieldedWeapon(pack.inventory, pack.catalog) == weapon.type);
+		REQUIRE(pack.inventory.unequip("main_hand").outcome == Outcome::Done);
+		for (const Placed& placed : pack.inventory.backpackContents())
+			if (placed.item.type == weapon.type)
+				pack.inventory.takeAt(placed.anchor, 1);
+	}
+
+	REQUIRE(pack.inventory.placeAt(Item{ "pistol", 1 }, Cell{ 0, 0 }).outcome == Outcome::Done);
+	REQUIRE(pack.inventory.equipFrom(Cell{ 0, 0 }, "main_hand").outcome == Outcome::Done);
+	REQUIRE(pack.inventory.placeAt(Item{ "ammo_box", 4 }, Cell{ 7, 0 }).outcome == Outcome::Done);
+	CHECK(backpack::hudWeapon(pack.inventory, pack.catalog).ammo == 17);
+
+	Pack lit;
+	REQUIRE(lit.inventory.placeAt(Item{ "flashlight", 1 }, Cell{ 0, 0 }).outcome == Outcome::Done);
+	REQUIRE(lit.inventory.equipFrom(Cell{ 0, 0 }, "main_hand").outcome == Outcome::Done);
+	CHECK(backpack::hudWeapon(lit.inventory, lit.catalog).icon == std::string(backpack::ICON_FOLDER) + "flashlight.png");
+	CHECK(backpack::wieldedWeapon(lit.inventory, lit.catalog).empty());
+}

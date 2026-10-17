@@ -43,6 +43,37 @@ namespace backpack
 		inventory.pickUp(Item{ "large_backpack", 1 });
 	}
 
+	HudWeapon hudWeapon(const Inventory& carried, const Catalog& catalog)
+	{
+		HudWeapon shown;
+		const Item* held = carried.equippedIn("main_hand");
+		if (!held)
+			return shown;
+		if (held->type == "knife")
+			shown.frame = HUD_KNIFE;
+		else if (held->type == "pistol")
+			shown.frame = HUD_PISTOL;
+		else if (held->type == "shotgun")
+			shown.frame = HUD_SHOTGUN;
+		else if (const ItemType* type = catalog.itemType(held->type))
+			shown.icon = std::string(ICON_FOLDER) + type->icon;
+		if (shown.frame == HUD_PISTOL || shown.frame == HUD_SHOTGUN)
+		{
+			shown.ammo = 0;
+			for (const Placed& placed : carried.backpackContents())
+				if (placed.item.type == "ammo_box")
+					shown.ammo += placed.item.count;
+		}
+		return shown;
+	}
+
+	std::string wieldedWeapon(const Inventory& carried, const Catalog& catalog)
+	{
+		const Item* held = carried.equippedIn("main_hand");
+		const ItemType* type = held ? catalog.itemType(held->type) : nullptr;
+		return type && type->category == Category::Weapon ? held->type : "";
+	}
+
 	character::Carried capture(const Inventory& carried, const Catalog& catalog)
 	{
 		character::Carried saved;

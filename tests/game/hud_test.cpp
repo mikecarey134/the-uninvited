@@ -242,17 +242,31 @@ TEST_CASE("the clean dark weapon box sits in the bottom-right corner with the cl
 	CHECK(shape == doctest::Approx((f32)box->source.getWidth() / (f32)box->source.getHeight()).epsilon(0.05));
 }
 
-TEST_CASE("unarmed, the fist is cut from the silhouette sheet, white, in the box's upper part, with a dash for ammo under it")
+TEST_CASE("with nothing in the main hand the weapon box is drawn empty, with no icon and no ammo text")
 {
 	RecordingCanvas canvas;
 	canvas.screenDimension = dimension2d<u32>(1280, 720);
 	drawVitals(canvas, hurt(100, 100, 100));
 	const RecordingCanvas::Call* box = image(canvas, "hud_weapon_panel.png");
+	REQUIRE(box != nullptr);
+	int inside = 0;
+	for (const RecordingCanvas::Call& call : canvas.calls)
+		if (order(canvas, &call) > order(canvas, box) && within(box->area, call.area))
+			++inside;
+	CHECK(inside == 0);
+}
+
+TEST_CASE("a knife is cut from the silhouette sheet, white, in the box's upper part, with no ammo text under it")
+{
+	RecordingCanvas canvas;
+	canvas.screenDimension = dimension2d<u32>(1280, 720);
+	drawVitals(canvas, hurt(100, 100, 100), HudWeapon{ HUD_KNIFE, "", -1 });
+	const RecordingCanvas::Call* box = image(canvas, "hud_weapon_panel.png");
 	const RecordingCanvas::Call* icon = image(canvas, "hud_weapon_icons.png");
 	REQUIRE(box != nullptr);
 	REQUIRE(icon != nullptr);
-	CHECK(icon->source.UpperLeftCorner.X < 512);
-	CHECK(icon->source.LowerRightCorner.Y < 512);
+	CHECK(icon->source.getCenter().X > 1024);
+	CHECK(icon->source.getCenter().Y > 512);
 	CHECK(icon->colour == video::SColor(255, 255, 255, 255));
 	CHECK(order(canvas, box) < order(canvas, icon));
 	CHECK(within(box->area, icon->area));
@@ -260,17 +274,51 @@ TEST_CASE("unarmed, the fist is cut from the silhouette sheet, white, in the box
 	CHECK(std::abs(icon->area.getCenter().X - box->area.getCenter().X) <= 1);
 	f32 shape = (f32)icon->area.getWidth() / (f32)icon->area.getHeight();
 	CHECK(shape == doctest::Approx((f32)icon->source.getWidth() / (f32)icon->source.getHeight()).epsilon(0.05));
-	const RecordingCanvas::Call* ammo = text(canvas, L"-");
+	for (const RecordingCanvas::Call& call : canvas.calls)
+		CHECK_FALSE((call.kind == RecordingCanvas::TEXT && within(box->area, call.area)));
+}
+
+TEST_CASE("a gun shows its ammo count centred under the icon, in white")
+{
+	RecordingCanvas canvas;
+	canvas.screenDimension = dimension2d<u32>(1280, 720);
+	drawVitals(canvas, hurt(100, 100, 100), HudWeapon{ HUD_PISTOL, "", 17 });
+	const RecordingCanvas::Call* box = image(canvas, "hud_weapon_panel.png");
+	const RecordingCanvas::Call* icon = image(canvas, "hud_weapon_icons.png");
+	REQUIRE(box != nullptr);
+	REQUIRE(icon != nullptr);
+	const RecordingCanvas::Call* ammo = text(canvas, L"17");
 	REQUIRE(ammo != nullptr);
 	CHECK(ammo->colour == video::SColor(255, 255, 255, 255));
 	CHECK(ammo->hcenter);
 	CHECK(std::abs(ammo->area.getCenter().X - icon->area.getCenter().X) <= 1);
 	CHECK(ammo->area.UpperLeftCorner.Y >= icon->area.LowerRightCorner.Y);
 	CHECK(within(box->area, ammo->area));
-	CHECK(text(canvas, L"--/--") == nullptr);
+	canvas.calls.clear();
+	drawVitals(canvas, hurt(100, 100, 100), HudWeapon{ HUD_SHOTGUN, "", 0 });
+	CHECK(text(canvas, L"0") != nullptr);
 }
 
-TEST_CASE("each weapon cuts its own silhouette from the 3 by 2 sheet, guns show the ammo pair and melee a dash")
+TEST_CASE("an item with no silhouette on the sheet draws its whole inventory icon in the box instead")
+{
+	RecordingCanvas canvas;
+	canvas.screenDimension = dimension2d<u32>(1280, 720);
+	drawVitals(canvas, hurt(100, 100, 100), HudWeapon{ HUD_NONE, "icons/hatchet.png", -1 });
+	const RecordingCanvas::Call* box = image(canvas, "hud_weapon_panel.png");
+	REQUIRE(box != nullptr);
+	CHECK(image(canvas, "hud_weapon_icons.png") == nullptr);
+	const RecordingCanvas::Call* icon = nullptr;
+	for (const RecordingCanvas::Call& call : canvas.calls)
+		if (call.kind == RecordingCanvas::IMAGE && canvas.pathOf(call.texture) == "icons/hatchet.png")
+			icon = &call;
+	REQUIRE(icon != nullptr);
+	CHECK(within(box->area, icon->area));
+	CHECK(icon->area.getWidth() == icon->area.getHeight());
+	CHECK(icon->area.getCenter().Y < box->area.getCenter().Y);
+	CHECK(icon->colour == video::SColor(255, 255, 255, 255));
+}
+
+TEST_CASE("each sheet weapon cuts its own silhouette from the 3 by 2 sheet")
 {
 	const int weapons[] = { HUD_FIST, HUD_BAT, HUD_PIPE, HUD_PISTOL, HUD_SHOTGUN, HUD_KNIFE };
 	std::vector<rect<s32> > cuts;
@@ -279,13 +327,10 @@ TEST_CASE("each weapon cuts its own silhouette from the 3 by 2 sheet, guns show 
 		INFO(weapon);
 		RecordingCanvas canvas;
 		canvas.screenDimension = dimension2d<u32>(1280, 720);
-		drawVitals(canvas, hurt(100, 100, 100), weapon);
+		drawVitals(canvas, hurt(100, 100, 100), HudWeapon{ weapon, "", -1 });
 		const RecordingCanvas::Call* icon = image(canvas, "hud_weapon_icons.png");
 		REQUIRE(icon != nullptr);
 		cuts.push_back(icon->source);
-		bool gun = weapon == HUD_PISTOL || weapon == HUD_SHOTGUN;
-		CHECK((text(canvas, L"--/--") != nullptr) == gun);
-		CHECK((text(canvas, L"-") != nullptr) == !gun);
 		CHECK((icon->source.getCenter().Y > 512) == (weapon >= HUD_PISTOL));
 		CHECK(icon->source.getCenter().X / 512 == weapon % 3);
 	}

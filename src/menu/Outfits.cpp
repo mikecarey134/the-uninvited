@@ -7,6 +7,16 @@ namespace menu
 		return gender == character::Gender::Female ? "assets/models/stick_dan.ms3d" : "assets/models/stick_mike.ms3d";
 	}
 
+	const char* characterModel(character::Gender gender, const std::string& weapon, std::string& note)
+	{
+		note.clear();
+		if (weapon == "knife" && gender == character::Gender::Male)
+			return "assets/models/stick_mike_knife.ms3d";
+		if (!weapon.empty())
+			note = "No weapon mesh for " + weapon + ", using base model.";
+		return characterModel(gender);
+	}
+
 	const std::vector<std::string>& outfitSkins(character::Gender gender)
 	{
 		static const std::vector<std::string> male = { "assets/models/playerskin_m1.jpg", "assets/models/playerskin_m2.jpg",

@@ -83,7 +83,7 @@ namespace
 	}
 }
 
-void drawVitals(Canvas& canvas, const character::CharacterSheet& sheet, int weapon)
+void drawVitals(Canvas& canvas, const character::CharacterSheet& sheet, const HudWeapon& weapon)
 {
 	canvas.drawImage(canvas.loadTexture("assets/hud/hud_vitals_panel.png"), cluster(0, 0, 288, 72), vitalsArt, seeThrough);
 	rect<s32> portrait = cluster(8, 8, 64, 64);
@@ -105,13 +105,25 @@ void drawVitals(Canvas& canvas, const character::CharacterSheet& sheet, int weap
 	s32 middle = box.getCenter().X;
 	rect<s32> room(middle - weaponBoxWidth * 3 / 8, box.UpperLeftCorner.Y + boxHeight / 8, middle + weaponBoxWidth * 3 / 8,
 		box.UpperLeftCorner.Y + boxHeight * 9 / 16);
-	const rect<s32>& art = weaponArt[weapon];
-	rect<s32> icon = fitted(art, room);
-	canvas.drawImage(canvas.loadTexture("assets/hud/hud_weapon_icons.png"), icon, art, white);
-	const wchar_t* ammo = weapon == HUD_PISTOL || weapon == HUD_SHOTGUN ? L"--/--" : L"-";
-	s32 textHeight = (s32)canvas.textSize(font, ammo).Height;
-	canvas.drawText(font, ammo, rect<s32>(middle - 60, icon.LowerRightCorner.Y + 8, middle + 60, icon.LowerRightCorner.Y + 10 + textHeight),
-		white, true, true, false);
+	rect<s32> icon = room;
+	if (weapon.frame != HUD_NONE)
+	{
+		const rect<s32>& art = weaponArt[weapon.frame];
+		icon = fitted(art, room);
+		canvas.drawImage(canvas.loadTexture("assets/hud/hud_weapon_icons.png"), icon, art, white);
+	}
+	else if (!weapon.icon.empty())
+	{
+		icon = fitted(rect<s32>(0, 0, 1, 1), room);
+		canvas.drawImage(canvas.loadTexture(weapon.icon.c_str()), icon, white);
+	}
+	if (weapon.ammo >= 0)
+	{
+		std::wstring ammo = wide(std::to_string(weapon.ammo));
+		s32 textHeight = (s32)canvas.textSize(font, ammo.c_str()).Height;
+		canvas.drawText(font, ammo.c_str(), rect<s32>(middle - 60, icon.LowerRightCorner.Y + 8, middle + 60, icon.LowerRightCorner.Y + 10 + textHeight),
+			white, true, true, false);
+	}
 
 	position2d<s32> centre((s32)screen.Width / 2, (s32)screen.Height / 2);
 	canvas.drawImage(canvas.loadTexture("assets/hud/reticle.png"), rect<s32>(centre.X - reticleSize / 2, centre.Y - reticleSize / 2,

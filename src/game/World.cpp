@@ -151,6 +151,23 @@ void World::move(const vector3df& step)
 	player_->setPosition(at);
 }
 
+void World::wield(const char* model)
+{
+	if (!player_)
+		return;
+	IAnimatedMesh* mesh = scene_->getMesh(model);
+	s32 start = player_->getStartFrame();
+	s32 end = player_->getEndFrame();
+	f32 frame = player_->getFrameNr();
+	ITexture* skin = player_->getMaterial(0).getTexture(0);
+	player_->setMesh(mesh);
+	player_->setFrameLoop(start, end);
+	player_->setCurrentFrame(frame);
+	player_->setMaterialTexture(0, skin);
+	player_->setMaterialFlag(EMF_FOG_ENABLE, true);
+	player_->setMaterialFlag(EMF_NORMALIZE_NORMALS, true);
+}
+
 void World::addPlayer(const char* model, const char* skin)
 {
 	player_ = addCharacter(model, skin, feet_);

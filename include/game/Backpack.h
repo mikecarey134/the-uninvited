@@ -7,6 +7,7 @@
 #include "Catalog.h"
 #include "Inventory.h"
 #include "CharacterSheet.h"
+#include "Hud.h"
 
 namespace backpack
 {
@@ -18,6 +19,8 @@ namespace backpack
 
 	bool loadCatalog(inventory::Catalog& catalog, std::string& problem);
 	void addStartingItems(inventory::Inventory& inventory);
+	HudWeapon hudWeapon(const inventory::Inventory& carried, const inventory::Catalog& catalog);
+	std::string wieldedWeapon(const inventory::Inventory& carried, const inventory::Catalog& catalog);
 	character::Carried capture(const inventory::Inventory& carried, const inventory::Catalog& catalog);
 	std::vector<std::string> restore(const character::Carried& saved, inventory::Inventory& carried, const inventory::Catalog& catalog);
 

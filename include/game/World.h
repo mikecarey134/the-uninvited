@@ -6,6 +6,7 @@
 #include <vector>
 #include <irrlicht.h>
 #include "CharacterSheet.h"
+#include "Hud.h"
 #include "InputRouter.h"
 #include "net/Interpolator.h"
 #include "Loot.h"
@@ -42,6 +43,9 @@ public:
 	void advanceClock(irr::f32 seconds);
 	bool debugShown() const { return debugShown_; }
 	void teleport(irr::f32 x, irr::f32 y, irr::f32 z);
+	void wield(const char* model);
+	const HudWeapon& weapon() const { return weapon_; }
+	void arm(const HudWeapon& weapon) { weapon_ = weapon; }
 	irr::f32 speed() const { return speed_; }
 	void setSpeed(irr::f32 speed) { speed_ = speed; }
 	void setHealth(int health) { sheet_.setHealth(health); }
@@ -84,6 +88,7 @@ private:
 	irr::scene::ISceneManager* scene_;
 	irr::scene::ICameraSceneNode* camera_;
 	irr::scene::IAnimatedMeshSceneNode* player_;
+	HudWeapon weapon_;
 	std::function<void()> leave_;
 	bool held_[4];
 	bool walking_;

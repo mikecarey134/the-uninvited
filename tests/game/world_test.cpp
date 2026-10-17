@@ -687,3 +687,42 @@ TEST_CASE("every container sits on a chest or crate prop of its own kind, and wa
 	fixture.world->teleport(boxes[1].x + 3.0f, 0.0f, boxes[1].z);
 	CHECK(fixture.world->containerInReach() == nullptr);
 }
+
+TEST_CASE("wielding swaps the player's whole mesh in place, keeping where they stand and face, their skin, and the animation mid-stride")
+{
+	const char* const knife = "assets/models/stick_mike_knife.ms3d";
+	Fixture fixture;
+	IAnimatedMeshSceneNode* player = fixture.world->player();
+	fixture.key(KEY_KEY_D, true);
+	fixture.world->update(0.4f);
+	player->setCurrentFrame(305.5f);
+	player->setAnimationSpeed(7.0f);
+	vector3df at = player->getPosition();
+	vector3df facing = player->getRotation();
+	vector3df scale = player->getScale();
+	f32 frame = player->getFrameNr();
+	f32 speed = player->getAnimationSpeed();
+	video::ITexture* skin = player->getMaterial(0).getTexture(0);
+	REQUIRE(player->getStartFrame() == 301);
+	REQUIRE(frame > 301.0f);
+
+	fixture.world->wield(knife);
+	CHECK(fixture.world->player() == player);
+	CHECK(player->getMesh() == fixture.world->scene()->getMesh(knife));
+	CHECK(player->getPosition() == at);
+	CHECK(player->getRotation() == facing);
+	CHECK(player->getScale() == scale);
+	CHECK(player->getStartFrame() == 301);
+	CHECK(player->getEndFrame() == 316);
+	CHECK(player->getFrameNr() == doctest::Approx(frame));
+	CHECK(player->getAnimationSpeed() == doctest::Approx(speed));
+	CHECK(player->getMaterial(0).getTexture(0) == skin);
+	CHECK(player->getMaterial(0).FogEnable);
+	CHECK(player->getMaterial(0).NormalizeNormals);
+
+	fixture.world->wield(mike);
+	CHECK(player->getMesh() == fixture.world->scene()->getMesh(mike));
+	CHECK(player->getStartFrame() == 301);
+	fixture.world->wield("assets/models/no_such_model.ms3d");
+	CHECK(player->getMesh() == fixture.world->scene()->getMesh(mike));
+}

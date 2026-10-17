@@ -123,6 +123,7 @@ namespace
 			return sheet;
 		};
 		std::unique_ptr<backpack::Page> carriedPage;
+		std::string wielded;
 		Notebook* notebookOpen = nullptr;
 		LootScreen* lootOpen = nullptr;
 		InventoryScreen inventoryScreen([&console] { return console.isVisible(); }, [&console, &notebookOpen, &lootOpen] {
@@ -182,6 +183,7 @@ namespace
 						for (const std::string& warning : backpack::restore(chosen->carried(), *carried, itemCatalog))
 							std::cerr << "Inventory: " << warning << std::endl;
 						carriedPage.reset(new backpack::Page(*carried, itemCatalog));
+						wielded.clear();
 						inventoryScreen.attach(carriedPage.get());
 						lootScreen.attach(carried.get(), &itemCatalog);
 					}
@@ -229,6 +231,19 @@ namespace
 				capture.beginFrame();
 				world->look(capture.delta().X * 0.25f);
 				world->update(paused ? 0.0f : seconds);
+				if (carried)
+				{
+					world->arm(backpack::hudWeapon(*carried, itemCatalog));
+					std::string weapon = backpack::wieldedWeapon(*carried, itemCatalog);
+					if (weapon != wielded && flow.chosen())
+					{
+						wielded = weapon;
+						std::string note;
+						world->wield(menu::characterModel(flow.chosen()->gender(), weapon, note));
+						if (!note.empty())
+							std::cerr << "Debug: " << note << std::endl;
+					}
+				}
 				if (autosave.due(seconds))
 					flow.keep(played());
 			}
