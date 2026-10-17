@@ -105,15 +105,15 @@ TEST_CASE("describe shows a bloodline's attribute multiplied, with the plain val
 	CHECK(lines[9] == "Bloodline: [Placeholder], Strength x10");
 }
 
-TEST_CASE("each attribute has a getter for its value and a setter for its rolled base, with placed points and bloodline still applied")
+TEST_CASE("each attribute has a getter for its value, with placed points and bloodline applied")
 {
-	struct Named { int id; int (CharacterSheet::*get)() const; void (CharacterSheet::*set)(int); };
+	struct Named { int id; int (CharacterSheet::*get)() const; };
 	const Named attributes[] = {
-		{ AGILITY, &CharacterSheet::getAgility, &CharacterSheet::setAgility },
-		{ ENDURANCE, &CharacterSheet::getEndurance, &CharacterSheet::setEndurance },
-		{ GUILE, &CharacterSheet::getGuile, &CharacterSheet::setGuile },
-		{ INTELLIGENCE, &CharacterSheet::getIntelligence, &CharacterSheet::setIntelligence },
-		{ STRENGTH, &CharacterSheet::getStrength, &CharacterSheet::setStrength } };
+		{ AGILITY, &CharacterSheet::getAgility },
+		{ ENDURANCE, &CharacterSheet::getEndurance },
+		{ GUILE, &CharacterSheet::getGuile },
+		{ INTELLIGENCE, &CharacterSheet::getIntelligence },
+		{ STRENGTH, &CharacterSheet::getStrength } };
 	for (const Named& named : attributes)
 	{
 		INFO(attributeName(named.id));
@@ -123,10 +123,7 @@ TEST_CASE("each attribute has a getter for its value and a setter for its rolled
 		aegis.placed[named.id] = 3;
 		CharacterSheet sheet = CharacterSheet::create("Ada", Gender::Female, paramedic, aegis);
 		CHECK((sheet.*named.get)() == 13 + named.id);
-		(sheet.*named.set)(40);
-		CHECK(sheet.rolledPoints(named.id) == 40);
-		CHECK((sheet.*named.get)() == 43);
-		CHECK(sheet.attribute(named.id) == 43);
+		CHECK(sheet.attribute(named.id) == 13 + named.id);
 		for (int other = 0; other < ATTRIBUTE_COUNT; ++other)
 			if (other != named.id)
 				CHECK(sheet.attribute(other) == 10 + other);

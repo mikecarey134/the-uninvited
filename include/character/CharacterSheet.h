@@ -99,15 +99,10 @@ namespace character
 		bool hasBloodline() const { return aegis_.hasBloodline; }
 		int bloodlineAttribute() const { return aegis_.bloodlineAttribute; }
 		int getAgility() const { return attribute(AGILITY); }
-		void setAgility(int value) { aegis_.rolled[AGILITY] = value; }
 		int getEndurance() const { return attribute(ENDURANCE); }
-		void setEndurance(int value) { aegis_.rolled[ENDURANCE] = value; }
 		int getGuile() const { return attribute(GUILE); }
-		void setGuile(int value) { aegis_.rolled[GUILE] = value; }
 		int getIntelligence() const { return attribute(INTELLIGENCE); }
-		void setIntelligence(int value) { aegis_.rolled[INTELLIGENCE] = value; }
 		int getStrength() const { return attribute(STRENGTH); }
-		void setStrength(int value) { aegis_.rolled[STRENGTH] = value; }
 		const std::string& bloodlineName() const { return aegis_.bloodline; }
 
 		int skill(int skill) const;
