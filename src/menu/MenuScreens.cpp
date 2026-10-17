@@ -538,6 +538,9 @@ void MenuScreens::draw()
 	else if (world_ && built_ == Screen::Playing)
 	{
 		drawVitals(canvas_, world_->sheet());
+		if (world_->containerInReach() && !world_->dead())
+			canvas_.drawText(canvas_.loadFont(labelFont), L"Press E to search", rect<s32>(0, (s32)screen.Height - 156, (s32)screen.Width,
+				(s32)screen.Height - 132), SColor(255, 255, 255, 255), true, true, false);
 		if (world_->debugShown())
 			DebugOverlay(device_, canvas_, nullptr).draw(world_->player() ? world_->player()->getPosition() : vector3df());
 		if (world_->dead())

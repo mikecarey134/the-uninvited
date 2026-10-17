@@ -1,6 +1,7 @@
 #include "doctest.h"
 #include "World.h"
 #include "Sky.h"
+#include "Loot.h"
 #include <cmath>
 #include <algorithm>
 #include <string>
@@ -662,4 +663,27 @@ TEST_CASE("teleport puts the player's feet at the given point, speed sets how fa
 	CHECK(fixture.world->dead());
 	fixture.world->hurt();
 	CHECK(fixture.world->sheet().health() == 0);
+}
+
+TEST_CASE("every container sits on a chest or crate prop of its own kind, and walking up to one puts it in reach")
+{
+	Fixture fixture;
+	const std::vector<loot::Container>& boxes = fixture.world->containers();
+	REQUIRE(boxes.size() == 4);
+	for (const loot::Container& box : boxes)
+	{
+		INFO(box.kind);
+		std::string wanted = box.kind == "Chest" ? "prop chest" : "prop crate";
+		bool sitting = false;
+		for (ISceneNode* node : fixture.world->scene()->getRootSceneNode()->getChildren())
+			if (std::string(node->getName()) == wanted && std::fabs(node->getPosition().X - box.x) < 0.01f && std::fabs(node->getPosition().Z - box.z) < 0.01f)
+				sitting = true;
+		CHECK(sitting);
+	}
+	CHECK(fixture.world->containerInReach() == nullptr);
+	fixture.world->teleport(boxes[1].x + 1.5f, 0.0f, boxes[1].z);
+	REQUIRE(fixture.world->containerInReach() != nullptr);
+	CHECK(fixture.world->containerInReach() == &fixture.world->containers()[1]);
+	fixture.world->teleport(boxes[1].x + 3.0f, 0.0f, boxes[1].z);
+	CHECK(fixture.world->containerInReach() == nullptr);
 }

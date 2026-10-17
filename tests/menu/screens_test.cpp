@@ -823,3 +823,55 @@ TEST_CASE("with F3 on, Mike's debug panel is drawn over the game with the frame 
 	std::filesystem::remove_all(directory);
 	device->drop();
 }
+
+TEST_CASE("standing beside a container shows Press E to search at the bottom middle in the HUD's small white text, and walking away hides it")
+{
+	IrrlichtDevice* device = createDevice(video::EDT_NULL, core::dimension2d<u32>(1280, 720));
+	RecordingCanvas canvas;
+	canvas.screenDimension = core::dimension2d<u32>(1280, 720);
+	std::string directory = (std::filesystem::temp_directory_path() / "screens_search").string();
+	std::filesystem::remove_all(directory);
+	{
+		menu::CharacterStore store(directory);
+		menu::MenuFlow flow(store, professions(), 3);
+		std::deque<std::string> status;
+		MenuScreens screens(device, canvas, flow, nullptr, status, nullptr);
+		flow.play();
+		flow.newCharacter();
+		REQUIRE(flow.create("Rook", character::Gender::Male, 0));
+		flow.highlight(0);
+		REQUIRE(flow.select());
+		flow.host();
+		flow.startServer();
+		World world(device, menu::characterModel(character::Gender::Male), menu::outfitSkin(character::Gender::Male, 0).c_str(), [] {});
+		screens.setWorld(&world);
+		auto prompt = [&canvas]() -> const RecordingCanvas::Call* {
+			for (const RecordingCanvas::Call& call : canvas.calls)
+				if (call.kind == RecordingCanvas::TEXT && call.text == L"Press E to search")
+					return &call;
+			return nullptr;
+		};
+		canvas.calls.clear();
+		screens.draw();
+		CHECK(prompt() == nullptr);
+		const loot::Container& chest = world.containers()[1];
+		world.teleport(chest.x + 1.5f, 0.0f, chest.z);
+		canvas.calls.clear();
+		screens.draw();
+		const RecordingCanvas::Call* shown = prompt();
+		REQUIRE(shown != nullptr);
+		CHECK(shown->hcenter);
+		CHECK((shown->area.UpperLeftCorner.X + shown->area.LowerRightCorner.X) / 2 == 640);
+		CHECK(shown->area.UpperLeftCorner.Y > 520);
+		CHECK(shown->area.LowerRightCorner.Y <= 720);
+		CHECK(shown->colour == video::SColor(255, 255, 255, 255));
+		CHECK(canvas.pathOf(shown->font).find("label") != std::string::npos);
+		world.teleport(chest.x + 4.0f, 0.0f, chest.z);
+		canvas.calls.clear();
+		screens.draw();
+		CHECK(prompt() == nullptr);
+		screens.setWorld(nullptr);
+	}
+	std::filesystem::remove_all(directory);
+	device->drop();
+}

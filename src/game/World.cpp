@@ -49,7 +49,7 @@ const uint8_t World::WALKING_STATE;
 World::World(IrrlichtDevice* device, const char* model, const char* skin, std::function<void()> leave,
 	const character::CharacterSheet& sheet)
 	: device_(device), scene_(device->getSceneManager()->createNewSceneManager(false)), camera_(0), player_(0), leave_(leave),
-	walking_(false), yaw_(0.0f), feet_(0.0f), sheet_(sheet), unticked_(0.0f), compression_(1.0f), timeOfDay_(START_HOUR), speed_(3.5f), debugShown_(false), sun_(0), clock_(0.0f)
+	walking_(false), yaw_(0.0f), feet_(0.0f), sheet_(sheet), unticked_(0.0f), compression_(1.0f), timeOfDay_(START_HOUR), speed_(3.5f), containers_(loot::flatWorldContainers()), debugShown_(false), sun_(0), clock_(0.0f)
 {
 	for (bool& held : held_)
 		held = false;
@@ -198,6 +198,14 @@ void World::setTimeOfDay(f32 hours)
 		sun_->getLightData().SpecularColor = look.sun;
 		sun_->setRotation(look.sunDirection.getHorizontalAngle());
 	}
+}
+
+loot::Container* World::containerInReach()
+{
+	if (!player_)
+		return nullptr;
+	int index = loot::closest(containers_, player_->getPosition().X, player_->getPosition().Z);
+	return index < 0 ? nullptr : &containers_[index];
 }
 
 void World::teleport(f32 x, f32 y, f32 z)

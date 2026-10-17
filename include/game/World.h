@@ -8,6 +8,7 @@
 #include "CharacterSheet.h"
 #include "InputRouter.h"
 #include "net/Interpolator.h"
+#include "Loot.h"
 #include "protocol/GameMessages.h"
 
 class World : public InputLayer
@@ -45,6 +46,8 @@ public:
 	void setSpeed(irr::f32 speed) { speed_ = speed; }
 	void setHealth(int health) { sheet_.setHealth(health); }
 	void hurt() { sheet_.setHealth(sheet_.health() - HURT_DAMAGE); }
+	std::vector<loot::Container>& containers() { return containers_; }
+	loot::Container* containerInReach();
 	irr::scene::ILightSceneNode* sun() const { return sun_; }
 	irr::video::SColor skyZenith() const { return zenith_; }
 	irr::video::SColor skyHorizon() const { return horizon_; }
@@ -92,6 +95,7 @@ private:
 	irr::f32 compression_;
 	irr::f32 timeOfDay_;
 	irr::f32 speed_;
+	std::vector<loot::Container> containers_;
 	bool debugShown_;
 	irr::scene::ILightSceneNode* sun_;
 	irr::video::SColor zenith_;
