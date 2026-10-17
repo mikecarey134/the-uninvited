@@ -454,3 +454,76 @@ TEST_CASE("the HUD shows what is in the main hand: sheet silhouettes for the kni
 	CHECK(backpack::hudWeapon(lit.inventory, lit.catalog).icon == std::string(backpack::ICON_FOLDER) + "flashlight.png");
 	CHECK(backpack::wieldedWeapon(lit.inventory, lit.catalog).empty());
 }
+
+TEST_CASE("the keyboard cursor walks the grid, steps onto the doll from its top row or first column, moves between slots, and Tab runs grid then doll")
+{
+	Pack pack;
+	backpack::Cursor cursor;
+	auto at = [&cursor](int column, int row) { return !cursor.onDoll && cursor.cell.column == column && cursor.cell.row == row; };
+	auto on = [&cursor, &pack](const char* slot) { return cursor.onDoll && pack.catalog.slotId(cursor.slot) == slot; };
+	CHECK(at(0, 0));
+	CHECK(cursor.move(KEY_RIGHT, false, pack.catalog, 8, 5));
+	cursor.move(KEY_DOWN, false, pack.catalog, 8, 5);
+	CHECK(at(1, 1));
+	for (int i = 0; i < 12; ++i)
+		cursor.move(KEY_RIGHT, false, pack.catalog, 8, 5);
+	CHECK(at(7, 1));
+	for (int i = 0; i < 12; ++i)
+		cursor.move(KEY_DOWN, false, pack.catalog, 8, 5);
+	CHECK(at(7, 4));
+	CHECK_FALSE(cursor.move(KEY_KEY_W, false, pack.catalog, 8, 5));
+	cursor.move(KEY_UP, false, pack.catalog, 8, 3);
+	CHECK(at(7, 1));
+
+	cursor = backpack::Cursor();
+	cursor.move(KEY_UP, false, pack.catalog, 8, 5);
+	CHECK(on("main_hand"));
+	cursor.move(KEY_UP, false, pack.catalog, 8, 5);
+	CHECK(on("back"));
+	cursor.move(KEY_LEFT, false, pack.catalog, 8, 5);
+	CHECK(on("chest"));
+	cursor.move(KEY_LEFT, false, pack.catalog, 8, 5);
+	CHECK(on("gloves"));
+	cursor.move(KEY_LEFT, false, pack.catalog, 8, 5);
+	CHECK(on("gloves"));
+	cursor.move(KEY_DOWN, false, pack.catalog, 8, 5);
+	CHECK(on("off_hand"));
+	cursor.move(KEY_RIGHT, false, pack.catalog, 8, 5);
+	CHECK(on("belt"));
+	cursor.move(KEY_RIGHT, false, pack.catalog, 8, 5);
+	CHECK(on("main_hand"));
+	cursor.move(KEY_RIGHT, false, pack.catalog, 8, 5);
+	CHECK(at(0, 0));
+	cursor.move(KEY_LEFT, false, pack.catalog, 8, 5);
+	CHECK(on("main_hand"));
+
+	cursor = backpack::Cursor();
+	cursor.cell = Cell{ 7, 4 };
+	cursor.move(KEY_TAB, false, pack.catalog, 8, 5);
+	CHECK(on("head"));
+	std::set<std::string> visited;
+	for (int i = 0; i < pack.catalog.slotCount(); ++i)
+	{
+		REQUIRE(cursor.onDoll);
+		visited.insert(pack.catalog.slotId(cursor.slot));
+		cursor.move(KEY_TAB, false, pack.catalog, 8, 5);
+	}
+	CHECK((int)visited.size() == pack.catalog.slotCount());
+	CHECK(at(0, 0));
+	cursor.move(KEY_TAB, true, pack.catalog, 8, 5);
+	CHECK(on("boots"));
+	cursor.move(KEY_TAB, false, pack.catalog, 8, 5);
+	CHECK(at(0, 0));
+	cursor.move(KEY_TAB, false, pack.catalog, 8, 5);
+	CHECK(at(1, 0));
+	cursor.move(KEY_TAB, true, pack.catalog, 8, 5);
+	CHECK(at(0, 0));
+	cursor.move(KEY_TAB, false, pack.catalog, 8, 5);
+	cursor.move(KEY_UP, false, pack.catalog, 8, 5);
+	cursor.move(KEY_UP, false, pack.catalog, 8, 5);
+	cursor.move(KEY_UP, false, pack.catalog, 8, 5);
+	cursor.move(KEY_LEFT, false, pack.catalog, 8, 5);
+	CHECK(on("head"));
+	cursor.move(KEY_TAB, true, pack.catalog, 8, 5);
+	CHECK(at(7, 4));
+}

@@ -27,6 +27,8 @@ private:
 	bool open_ = false;
 	irr::core::dimension2d<irr::u32> screen_{ 1280, 720 };
 	irr::core::position2d<irr::s32> mouse_{ 0, 0 };
+	backpack::Cursor cursor_;
+	bool keyboard_ = true;
 };
 
 #endif

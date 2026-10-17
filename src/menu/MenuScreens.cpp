@@ -1,4 +1,5 @@
 #include "MenuScreens.h"
+#include "Focus.h"
 #include "Outfits.h"
 #include "World.h"
 #include "Hud.h"
@@ -134,6 +135,8 @@ bool MenuScreens::onScene(position2d<s32> point) const
 
 bool MenuScreens::onEvent(const SEvent& event)
 {
+	if (event.EventType == EET_KEY_INPUT_EVENT)
+		return navigate(event.KeyInput);
 	if (event.EventType != EET_MOUSE_INPUT_EVENT || !backdrop_ || !backdrop_->character())
 	{
 		turning_ = false;
@@ -321,6 +324,15 @@ void MenuScreens::build()
 
 	default:
 		break;
+	}
+	std::vector<IGUIElement*> elements = focusable();
+	IGUIEnvironment* guienv = device_->getGUIEnvironment();
+	if (!elements.empty() && std::find(elements.begin(), elements.end(), guienv->getFocus()) == elements.end())
+	{
+		std::vector<rect<s32> > areas;
+		for (IGUIElement* element : elements)
+			areas.push_back(element->getAbsolutePosition());
+		guienv->setFocus(elements[focus::first(areas)]);
 	}
 }
 
@@ -601,6 +613,7 @@ void MenuScreens::draw()
 	guienv->drawAll();
 	for (const Button& button : buttons_)
 		drawButton(button);
+	drawFocus();
 
 	s32 below = 0;
 	for (const Button& button : buttons_)
@@ -609,6 +622,81 @@ void MenuScreens::draw()
 		text(canvas_.loadFont(bodyFont), flow_.message(), left, below + 10, theme::accent);
 	if (built_ == Screen::Title)
 		text(canvas_.loadFont(labelFont), "V0.1   EARLY DEVELOPMENT", left, (s32)screen.Height - 40, theme::dim);
+}
+
+std::vector<IGUIElement*> MenuScreens::focusable() const
+{
+	std::vector<IGUIElement*> elements;
+	if (built_ == Screen::Playing)
+		return elements;
+	std::vector<IGUIElement*> open(1, device_->getGUIEnvironment()->getRootGUIElement());
+	while (!open.empty())
+	{
+		IGUIElement* parent = open.back();
+		open.pop_back();
+		for (IGUIElement* element : parent->getChildren())
+		{
+			EGUI_ELEMENT_TYPE type = element->getType();
+			if (type == EGUIET_BUTTON || type == EGUIET_EDIT_BOX || type == EGUIET_LIST_BOX)
+				elements.push_back(element);
+			else
+				open.push_back(element);
+		}
+	}
+	return elements;
+}
+
+bool MenuScreens::navigate(const SEvent::SKeyInput& key)
+{
+	std::vector<IGUIElement*> elements = focusable();
+	if (!key.PressedDown || elements.empty())
+		return false;
+	IGUIEnvironment* guienv = device_->getGUIEnvironment();
+	std::vector<rect<s32> > areas;
+	int current = -1;
+	for (size_t i = 0; i < elements.size(); ++i)
+	{
+		areas.push_back(elements[i]->getAbsolutePosition());
+		if (elements[i] == guienv->getFocus())
+			current = (int)i;
+	}
+	EGUI_ELEMENT_TYPE type = current >= 0 ? elements[current]->getType() : EGUIET_ELEMENT;
+	int next = current;
+	switch (key.Key)
+	{
+	case KEY_TAB:
+		next = focus::step(areas, current, key.Shift);
+		break;
+	case KEY_LEFT:
+	case KEY_RIGHT:
+		if (type == EGUIET_EDIT_BOX)
+			return false;
+		next = focus::toward(areas, current, key.Key);
+		break;
+	case KEY_UP:
+	case KEY_DOWN:
+		if (type == EGUIET_LIST_BOX)
+			return false;
+		next = focus::toward(areas, current, key.Key);
+		break;
+	default:
+		return false;
+	}
+	if (next >= 0)
+		guienv->setFocus(elements[next]);
+	return true;
+}
+
+void MenuScreens::drawFocus()
+{
+	IGUIElement* focused = device_->getGUIEnvironment()->getFocus();
+	for (IGUIElement* element : focusable())
+		if (element == focused)
+		{
+			rect<s32> area = element->getAbsolutePosition();
+			canvas_.drawRectOutline(rect<s32>(area.UpperLeftCorner.X - 2, area.UpperLeftCorner.Y - 2, area.LowerRightCorner.X + 2,
+				area.LowerRightCorner.Y + 2), theme::accent);
+		}
 }
 
 void MenuScreens::click()

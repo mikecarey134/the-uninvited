@@ -16,7 +16,7 @@ add_library(uninvited_menu STATIC src/menu/CharacterStore.cpp src/menu/MenuFlow.
 target_include_directories(uninvited_menu PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/menu")
 target_link_libraries(uninvited_menu PUBLIC uninvited_character)
 
-add_executable(game src/main.cpp src/menu/MenuScreens.cpp src/menu/MenuSkin.cpp src/menu/MenuScene.cpp src/game/World.cpp src/game/Hud.cpp src/game/Notebook.cpp src/game/Multiplayer.cpp src/game/Sky.cpp src/game/DebugCommands.cpp src/game/Backpack.cpp src/game/InventoryScreen.cpp src/game/BackpackView.cpp src/game/Loot.cpp src/game/LootScreen.cpp)
+add_executable(game src/main.cpp src/menu/MenuScreens.cpp src/menu/Focus.cpp src/game/Gamepad.cpp src/menu/MenuSkin.cpp src/menu/MenuScene.cpp src/game/World.cpp src/game/Hud.cpp src/game/Notebook.cpp src/game/Multiplayer.cpp src/game/Sky.cpp src/game/DebugCommands.cpp src/game/Backpack.cpp src/game/InventoryScreen.cpp src/game/BackpackView.cpp src/game/Loot.cpp src/game/LootScreen.cpp)
 target_include_directories(game PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include/game")
 target_link_libraries(game PRIVATE uninvited_menu gamecore_engine game_net_session gamecore_inventory)
 
@@ -35,7 +35,7 @@ target_compile_definitions(menu_tests PRIVATE CHARACTER_CONFIG_DIR="${CMAKE_CURR
 target_link_libraries(menu_tests PRIVATE uninvited_menu game_net_session)
 add_test(NAME menu_tests COMMAND menu_tests)
 
-add_executable(ui_tests tests/menu/main.cpp tests/menu/ui_test.cpp tests/menu/scene_test.cpp tests/menu/screens_test.cpp
+add_executable(ui_tests tests/menu/main.cpp tests/menu/focus_test.cpp src/menu/Focus.cpp tests/game/gamepad_test.cpp src/game/Gamepad.cpp tests/menu/ui_test.cpp tests/menu/scene_test.cpp tests/menu/screens_test.cpp
   tests/game/world_test.cpp tests/game/hud_test.cpp tests/game/notebook_test.cpp tests/game/multiplayer_test.cpp tests/game/sky_test.cpp tests/game/commands_test.cpp tests/game/backpack_test.cpp tests/game/inventory_screen_test.cpp tests/game/loot_test.cpp tests/game/loot_screen_test.cpp src/menu/MenuSkin.cpp src/menu/MenuScene.cpp src/menu/MenuScreens.cpp src/game/World.cpp
   src/game/Hud.cpp src/game/Notebook.cpp src/game/Multiplayer.cpp src/game/Sky.cpp src/game/DebugCommands.cpp src/game/Backpack.cpp src/game/InventoryScreen.cpp src/game/BackpackView.cpp src/game/Loot.cpp src/game/LootScreen.cpp engine/gamecorev0.1.1/gamecorev0.1.1/engine/RecordingCanvas.cpp)
 target_include_directories(ui_tests PRIVATE "${DOCTEST_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/include/menu" "${CMAKE_CURRENT_SOURCE_DIR}/include/game")

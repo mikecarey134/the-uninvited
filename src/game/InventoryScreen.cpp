@@ -1,5 +1,6 @@
 #include "InventoryScreen.h"
 #include "BackpackView.h"
+#include "Theme.h"
 #include <algorithm>
 #include <string>
 
@@ -16,6 +17,11 @@ void InventoryScreen::open()
 {
 	if (!open_ && opened_)
 		opened_();
+	if (!open_)
+	{
+		cursor_ = backpack::Cursor();
+		keyboard_ = true;
+	}
 	open_ = true;
 }
 
@@ -53,6 +59,7 @@ bool InventoryScreen::onEvent(const SEvent& event)
 		if (!open_)
 			return false;
 		mouse_ = position2d<s32>(event.MouseInput.X, event.MouseInput.Y);
+		keyboard_ = false;
 		if (page_ && event.MouseInput.Event == EMIE_LMOUSE_PRESSED_DOWN)
 			page_->click(layout(), mouse_);
 		else if (page_ && event.MouseInput.Event == EMIE_RMOUSE_PRESSED_DOWN)
@@ -75,12 +82,36 @@ bool InventoryScreen::onEvent(const SEvent& event)
 		close();
 		return true;
 	case KEY_KEY_R:
-		if (open_ && page_)
+		if (open_ && page_ && keyboard_)
+			page_->rotate(cursor_.cell, !cursor_.onDoll);
+		else if (open_ && page_)
 		{
 			backpack::Layout grid = layout();
 			Cell hovered{ 0, 0 };
 			bool over = grid.cellAt(mouse_, hovered);
 			page_->rotate(hovered, over);
+		}
+		return open_;
+	case KEY_TAB:
+	case KEY_UP:
+	case KEY_DOWN:
+	case KEY_LEFT:
+	case KEY_RIGHT:
+		if (open_ && page_)
+		{
+			keyboard_ = true;
+			cursor_.move(event.KeyInput.Key, event.KeyInput.Shift, page_->catalog(), page_->inventory().columns(), page_->inventory().rows());
+		}
+		return open_;
+	case KEY_RETURN:
+	case KEY_SPACE:
+		if (open_ && page_)
+		{
+			keyboard_ = true;
+			if (cursor_.onDoll)
+				page_->clickSlot(cursor_.slot);
+			else
+				page_->clickCell(cursor_.cell);
 		}
 		return open_;
 	case KEY_KEY_C:
@@ -115,11 +146,20 @@ void InventoryScreen::draw(Canvas& canvas)
 	backpack::drawGrid(canvas, page_->inventory(), page_->catalog(), grid);
 	canvas.drawText(body, std::wstring(page_->message().begin(), page_->message().end()).c_str(), rect<s32>(grid.right.UpperLeftCorner.X,
 		grid.grid.LowerRightCorner.Y + 8, grid.right.LowerRightCorner.X, grid.grid.LowerRightCorner.Y + 34), backpack::look::warning, false, true, false);
+	if (keyboard_)
+	{
+		rect<s32> spot = cursor_.onDoll ? grid.slots[cursor_.slot] : grid.cellArea(cursor_.cell);
+		canvas.drawRectOutline(rect<s32>(spot.UpperLeftCorner.X - 2, spot.UpperLeftCorner.Y - 2, spot.LowerRightCorner.X + 2,
+			spot.LowerRightCorner.Y + 2), theme::accent);
+	}
 	if (page_->isHolding())
 	{
 		rect<s32> footprint = grid.footprint(Placed{ page_->held(), Cell{ 0, 0 } });
 		position2d<s32> corner(mouse_.X - page_->grabOffset().column * grid.cell - grid.cell / 2,
 			mouse_.Y - page_->grabOffset().row * grid.cell - grid.cell / 2);
+		if (keyboard_)
+			corner = (cursor_.onDoll ? grid.slots[cursor_.slot] : grid.cellArea(cursor_.cell)).UpperLeftCorner -
+				position2d<s32>(cursor_.onDoll ? 0 : page_->grabOffset().column * grid.cell, cursor_.onDoll ? 0 : page_->grabOffset().row * grid.cell);
 		footprint += corner - footprint.UpperLeftCorner;
 		backpack::drawItem(canvas, page_->catalog(), page_->held(), footprint, true);
 	}

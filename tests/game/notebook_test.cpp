@@ -27,14 +27,14 @@ namespace
 	{
 		Book() : console(false), opened(0), notebook([this] { return console; }, [this] { ++opened; }) { canvas.screenDimension = dimension2d<u32>(1280, 720); }
 
-		bool key(EKEY_CODE code, bool down = true)
+		bool key(EKEY_CODE code, bool down = true, bool shift = false)
 		{
 			SEvent event;
 			event.EventType = EET_KEY_INPUT_EVENT;
 			event.KeyInput.Key = code;
 			event.KeyInput.PressedDown = down;
 			event.KeyInput.Char = 0;
-			event.KeyInput.Shift = false;
+			event.KeyInput.Shift = shift;
 			event.KeyInput.Control = false;
 			return notebook.onEvent(event);
 		}
@@ -276,4 +276,31 @@ TEST_CASE("the notebook has no inventory page any more, and the map and notes pa
 	book.draw(ada(false));
 	CHECK(book.text(L"NOTES - Coming Soon") != nullptr);
 	CHECK(book.text(L"INVENTORY") == nullptr);
+}
+
+TEST_CASE("Tab and the arrows turn the open notebook's pages, wrapping both ways, and do nothing while it is shut")
+{
+	Book book;
+	CHECK_FALSE(book.key(KEY_TAB));
+	CHECK_FALSE(book.key(KEY_DOWN));
+	book.key(KEY_KEY_C);
+	REQUIRE(book.notebook.page() == Notebook::CHARACTER);
+	CHECK(book.key(KEY_TAB));
+	CHECK(book.notebook.page() == Notebook::MAP);
+	book.key(KEY_TAB);
+	CHECK(book.notebook.page() == Notebook::NOTES);
+	book.key(KEY_TAB);
+	CHECK(book.notebook.page() == Notebook::CHARACTER);
+	book.key(KEY_TAB, true, true);
+	CHECK(book.notebook.page() == Notebook::NOTES);
+	book.key(KEY_DOWN);
+	CHECK(book.notebook.page() == Notebook::CHARACTER);
+	book.key(KEY_UP);
+	CHECK(book.notebook.page() == Notebook::NOTES);
+	book.key(KEY_RIGHT);
+	CHECK(book.notebook.page() == Notebook::CHARACTER);
+	book.key(KEY_LEFT);
+	CHECK(book.notebook.page() == Notebook::NOTES);
+	book.key(KEY_TAB, false);
+	CHECK(book.notebook.page() == Notebook::NOTES);
 }

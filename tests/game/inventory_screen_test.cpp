@@ -1,6 +1,7 @@
 #include "doctest.h"
 #include "InventoryScreen.h"
 #include "RecordingCanvas.h"
+#include "Theme.h"
 #include <memory>
 #include <string>
 
@@ -281,4 +282,95 @@ TEST_CASE("after a backpack is put on, the screen draws the taller grid in the s
 	CHECK(across == 8);
 	REQUIRE(bag.image("large_backpack.png") != nullptr);
 	CHECK(layout.slots[8].isRectCollided(bag.image("large_backpack.png")->area));
+}
+
+namespace
+{
+	const RecordingCanvas::Call* ring(const RecordingCanvas& canvas, const rect<s32>& around)
+	{
+		for (const RecordingCanvas::Call& call : canvas.calls)
+			if (call.kind == RecordingCanvas::RECT_OUTLINE && call.colour == theme::accent && call.area.UpperLeftCorner.X <= around.UpperLeftCorner.X &&
+				call.area.UpperLeftCorner.Y <= around.UpperLeftCorner.Y && call.area.LowerRightCorner.X >= around.LowerRightCorner.X &&
+				call.area.LowerRightCorner.Y >= around.LowerRightCorner.Y && call.area.getWidth() <= around.getWidth() + 8)
+				return &call;
+		return nullptr;
+	}
+}
+
+TEST_CASE("with the keyboard alone the grid cursor picks up with Enter, the item in hand rides the cursor, Enter puts it down, and the doll equips it")
+{
+	Bag bag;
+	REQUIRE(bag.pack->placeAt(Item{ "knife", 1 }, Cell{ 2, 1 }).outcome == Outcome::Done);
+	bag.key(KEY_KEY_I);
+	bag.draw();
+	backpack::Layout layout = bag.screen.layout();
+	CHECK(ring(bag.canvas, layout.cellArea(Cell{ 0, 0 })) != nullptr);
+
+	CHECK(bag.key(KEY_RIGHT));
+	bag.key(KEY_RIGHT);
+	bag.key(KEY_DOWN);
+	bag.key(KEY_DOWN);
+	bag.draw();
+	CHECK(ring(bag.canvas, layout.cellArea(Cell{ 2, 2 })) != nullptr);
+	CHECK(ring(bag.canvas, layout.cellArea(Cell{ 0, 0 })) == nullptr);
+	CHECK(bag.key(KEY_RETURN));
+	REQUIRE(bag.page->isHolding());
+	CHECK(bag.page->grabOffset().row == 1);
+
+	bag.key(KEY_RIGHT);
+	bag.key(KEY_RIGHT);
+	bag.draw();
+	const RecordingCanvas::Call* ghost = bag.image("knife.png");
+	REQUIRE(ghost != nullptr);
+	rect<s32> spot = layout.footprint(Placed{ Item{ "knife", 1 }, Cell{ 4, 1 } });
+	CHECK(spot.isPointInside(ghost->area.UpperLeftCorner));
+	CHECK(ghost->area.LowerRightCorner.X <= spot.LowerRightCorner.X);
+	CHECK(ghost->area.LowerRightCorner.Y <= spot.LowerRightCorner.Y);
+	CHECK(bag.key(KEY_KEY_R));
+	CHECK(bag.page->held().rotated);
+	bag.key(KEY_KEY_R);
+	CHECK(bag.key(KEY_SPACE));
+	CHECK_FALSE(bag.page->isHolding());
+	REQUIRE(bag.pack->itemAt(Cell{ 4, 1 }) != nullptr);
+	CHECK(bag.pack->itemAt(Cell{ 4, 1 })->type == "knife");
+	CHECK(bag.pack->itemAt(Cell{ 2, 1 }) == nullptr);
+	CHECK(bag.key(KEY_KEY_R));
+	REQUIRE(bag.pack->itemAt(Cell{ 4, 1 }) != nullptr);
+	CHECK(bag.pack->itemAt(Cell{ 4, 1 })->rotated);
+	bag.key(KEY_UP);
+	bag.key(KEY_KEY_R);
+	CHECK_FALSE(bag.pack->itemAt(Cell{ 4, 1 })->rotated);
+
+	bag.key(KEY_RETURN);
+	REQUIRE(bag.page->isHolding());
+	bag.key(KEY_LEFT);
+	bag.key(KEY_LEFT);
+	bag.key(KEY_LEFT);
+	bag.key(KEY_LEFT);
+	bag.key(KEY_LEFT);
+	bag.draw();
+	int mainHand = -1;
+	for (int i = 0; i < bag.catalog.slotCount(); ++i)
+		if (bag.catalog.slotId(i) == "main_hand")
+			mainHand = i;
+	CHECK(ring(bag.canvas, layout.slots[mainHand]) != nullptr);
+	bag.key(KEY_RETURN);
+	CHECK_FALSE(bag.page->isHolding());
+	REQUIRE(bag.pack->equippedIn("main_hand") != nullptr);
+	CHECK(bag.pack->equippedIn("main_hand")->type == "knife");
+
+	bag.key(KEY_RETURN);
+	CHECK(bag.pack->equippedIn("main_hand") == nullptr);
+	bag.key(KEY_RIGHT);
+	bag.draw();
+	CHECK(ring(bag.canvas, layout.cellArea(Cell{ 0, 0 })) != nullptr);
+
+	bag.key(KEY_DOWN);
+	bag.mouse(EMIE_MOUSE_MOVED, layout.cellArea(Cell{ 5, 3 }).getCenter());
+	bag.draw();
+	CHECK(ring(bag.canvas, layout.cellArea(Cell{ 0, 1 })) == nullptr);
+	bag.key(KEY_KEY_I);
+	bag.key(KEY_KEY_I);
+	bag.draw();
+	CHECK(ring(bag.canvas, layout.cellArea(Cell{ 0, 0 })) != nullptr);
 }

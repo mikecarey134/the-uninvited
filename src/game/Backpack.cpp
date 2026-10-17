@@ -1,4 +1,5 @@
 #include "Backpack.h"
+#include "Focus.h"
 #include <algorithm>
 #include <fstream>
 #include <sstream>
@@ -135,6 +136,60 @@ namespace backpack
 			warnings.push_back("The saved grid was " + std::to_string(saved.columns) + "x" + std::to_string(saved.rows) + " but the gear worn makes it " +
 				std::to_string(carried.columns()) + "x" + std::to_string(carried.rows()));
 		return warnings;
+	}
+
+	bool Cursor::move(EKEY_CODE key, bool backward, const Catalog& catalog, int columns, int rows)
+	{
+		if (key != KEY_TAB && key != KEY_UP && key != KEY_DOWN && key != KEY_LEFT && key != KEY_RIGHT)
+			return false;
+		std::vector<rect<s32> > doll;
+		int entry = 0;
+		for (int i = 0; i < catalog.slotCount(); ++i)
+		{
+			const Slot& place = catalog.slot(i);
+			doll.push_back(rect<s32>(place.dollColumn * 10, place.dollRow * 10, place.dollColumn * 10 + 8, place.dollRow * 10 + 8));
+			if (catalog.slotId(i) == "main_hand")
+				entry = i;
+		}
+		cell.column = std::max(0, std::min(cell.column, columns - 1));
+		cell.row = std::max(0, std::min(cell.row, rows - 1));
+		int last = columns * rows - 1;
+		int index = cell.row * columns + cell.column;
+		if (onDoll)
+		{
+			int next = key == KEY_TAB ? focus::step(doll, slot, backward) : focus::toward(doll, slot, key);
+			bool leaves = key == KEY_TAB ? (backward ? slot == focus::first(doll) : next == focus::first(doll))
+				: next == slot && (key == KEY_RIGHT || key == KEY_DOWN);
+			if (leaves)
+			{
+				onDoll = false;
+				cell = backward ? Cell{ last % columns, last / columns } : Cell{ 0, 0 };
+			}
+			else
+				slot = next;
+			return true;
+		}
+		bool toDoll = (key == KEY_TAB && (backward ? index == 0 : index == last)) || (key == KEY_UP && cell.row == 0) ||
+			(key == KEY_LEFT && cell.column == 0);
+		if (toDoll)
+		{
+			onDoll = true;
+			slot = key != KEY_TAB ? entry : backward ? focus::step(doll, -1, true) : focus::first(doll);
+		}
+		else if (key == KEY_TAB)
+		{
+			index += backward ? -1 : 1;
+			cell = Cell{ index % columns, index / columns };
+		}
+		else if (key == KEY_UP)
+			--cell.row;
+		else if (key == KEY_LEFT)
+			--cell.column;
+		else if (key == KEY_DOWN)
+			cell.row = std::min(cell.row + 1, rows - 1);
+		else
+			cell.column = std::min(cell.column + 1, columns - 1);
+		return true;
 	}
 
 	Layout::Layout(const Catalog& catalog, const rect<s32>& left, const rect<s32>& right, int columns, int rows)

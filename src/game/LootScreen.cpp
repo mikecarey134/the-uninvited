@@ -1,5 +1,6 @@
 #include "LootScreen.h"
 #include "BackpackView.h"
+#include "Theme.h"
 #include <algorithm>
 
 using namespace irr;
@@ -34,6 +35,13 @@ void LootScreen::open()
 	container_->searched = true;
 	scroll_ = 0;
 	message_.clear();
+	if (!open_)
+	{
+		inList_ = true;
+		row_ = 0;
+		cell_ = Cell{ 0, 0 };
+		keyboard_ = true;
+	}
 	if (!open_ && opened_)
 		opened_();
 	open_ = true;
@@ -65,6 +73,14 @@ int LootScreen::visibleRows() const
 	return std::max(1, list().getHeight() / ROW_HEIGHT);
 }
 
+void LootScreen::showRow()
+{
+	row_ = std::max(0, std::min(row_, (int)container_->items.size() - 1));
+	scroll_ = std::min(scroll_, row_);
+	scroll_ = std::max(scroll_, row_ - visibleRows() + 1);
+	scroll_ = std::max(0, std::min(scroll_, (int)container_->items.size() - visibleRows()));
+}
+
 rect<s32> LootScreen::row(int index) const
 {
 	rect<s32> area = list();
@@ -90,6 +106,7 @@ bool LootScreen::onEvent(const SEvent& event)
 		if (!open_)
 			return false;
 		position2d<s32> point(event.MouseInput.X, event.MouseInput.Y);
+		keyboard_ = false;
 		if (event.MouseInput.Event == EMIE_MOUSE_WHEEL && container_)
 		{
 			int most = std::max(0, (int)container_->items.size() - visibleRows());
@@ -126,6 +143,38 @@ bool LootScreen::onEvent(const SEvent& event)
 		if (!open_)
 			return false;
 		close();
+		return true;
+	case KEY_TAB:
+	case KEY_UP:
+	case KEY_DOWN:
+	case KEY_LEFT:
+	case KEY_RIGHT:
+		if (!open_ || !container_ || !carried_)
+			return open_;
+		keyboard_ = true;
+		if (event.KeyInput.Key == KEY_TAB || (inList_ && event.KeyInput.Key == KEY_RIGHT) || (!inList_ && event.KeyInput.Key == KEY_LEFT && cell_.column == 0))
+			inList_ = !inList_;
+		else if (inList_ && event.KeyInput.Key != KEY_LEFT)
+			row_ += event.KeyInput.Key == KEY_UP ? -1 : 1;
+		else if (!inList_)
+		{
+			cell_.column += event.KeyInput.Key == KEY_LEFT ? -1 : event.KeyInput.Key == KEY_RIGHT ? 1 : 0;
+			cell_.row += event.KeyInput.Key == KEY_UP ? -1 : event.KeyInput.Key == KEY_DOWN ? 1 : 0;
+			cell_.column = std::max(0, std::min(cell_.column, carried_->columns() - 1));
+			cell_.row = std::max(0, std::min(cell_.row, carried_->rows() - 1));
+		}
+		showRow();
+		return true;
+	case KEY_RETURN:
+	case KEY_SPACE:
+		if (!open_ || !container_ || !carried_)
+			return open_;
+		keyboard_ = true;
+		if (!inList_)
+			message_ = loot::give(*container_, cell_, *carried_);
+		else if (row_ < (int)container_->items.size())
+			message_ = loot::take(*container_, row_, *carried_);
+		showRow();
 		return true;
 	case KEY_KEY_I:
 	case KEY_KEY_C:
@@ -177,6 +226,12 @@ void LootScreen::draw(Canvas& canvas)
 		grid.right.UpperLeftCorner.Y + 24), backpack::look::muted, false, true, false);
 	backpack::drawEquipment(canvas, *carried_, *catalog_, grid, "");
 	backpack::drawGrid(canvas, *carried_, *catalog_, grid);
+	if (keyboard_)
+	{
+		rect<s32> spot = inList_ ? row(row_) : grid.cellArea(cell_);
+		canvas.drawRectOutline(rect<s32>(spot.UpperLeftCorner.X - 2, spot.UpperLeftCorner.Y - 2, spot.LowerRightCorner.X + 2,
+			spot.LowerRightCorner.Y + 2), theme::accent);
+	}
 	canvas.drawText(body, wide(message_).c_str(), rect<s32>(area.UpperLeftCorner.X + 28, area.LowerRightCorner.Y - 46, area.LowerRightCorner.X - 28,
 		area.LowerRightCorner.Y - 16), backpack::look::warning, false, true, false);
 }

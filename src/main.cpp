@@ -8,6 +8,7 @@
 #include <irrlicht.h>
 #include "ActionMap.h"
 #include "ConsoleLayer.h"
+#include "Gamepad.h"
 #include "GuiInputLayer.h"
 #include "InputRouter.h"
 #include "IrrlichtCanvas.h"
@@ -83,6 +84,23 @@ namespace
 		MenuScene backdrop(device);
 		MenuScreens screens(device, canvas, flow, sound, status, &backdrop);
 		InputRouter router;
+		GamepadLayer gamepad([device](EKEY_CODE key) {
+			SEvent event;
+			event.EventType = EET_KEY_INPUT_EVENT;
+			event.KeyInput.Key = key;
+			event.KeyInput.Char = 0;
+			event.KeyInput.Shift = false;
+			event.KeyInput.Control = false;
+			for (bool down : { true, false })
+			{
+				event.KeyInput.PressedDown = down;
+				device->postEventFromUser(event);
+			}
+		});
+		router.push(&gamepad);
+		core::array<SJoystickInfo> joysticks;
+		if (device->activateJoysticks(joysticks))
+			std::cout << "Gamepads found: " << joysticks.size() << std::endl;
 		GuiInputLayer layer(device->getGUIEnvironment(), [&screens](const SEvent& event) { return screens.onGuiEvent(event); },
 			[&screens] { screens.back(); }, [] { return true; });
 		router.push(&layer);

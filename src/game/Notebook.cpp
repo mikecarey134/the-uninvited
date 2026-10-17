@@ -118,6 +118,16 @@ bool Notebook::onEvent(const SEvent& event)
 			return false;
 		close();
 		return true;
+	case KEY_TAB:
+	case KEY_UP:
+	case KEY_DOWN:
+	case KEY_LEFT:
+	case KEY_RIGHT:
+		if (!open_)
+			return false;
+		page_ = (page_ + (event.KeyInput.Key == KEY_UP || event.KeyInput.Key == KEY_LEFT || (event.KeyInput.Key == KEY_TAB && event.KeyInput.Shift)
+			? TABS - 1 : 1)) % TABS;
+		return true;
 	case KEY_OEM_3:
 		return false;
 	default:

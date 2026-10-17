@@ -1,6 +1,7 @@
 #include "doctest.h"
 #include "LootScreen.h"
 #include "RecordingCanvas.h"
+#include "Theme.h"
 #include <memory>
 #include <string>
 
@@ -229,4 +230,91 @@ TEST_CASE("a long container list scrolls with the wheel, and clicks follow the s
 	search.draw();
 	CHECK(search.screen.list().isPointInside(search.screen.row(0).UpperLeftCorner));
 	CHECK(search.screen.list().isPointInside(search.screen.row(0).LowerRightCorner));
+}
+
+namespace
+{
+	bool ringed(const RecordingCanvas& canvas, const rect<s32>& around)
+	{
+		for (const RecordingCanvas::Call& call : canvas.calls)
+			if (call.kind == RecordingCanvas::RECT_OUTLINE && call.colour == theme::accent && call.area.UpperLeftCorner.X <= around.UpperLeftCorner.X &&
+				call.area.UpperLeftCorner.Y <= around.UpperLeftCorner.Y && call.area.LowerRightCorner.X >= around.LowerRightCorner.X &&
+				call.area.LowerRightCorner.Y >= around.LowerRightCorner.Y && call.area.getWidth() <= around.getWidth() + 8)
+				return true;
+		return false;
+	}
+}
+
+TEST_CASE("with the keyboard alone the list and the grid take turns with Tab or the arrows, and Enter moves the highlighted stack either way")
+{
+	Search search;
+	search.near = true;
+	search.key(KEY_KEY_E);
+	search.draw();
+	CHECK(ringed(search.canvas, search.screen.row(0)));
+	CHECK(search.key(KEY_DOWN));
+	search.draw();
+	CHECK(ringed(search.canvas, search.screen.row(1)));
+	CHECK_FALSE(ringed(search.canvas, search.screen.row(0)));
+	CHECK(search.key(KEY_RETURN));
+	REQUIRE(search.chest.items.size() == 2);
+	CHECK(search.chest.items[1].type == "pills");
+	CHECK(search.carried->itemAt(Cell{ 0, 0 }) != nullptr);
+	search.key(KEY_DOWN);
+	search.key(KEY_DOWN);
+	search.draw();
+	CHECK(ringed(search.canvas, search.screen.row(1)));
+
+	CHECK(search.key(KEY_TAB));
+	search.draw();
+	backpack::Layout layout = search.screen.layout();
+	CHECK(ringed(search.canvas, layout.cellArea(Cell{ 0, 0 })));
+	CHECK_FALSE(ringed(search.canvas, search.screen.row(1)));
+	CHECK(search.key(KEY_SPACE));
+	CHECK(search.chest.items.size() == 3);
+	CHECK(search.carried->itemAt(Cell{ 0, 0 }) == nullptr);
+	search.key(KEY_RIGHT);
+	search.key(KEY_DOWN);
+	search.key(KEY_UP);
+	search.key(KEY_UP);
+	search.draw();
+	CHECK(ringed(search.canvas, layout.cellArea(Cell{ 1, 0 })));
+	search.key(KEY_LEFT);
+	search.key(KEY_LEFT);
+	search.draw();
+	CHECK(ringed(search.canvas, search.screen.row(1)));
+	search.key(KEY_RIGHT);
+	search.draw();
+	CHECK(ringed(search.canvas, layout.cellArea(Cell{ 0, 0 })));
+	search.key(KEY_TAB);
+	search.draw();
+	CHECK(ringed(search.canvas, search.screen.row(1)));
+
+	search.mouse(EMIE_MOUSE_MOVED, search.screen.list().getCenter());
+	search.draw();
+	CHECK_FALSE(ringed(search.canvas, search.screen.row(1)));
+}
+
+TEST_CASE("walking the highlight down a long list scrolls it so the highlighted row stays in view")
+{
+	Search search;
+	search.chest.capacity = 30;
+	search.chest.items.clear();
+	for (int i = 0; i < 20; ++i)
+		search.chest.items.push_back(Item{ i == 15 ? "shotgun" : "key", 1 });
+	search.near = true;
+	search.key(KEY_KEY_E);
+	for (int i = 0; i < 15; ++i)
+		search.key(KEY_DOWN);
+	search.draw();
+	CHECK(search.text(L"Shotgun") != nullptr);
+	CHECK(ringed(search.canvas, search.screen.row(15)));
+	CHECK(search.screen.list().isPointInside(search.screen.row(15).LowerRightCorner));
+	search.key(KEY_RETURN);
+	CHECK(search.chest.items.size() == 19);
+	for (int i = 0; i < 30; ++i)
+		search.key(KEY_UP);
+	search.draw();
+	CHECK(ringed(search.canvas, search.screen.row(0)));
+	CHECK(search.screen.list().isPointInside(search.screen.row(0).UpperLeftCorner));
 }

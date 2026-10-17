@@ -10,6 +10,8 @@
 #include "Hud.h"
 #include "RecordingCanvas.h"
 #include <deque>
+#include <functional>
+#include <set>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -39,6 +41,8 @@ namespace
 			  screens(new MenuScreens(device, canvas, flow, nullptr, status, backdrop))
 		{
 			std::filesystem::remove_all(directory);
+			forward.screens = &screens;
+			device->setEventReceiver(&forward);
 		}
 		~Menu()
 		{
@@ -73,6 +77,47 @@ namespace
 			screens->onGuiEvent(event);
 		}
 
+		void key(EKEY_CODE code, bool shift = false, wchar_t typed = 0)
+		{
+			for (bool down : { true, false })
+			{
+				SEvent event;
+				event.EventType = EET_KEY_INPUT_EVENT;
+				event.KeyInput.Key = code;
+				event.KeyInput.PressedDown = down;
+				event.KeyInput.Shift = shift;
+				event.KeyInput.Control = false;
+				event.KeyInput.Char = typed;
+				if (!screens->onEvent(event))
+					device->getGUIEnvironment()->postEventFromUser(event);
+			}
+		}
+
+		void type(const std::string& text)
+		{
+			for (char letter : text)
+				key(KEY_KEY_A, false, (wchar_t)letter);
+		}
+
+		s32 focused() const
+		{
+			IGUIElement* element = device->getGUIEnvironment()->getFocus();
+			return element ? element->getID() : -1;
+		}
+
+		bool tabTo(s32 id)
+		{
+			for (int i = 0; i < 80 && focused() != id; ++i)
+				key(KEY_TAB);
+			return focused() == id;
+		}
+
+		struct Forward : IEventReceiver
+		{
+			MenuScreens** screens;
+			bool OnEvent(const SEvent& event) override { return event.EventType == EET_GUI_EVENT && (*screens)->onGuiEvent(event); }
+		};
+
 		IrrlichtDevice* device;
 		IrrlichtCanvas canvas;
 		std::string directory;
@@ -81,6 +126,7 @@ namespace
 		std::deque<std::string> status;
 		MenuScene* backdrop;
 		MenuScreens* screens;
+		Forward forward;
 	};
 }
 
@@ -889,4 +935,181 @@ TEST_CASE("standing beside a container shows Press E to search at the bottom mid
 	}
 	std::filesystem::remove_all(directory);
 	device->drop();
+}
+
+TEST_CASE("on the title the first button has focus, arrows and Tab move it in layout order, and Enter presses it")
+{
+	Menu menu("screens_keys_title");
+	menu.screens->draw();
+	CHECK(menu.focused() == MenuScreens::GUI_ID_PLAY);
+	menu.key(KEY_DOWN);
+	CHECK(menu.focused() == MenuScreens::GUI_ID_SETTINGS);
+	menu.key(KEY_DOWN);
+	CHECK(menu.focused() == MenuScreens::GUI_ID_QUIT);
+	menu.key(KEY_DOWN);
+	CHECK(menu.focused() == MenuScreens::GUI_ID_QUIT);
+	menu.key(KEY_TAB);
+	CHECK(menu.focused() == MenuScreens::GUI_ID_PLAY);
+	menu.key(KEY_TAB, true);
+	CHECK(menu.focused() == MenuScreens::GUI_ID_QUIT);
+	menu.key(KEY_UP);
+	menu.key(KEY_UP);
+	CHECK(menu.focused() == MenuScreens::GUI_ID_PLAY);
+	menu.key(KEY_RETURN);
+	CHECK(menu.flow.screen() == menu::Screen::CharacterSelect);
+	menu.screens->draw();
+	menu.key(KEY_DOWN);
+	CHECK(menu.focused() != -1);
+}
+
+TEST_CASE("a character is made with the keyboard alone: name, gender, profession, AEGIS points, skills and confirm")
+{
+	Menu menu("screens_keys_create");
+	menu.flow.play();
+	menu.flow.newCharacter();
+	menu.screens->draw();
+	CHECK(menu.focused() == MenuScreens::GUI_ID_NAME);
+	menu.type("Kit");
+	menu.key(KEY_LEFT);
+	CHECK(menu.focused() == MenuScreens::GUI_ID_NAME);
+	menu.key(KEY_DOWN);
+	CHECK(menu.focused() == MenuScreens::GUI_ID_MALE);
+	menu.key(KEY_RIGHT);
+	CHECK(menu.focused() == MenuScreens::GUI_ID_FEMALE);
+	menu.key(KEY_SPACE, false, L' ');
+	menu.key(KEY_DOWN);
+	CHECK(menu.focused() == MenuScreens::GUI_ID_PROFESSION);
+	menu.key(KEY_DOWN);
+	CHECK(menu.focused() == MenuScreens::GUI_ID_PROFESSION);
+	int before = menu.flow.draft().placed[character::STRENGTH];
+	REQUIRE(menu.tabTo(MenuScreens::GUI_ID_PLUS_FIRST + character::STRENGTH));
+	menu.key(KEY_RETURN);
+	CHECK(menu.flow.draft().placed[character::STRENGTH] == before + 1);
+	REQUIRE(menu.tabTo(MenuScreens::GUI_ID_CREATE));
+	menu.key(KEY_RETURN);
+	REQUIRE(menu.flow.screen() == menu::Screen::SkillAllocation);
+	menu.screens->draw();
+	REQUIRE(menu.tabTo(MenuScreens::GUI_ID_SKILL_PLUS_FIRST + character::SPEECH));
+	menu.key(KEY_RETURN);
+	REQUIRE(menu.tabTo(MenuScreens::GUI_ID_CONFIRM));
+	menu.key(KEY_RETURN);
+	REQUIRE(menu.flow.characters().size() == 1);
+	CHECK(menu.flow.characters()[0].name() == "Kit");
+	CHECK(menu.flow.characters()[0].gender() == character::Gender::Female);
+	CHECK(menu.flow.characters()[0].profession().name == menu.flow.professions()[1].name);
+	CHECK(menu.flow.characters()[0].placedPoints(character::STRENGTH) == before + 1);
+	CHECK(menu.flow.characters()[0].getSpeech() >= 1);
+}
+
+namespace
+{
+	void controls(IGUIElement* element, std::set<s32>& ids)
+	{
+		for (IGUIElement* child : element->getChildren())
+		{
+			EGUI_ELEMENT_TYPE type = child->getType();
+			if (child->isVisible() && (type == EGUIET_BUTTON || type == EGUIET_EDIT_BOX || type == EGUIET_LIST_BOX))
+				ids.insert(child->getID());
+			if (type != EGUIET_LIST_BOX)
+				controls(child, ids);
+		}
+	}
+}
+
+TEST_CASE("Tab reaches every control on every menu screen")
+{
+	Menu menu("screens_keys_every");
+	menu.flow.play();
+	menu.flow.newCharacter();
+	REQUIRE(menu.flow.create("Rook", character::Gender::Male, 0));
+	std::vector<std::function<void()> > screens = {
+		[&menu] { menu.flow.returnToTitle(); },
+		[&menu] { menu.flow.returnToTitle(); menu.flow.settings(); },
+		[&menu] { menu.flow.returnToTitle(); menu.flow.play(); },
+		[&menu] { menu.flow.returnToTitle(); menu.flow.play(); menu.flow.newCharacter(); },
+		[&menu] { menu.flow.returnToTitle(); menu.flow.play(); menu.flow.newCharacter(); REQUIRE(menu.flow.toSkills("Kit", character::Gender::Male, 0)); },
+		[&menu] { menu.flow.returnToTitle(); menu.flow.play(); menu.flow.highlight(0); REQUIRE(menu.flow.select()); },
+		[&menu] { menu.flow.returnToTitle(); menu.flow.play(); menu.flow.highlight(0); REQUIRE(menu.flow.select()); menu.flow.host(); },
+		[&menu] { menu.flow.returnToTitle(); menu.flow.play(); menu.flow.highlight(0); REQUIRE(menu.flow.select()); menu.flow.join(); } };
+	for (size_t i = 0; i < screens.size(); ++i)
+	{
+		INFO(i);
+		screens[i]();
+		menu.screens->draw();
+		std::set<s32> expected;
+		controls(menu.device->getGUIEnvironment()->getRootGUIElement(), expected);
+		REQUIRE(expected.size() > 0);
+		std::set<s32> reached;
+		for (size_t step = 0; step <= expected.size(); ++step)
+		{
+			reached.insert(menu.focused());
+			menu.key(KEY_TAB);
+		}
+		CHECK(reached == expected);
+	}
+}
+
+TEST_CASE("the focused control wears a bright accent outline just outside it, which follows the focus")
+{
+	IrrlichtDevice* device = createDevice(video::EDT_NULL, core::dimension2d<u32>(1280, 720));
+	RecordingCanvas canvas;
+	canvas.screenDimension = core::dimension2d<u32>(1280, 720);
+	std::string directory = (std::filesystem::temp_directory_path() / "screens_keys_outline").string();
+	std::filesystem::remove_all(directory);
+	{
+		menu::CharacterStore store(directory);
+		menu::MenuFlow flow(store, professions(), 3);
+		std::deque<std::string> status;
+		MenuScreens screens(device, canvas, flow, nullptr, status, nullptr);
+		auto outlined = [&canvas, device](s32 id) {
+			core::rect<s32> area = device->getGUIEnvironment()->getRootGUIElement()->getElementFromId(id, true)->getAbsolutePosition();
+			for (const RecordingCanvas::Call& call : canvas.calls)
+				if (call.kind == RecordingCanvas::RECT_OUTLINE && call.colour == theme::accent && call.area.UpperLeftCorner.X < area.UpperLeftCorner.X &&
+					call.area.UpperLeftCorner.Y < area.UpperLeftCorner.Y && call.area.LowerRightCorner.X > area.LowerRightCorner.X &&
+					call.area.LowerRightCorner.Y > area.LowerRightCorner.Y && call.area.getWidth() <= area.getWidth() + 8)
+					return true;
+			return false;
+		};
+		screens.draw();
+		CHECK(outlined(MenuScreens::GUI_ID_PLAY));
+		CHECK_FALSE(outlined(MenuScreens::GUI_ID_SETTINGS));
+		SEvent down;
+		down.EventType = EET_KEY_INPUT_EVENT;
+		down.KeyInput.Key = KEY_DOWN;
+		down.KeyInput.PressedDown = true;
+		down.KeyInput.Shift = false;
+		down.KeyInput.Control = false;
+		down.KeyInput.Char = 0;
+		CHECK(screens.onEvent(down));
+		canvas.calls.clear();
+		screens.draw();
+		CHECK(outlined(MenuScreens::GUI_ID_SETTINGS));
+		CHECK_FALSE(outlined(MenuScreens::GUI_ID_PLAY));
+	}
+	std::filesystem::remove_all(directory);
+	device->drop();
+}
+
+TEST_CASE("once in the world the menu arrows stand down, so the Leave button is never walked onto by accident")
+{
+	Menu menu("screens_keys_playing");
+	menu.flow.play();
+	menu.flow.newCharacter();
+	REQUIRE(menu.flow.create("Rook", character::Gender::Male, 0));
+	menu.flow.highlight(0);
+	REQUIRE(menu.flow.select());
+	menu.flow.host();
+	REQUIRE(menu.flow.startServer());
+	REQUIRE(menu.flow.screen() == menu::Screen::Playing);
+	menu.screens->draw();
+	CHECK(menu.focused() != MenuScreens::GUI_ID_LEAVE);
+	SEvent event;
+	event.EventType = EET_KEY_INPUT_EVENT;
+	event.KeyInput.Key = KEY_DOWN;
+	event.KeyInput.PressedDown = true;
+	event.KeyInput.Shift = false;
+	event.KeyInput.Control = false;
+	event.KeyInput.Char = 0;
+	CHECK_FALSE(menu.screens->onEvent(event));
+	CHECK(menu.focused() != MenuScreens::GUI_ID_LEAVE);
 }

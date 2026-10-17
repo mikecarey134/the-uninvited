@@ -24,6 +24,15 @@ namespace backpack
 	character::Carried capture(const inventory::Inventory& carried, const inventory::Catalog& catalog);
 	std::vector<std::string> restore(const character::Carried& saved, inventory::Inventory& carried, const inventory::Catalog& catalog);
 
+	struct Cursor
+	{
+		bool onDoll = false;
+		inventory::Cell cell{ 0, 0 };
+		int slot = 0;
+
+		bool move(irr::EKEY_CODE key, bool backward, const inventory::Catalog& catalog, int columns, int rows);
+	};
+
 	struct Layout
 	{
 		Layout(const inventory::Catalog& catalog, const irr::core::rect<irr::s32>& left, const irr::core::rect<irr::s32>& right,

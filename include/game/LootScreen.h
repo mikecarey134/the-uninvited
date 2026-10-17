@@ -30,6 +30,7 @@ public:
 
 private:
 	int visibleRows() const;
+	void showRow();
 
 	std::function<bool()> blocked_;
 	std::function<void()> opened_;
@@ -39,6 +40,10 @@ private:
 	loot::Container* container_ = nullptr;
 	bool open_ = false;
 	int scroll_ = 0;
+	bool inList_ = true;
+	int row_ = 0;
+	inventory::Cell cell_{ 0, 0 };
+	bool keyboard_ = true;
 	std::string message_;
 	irr::core::dimension2d<irr::u32> screen_{ 1280, 720 };
 };

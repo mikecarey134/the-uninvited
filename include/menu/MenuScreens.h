@@ -64,6 +64,9 @@ private:
 	void drawAegis();
 	void drawSkills();
 	bool isEnabled(irr::s32 id) const;
+	std::vector<irr::gui::IGUIElement*> focusable() const;
+	bool navigate(const irr::SEvent::SKeyInput& key);
+	void drawFocus();
 
 	void drawButton(const Button& button);
 	void drawIcon(irr::s32 id, irr::core::position2d<irr::s32> at, irr::video::SColor colour);
