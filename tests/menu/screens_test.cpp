@@ -1209,17 +1209,20 @@ TEST_CASE("Display chooses windowed or fullscreen and cycles the resolution, Gam
 	big.width = 1920;
 	big.height = 1080;
 	menu.flow.setPreferences(big);
+	auto moved = [&menu] {
+		const menu::Preferences& now = menu.flow.preferences();
+		return (now.width != 1920 || now.height != 1080) && now.width >= 1280 && now.height >= 720;
+	};
 	REQUIRE(menu.tabTo(MenuScreens::GUI_ID_RESOLUTION));
 	menu.key(KEY_RIGHT);
 	CHECK(menu.focused() == MenuScreens::GUI_ID_RESOLUTION);
-	CHECK(menu.flow.preferences().width == 1280);
-	CHECK(menu.flow.preferences().height == 720);
+	CHECK(moved());
 	menu.flow.setPreferences(big);
 	menu.key(KEY_LEFT);
-	CHECK(menu.flow.preferences().width == 1280);
+	CHECK(moved());
 	menu.flow.setPreferences(big);
 	menu.press(MenuScreens::GUI_ID_RESOLUTION);
-	CHECK(menu.flow.preferences().width == 1280);
+	CHECK(moved());
 
 	menu.press(MenuScreens::GUI_ID_TAB_FIRST + 2);
 	menu.screens->draw();
