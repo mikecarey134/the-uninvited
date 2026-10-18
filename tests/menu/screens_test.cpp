@@ -1301,7 +1301,10 @@ TEST_CASE("Tab reaches every control on every settings tab, and the Controls tab
 		for (const wchar_t* line : { L"MASTER VOLUME", L"MUSIC VOLUME", L"SFX VOLUME", L"100", L"WINDOW", L"RESOLUTION", L"<   1280 x 720   >",
 				 L"Applies the next time the game starts.", L"DEFAULT TIME FOR NEW WORLDS", L"Half Speed" })
 		{
-			INFO(std::string(line, line + wcslen(line)));
+			std::string named;
+			for (const wchar_t* letter = line; *letter; ++letter)
+				named += (char)*letter;
+			INFO(named);
 			CHECK(seen.count(line) == 1);
 		}
 		auto says = [&canvas](const std::wstring& line) {
@@ -1315,7 +1318,10 @@ TEST_CASE("Tab reaches every control on every settings tab, and the Controls tab
 				 L"Tab / Shift+Tab", L"Navigate UI", L"Arrow Keys", L"Enter / Space", L"Confirm", L"Gamepad A", L"Gamepad B", L"Back",
 				 L"Gamepad X", L"Gamepad Start", L"Gamepad Back", L"Notebook", L"Stick / D-pad", L"Navigate" })
 		{
-			INFO(std::string(line, line + wcslen(line)));
+			std::string named;
+			for (const wchar_t* letter = line; *letter; ++letter)
+				named += (char)*letter;
+			INFO(named);
 			CHECK(says(line));
 		}
 	}
