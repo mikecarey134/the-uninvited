@@ -85,6 +85,14 @@ namespace menu
 			return;
 		screens_.push(Screen::Settings);
 		message_.clear();
+		setPreferences(preferences_);
+	}
+
+	void MenuFlow::setPreferences(const Preferences& preferences)
+	{
+		preferences_ = preferences;
+		if (keepPreferences_)
+			keepPreferences_(preferences_);
 	}
 
 	void MenuFlow::quit()

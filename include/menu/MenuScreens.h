@@ -23,7 +23,12 @@ public:
 		GUI_ID_ADDRESS, GUI_ID_PORT, GUI_ID_START, GUI_ID_LEAVE, GUI_ID_REROLL = 300, GUI_ID_MINUS_FIRST = 310,
 		GUI_ID_PLUS_FIRST = 320, GUI_ID_OUTFIT_PREVIOUS = 330, GUI_ID_OUTFIT_NEXT,
 		GUI_ID_WORLD_NAME = 340, GUI_ID_MAX_PLAYERS, GUI_ID_TIME_FIRST = 350, GUI_ID_DELETE = 360,
-		GUI_ID_SKILL_MINUS_FIRST = 370, GUI_ID_SKILL_PLUS_FIRST = 380, GUI_ID_CONFIRM = 390 };
+		GUI_ID_SKILL_MINUS_FIRST = 370, GUI_ID_SKILL_PLUS_FIRST = 380, GUI_ID_CONFIRM = 390, GUI_ID_TAB_FIRST = 400,
+		GUI_ID_MASTER_VOLUME = 410, GUI_ID_MUSIC_VOLUME, GUI_ID_SFX_VOLUME, GUI_ID_WINDOWED = 420, GUI_ID_FULLSCREEN, GUI_ID_RESOLUTION,
+		GUI_ID_DEFAULT_TIME_FIRST = 430 };
+
+	static std::vector<irr::core::dimension2d<irr::u32> > resolutions(const std::vector<irr::core::dimension2d<irr::u32> >& modes,
+		irr::core::dimension2d<irr::u32> current);
 
 	MenuScreens(irr::IrrlichtDevice* device, Canvas& canvas, menu::MenuFlow& flow, gamecore::SoundEngine* sound,
 		const std::deque<std::string>& status, MenuScene* backdrop);
@@ -36,7 +41,7 @@ public:
 	void setWorld(World* world) { world_ = world; }
 
 private:
-	enum class Style { Primary, Secondary, Link, Choice, Card, Step };
+	enum class Style { Primary, Secondary, Link, Choice, Card, Step, Slider };
 
 	struct Button
 	{
@@ -67,6 +72,10 @@ private:
 	std::vector<irr::gui::IGUIElement*> focusable() const;
 	bool navigate(const irr::SEvent::SKeyInput& key);
 	void drawFocus();
+	int volume(irr::s32 id) const;
+	void setVolume(irr::s32 id, int value);
+	void cycleResolution(int step);
+	void drawSettings();
 
 	void drawButton(const Button& button);
 	void drawIcon(irr::s32 id, irr::core::position2d<irr::s32> at, irr::video::SColor colour);
@@ -90,6 +99,8 @@ private:
 	World* world_;
 	bool turning_;
 	irr::s32 turnFromX_;
+	int tab_ = 0;
+	irr::s32 keepFocus_ = -1;
 };
 
 #endif

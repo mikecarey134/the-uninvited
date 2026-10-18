@@ -12,7 +12,7 @@ add_library(uninvited_character STATIC src/character/Profession.cpp src/characte
 target_include_directories(uninvited_character PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/character")
 target_link_libraries(uninvited_character PUBLIC gamecore_engine)
 
-add_library(uninvited_menu STATIC src/menu/CharacterStore.cpp src/menu/MenuFlow.cpp src/menu/PlayerStatsCommand.cpp src/menu/RemoteStatsCommand.cpp src/menu/Outfits.cpp)
+add_library(uninvited_menu STATIC src/menu/CharacterStore.cpp src/menu/MenuFlow.cpp src/menu/PlayerStatsCommand.cpp src/menu/RemoteStatsCommand.cpp src/menu/Outfits.cpp src/menu/Preferences.cpp)
 target_include_directories(uninvited_menu PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/menu")
 target_link_libraries(uninvited_menu PUBLIC uninvited_character)
 
@@ -28,7 +28,7 @@ target_compile_definitions(character_tests PRIVATE CHARACTER_CONFIG_DIR="${CMAKE
 target_link_libraries(character_tests PRIVATE uninvited_character)
 add_test(NAME character_tests COMMAND character_tests)
 
-add_executable(menu_tests tests/menu/main.cpp tests/menu/store_test.cpp tests/menu/flow_test.cpp tests/menu/appearance_test.cpp)
+add_executable(menu_tests tests/menu/main.cpp tests/menu/preferences_test.cpp tests/menu/store_test.cpp tests/menu/flow_test.cpp tests/menu/appearance_test.cpp)
 target_include_directories(menu_tests PRIVATE "${DOCTEST_DIR}")
 target_compile_definitions(menu_tests PRIVATE CHARACTER_CONFIG_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/config"
   MENU_TEST_DIR="${CMAKE_CURRENT_BINARY_DIR}/menu_tests_data")

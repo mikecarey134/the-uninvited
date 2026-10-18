@@ -43,6 +43,8 @@ namespace
 	const s32 left = 64;
 	const s32 right = 608;
 	const s32 middle = (left + right) / 2;
+	const s32 tabWidth = 160;
+	const s32 settingsLeft = left + tabWidth + 24;
 
 	std::wstring wide(const std::string& text)
 	{
@@ -137,6 +139,15 @@ bool MenuScreens::onEvent(const SEvent& event)
 {
 	if (event.EventType == EET_KEY_INPUT_EVENT)
 		return navigate(event.KeyInput);
+	if (event.EventType == EET_MOUSE_INPUT_EVENT && event.MouseInput.Event == EMIE_LMOUSE_PRESSED_DOWN && built_ == Screen::Settings)
+		for (const Button& button : buttons_)
+			if (button.style == Style::Slider && button.area.isPointInside(position2d<s32>(event.MouseInput.X, event.MouseInput.Y)))
+			{
+				s32 width = button.area.getWidth();
+				setVolume(button.id, ((event.MouseInput.X - button.area.UpperLeftCorner.X) * 100 + width / 2) / width);
+				device_->getGUIEnvironment()->setFocus(device_->getGUIEnvironment()->getRootGUIElement()->getElementFromId(button.id, true));
+				return true;
+			}
 	if (event.EventType != EET_MOUSE_INPUT_EVENT || !backdrop_ || !backdrop_->character())
 	{
 		turning_ = false;
@@ -206,6 +217,7 @@ void MenuScreens::hide()
 
 void MenuScreens::build()
 {
+	bool wasSettings = built_ == Screen::Settings;
 	hide();
 	built_ = flow_.screen();
 	hasBuilt_ = true;
@@ -221,8 +233,31 @@ void MenuScreens::build()
 		break;
 
 	case Screen::Settings:
+	{
 		header("Settings");
+		if (!wasSettings)
+			tab_ = 0;
+		const char* const tabs[4] = { "Audio", "Display", "Gameplay", "Controls" };
+		for (s32 i = 0; i < 4; ++i)
+			addButton(GUI_ID_TAB_FIRST + i, rect<s32>(left, contentY + i * 48, left + tabWidth, contentY + i * 48 + 40), tabs[i], Style::Choice);
+		if (tab_ == 0)
+			for (s32 i = 0; i < 3; ++i)
+				addButton(GUI_ID_MASTER_VOLUME + i, rect<s32>(settingsLeft, contentY + 24 + i * 80, right, contentY + 52 + i * 80), "", Style::Slider);
+		else if (tab_ == 1)
+		{
+			s32 half = (settingsLeft + right) / 2;
+			addButton(GUI_ID_WINDOWED, rect<s32>(settingsLeft, contentY + 24, half - 4, contentY + 56), "Windowed", Style::Choice);
+			addButton(GUI_ID_FULLSCREEN, rect<s32>(half + 4, contentY + 24, right, contentY + 56), "Fullscreen", Style::Choice);
+			addButton(GUI_ID_RESOLUTION, rect<s32>(settingsLeft, contentY + 104, right, contentY + 136), "", Style::Choice);
+		}
+		else if (tab_ == 2)
+		{
+			const char* const modes[] = { "Real Time (1:1)", "Half Speed", "Fast" };
+			for (s32 i = 0; i < 3; ++i)
+				addButton(GUI_ID_DEFAULT_TIME_FIRST + i, rect<s32>(settingsLeft, contentY + 24 + i * 40, right, contentY + 56 + i * 40), modes[i], Style::Choice);
+		}
 		break;
+	}
 
 	case Screen::CharacterSelect:
 	{
@@ -304,7 +339,7 @@ void MenuScreens::build()
 		}
 		if (built_ == Screen::WorldSettings)
 		{
-			timeMode_ = menu::TimeMode::RealTime;
+			timeMode_ = flow_.preferences().time;
 			addTextBox(GUI_ID_WORLD_NAME, rect<s32>(left, 210, right, 246), menu::DEFAULT_WORLD_NAME, 32, true);
 			const char* const modes[] = { "Real Time (1:1)", "Half Speed", "Fast" };
 			s32 width = (right - left - 16) / 3;
@@ -327,6 +362,10 @@ void MenuScreens::build()
 	}
 	std::vector<IGUIElement*> elements = focusable();
 	IGUIEnvironment* guienv = device_->getGUIEnvironment();
+	if (keepFocus_ >= 0)
+		if (IGUIElement* kept = guienv->getRootGUIElement()->getElementFromId(keepFocus_, true))
+			guienv->setFocus(kept);
+	keepFocus_ = -1;
 	if (!elements.empty() && std::find(elements.begin(), elements.end(), guienv->getFocus()) == elements.end())
 	{
 		std::vector<rect<s32> > areas;
@@ -401,8 +440,15 @@ bool MenuScreens::isChosen(s32 id) const
 	case GUI_ID_TIME_FIRST + 1: return timeMode_ == menu::TimeMode::HalfSpeed;
 	case GUI_ID_TIME_FIRST + 2: return timeMode_ == menu::TimeMode::Fast;
 	case GUI_ID_HOST: return built_ == Screen::WorldSettings;
+	case GUI_ID_WINDOWED: return !flow_.preferences().fullscreen;
+	case GUI_ID_FULLSCREEN: return flow_.preferences().fullscreen;
 	case GUI_ID_JOIN: return built_ == Screen::JoinGame;
-	default: return false;
+	default:
+		if (id >= GUI_ID_TAB_FIRST && id < GUI_ID_TAB_FIRST + 4)
+			return tab_ == id - GUI_ID_TAB_FIRST;
+		if (id >= GUI_ID_DEFAULT_TIME_FIRST && id < GUI_ID_DEFAULT_TIME_FIRST + 3)
+			return (int)flow_.preferences().time == id - GUI_ID_DEFAULT_TIME_FIRST;
+		return false;
 	}
 }
 
@@ -488,10 +534,28 @@ void MenuScreens::drawButton(const Button& button)
 		canvas_.drawText(canvas_.loadFont(labelFont), wide(button.label).c_str(), area, hovered ? theme::text : theme::muted, false, true);
 		break;
 	case Style::Choice:
+	{
+		std::string shown = button.id == GUI_ID_RESOLUTION ? "<   " + std::to_string(flow_.preferences().width) + " x " +
+			std::to_string(flow_.preferences().height) + "   >" : button.label;
 		canvas_.drawRect(area, chosen ? theme::accentFill : theme::panel);
 		canvas_.drawRectOutline(area, chosen ? theme::accentBorder : (hovered ? theme::borderHover : theme::border));
-		canvas_.drawText(font, wide(button.label).c_str(), area, chosen ? theme::text : (hovered ? theme::muted : theme::dim), true, true);
+		canvas_.drawText(font, wide(shown).c_str(), area, chosen ? theme::text : (hovered ? theme::muted : theme::dim), true, true);
 		break;
+	}
+	case Style::Slider:
+	{
+		s32 share = area.getWidth() * volume(button.id) / 100;
+		canvas_.drawRect(area, theme::panel);
+		if (share > 0)
+			canvas_.drawRect(rect<s32>(area.UpperLeftCorner.X, area.UpperLeftCorner.Y, area.UpperLeftCorner.X + share, area.LowerRightCorner.Y),
+				SColor(110, theme::accent.getRed(), theme::accent.getGreen(), theme::accent.getBlue()));
+		canvas_.drawRectOutline(area, hovered ? theme::borderHover : theme::border);
+		std::string value = std::to_string(volume(button.id));
+		FontHandle small = canvas_.loadFont(labelFont);
+		s32 width = (s32)canvas_.textSize(small, wide(value).c_str()).Width;
+		text(small, value, area.LowerRightCorner.X - width, area.UpperLeftCorner.Y - 24, theme::text);
+		break;
+	}
 	case Style::Step:
 	{
 		bool enabled = isEnabled(button.id);
@@ -587,6 +651,9 @@ void MenuScreens::draw()
 		label("MAX PLAYERS", left, 358);
 		break;
 	}
+	case Screen::Settings:
+		drawSettings();
+		break;
 	case Screen::JoinGame:
 		label("SERVER ADDRESS", left, 192);
 		label("PORT", middle + 104, 192);
@@ -661,6 +728,21 @@ bool MenuScreens::navigate(const SEvent::SKeyInput& key)
 			current = (int)i;
 	}
 	EGUI_ELEMENT_TYPE type = current >= 0 ? elements[current]->getType() : EGUIET_ELEMENT;
+	s32 id = current >= 0 ? elements[current]->getID() : -1;
+	if (key.Key == KEY_LEFT || key.Key == KEY_RIGHT)
+	{
+		int step = key.Key == KEY_LEFT ? -1 : 1;
+		if (id >= GUI_ID_MASTER_VOLUME && id <= GUI_ID_SFX_VOLUME)
+		{
+			setVolume(id, volume(id) + 5 * step);
+			return true;
+		}
+		if (id == GUI_ID_RESOLUTION)
+		{
+			cycleResolution(step);
+			return true;
+		}
+	}
 	int next = current;
 	switch (key.Key)
 	{
@@ -687,6 +769,83 @@ bool MenuScreens::navigate(const SEvent::SKeyInput& key)
 	return true;
 }
 
+int MenuScreens::volume(s32 id) const
+{
+	const menu::Preferences& preferences = flow_.preferences();
+	return id == GUI_ID_MASTER_VOLUME ? preferences.masterVolume : id == GUI_ID_MUSIC_VOLUME ? preferences.musicVolume : preferences.sfxVolume;
+}
+
+void MenuScreens::setVolume(s32 id, int value)
+{
+	menu::Preferences preferences = flow_.preferences();
+	value = std::max(0, std::min(100, value));
+	(id == GUI_ID_MASTER_VOLUME ? preferences.masterVolume : id == GUI_ID_MUSIC_VOLUME ? preferences.musicVolume : preferences.sfxVolume) = value;
+	flow_.setPreferences(preferences);
+}
+
+std::vector<dimension2d<u32> > MenuScreens::resolutions(const std::vector<dimension2d<u32> >& modes, dimension2d<u32> current)
+{
+	std::vector<dimension2d<u32> > choices(1, current);
+	std::vector<dimension2d<u32> > offered = modes;
+	offered.push_back(dimension2d<u32>(menu::Preferences::SMALLEST_WIDTH, menu::Preferences::SMALLEST_HEIGHT));
+	for (const dimension2d<u32>& mode : offered)
+		if ((s32)mode.Width >= menu::Preferences::SMALLEST_WIDTH && (s32)mode.Height >= menu::Preferences::SMALLEST_HEIGHT && std::find(choices.begin(), choices.end(), mode) == choices.end())
+			choices.push_back(mode);
+	std::sort(choices.begin(), choices.end(), [](const dimension2d<u32>& a, const dimension2d<u32>& b) {
+		return a.Width != b.Width ? a.Width < b.Width : a.Height < b.Height;
+	});
+	return choices;
+}
+
+void MenuScreens::cycleResolution(int step)
+{
+	menu::Preferences preferences = flow_.preferences();
+	std::vector<dimension2d<u32> > modes;
+	if (IVideoModeList* list = device_->getVideoModeList())
+		for (s32 i = 0; i < list->getVideoModeCount(); ++i)
+			modes.push_back(list->getVideoModeResolution(i));
+	dimension2d<u32> current((u32)preferences.width, (u32)preferences.height);
+	std::vector<dimension2d<u32> > choices = resolutions(modes, current);
+	int at = (int)(std::find(choices.begin(), choices.end(), current) - choices.begin());
+	const dimension2d<u32>& next = choices[(at + step + (int)choices.size()) % (int)choices.size()];
+	preferences.width = (int)next.Width;
+	preferences.height = (int)next.Height;
+	flow_.setPreferences(preferences);
+}
+
+void MenuScreens::drawSettings()
+{
+	if (tab_ == 0)
+	{
+		const char* const names[3] = { "MASTER VOLUME", "MUSIC VOLUME", "SFX VOLUME" };
+		for (s32 i = 0; i < 3; ++i)
+			label(names[i], settingsLeft, contentY + i * 80);
+	}
+	else if (tab_ == 1)
+	{
+		label("WINDOW", settingsLeft, contentY);
+		label("RESOLUTION", settingsLeft, contentY + 80);
+		text(canvas_.loadFont(bodyFont), "Applies the next time the game starts.", settingsLeft, contentY + 148, theme::muted);
+	}
+	else if (tab_ == 2)
+		label("DEFAULT TIME FOR NEW WORLDS", settingsLeft, contentY);
+	else
+	{
+		static const char* const keys[][2] = { { "WASD", "Move" }, { "Mouse", "Look" }, { "I", "Inventory" },
+			{ "C", "Notebook / Character Sheet" }, { "E", "Search Container" }, { "R", "Rotate Item" }, { "F3", "Debug Overlay" },
+			{ "Backtick", "Console" }, { "Escape", "Back / Close" }, { "Tab / Shift+Tab", "Navigate UI" }, { "Arrow Keys", "Navigate UI" },
+			{ "Enter / Space", "Confirm" }, { "Gamepad A", "Confirm" }, { "Gamepad B", "Back" }, { "Gamepad X", "Rotate Item" },
+			{ "Gamepad Start", "Inventory" }, { "Gamepad Back", "Notebook" }, { "Stick / D-pad", "Navigate" } };
+		s32 y = contentY;
+		for (const auto& row : keys)
+		{
+			text(canvas_.loadFont(labelFont), row[0], settingsLeft, y + 4, theme::muted);
+			text(canvas_.loadFont(bodyFont), row[1], settingsLeft + 150, y, theme::text);
+			y += 26;
+		}
+	}
+}
+
 void MenuScreens::drawFocus()
 {
 	IGUIElement* focused = device_->getGUIEnvironment()->getFocus();
@@ -701,8 +860,13 @@ void MenuScreens::drawFocus()
 
 void MenuScreens::click()
 {
-	if (sound_)
-		sound_->play2D("assets/sounds/button-25.wav", false);
+	if (!sound_)
+		return;
+	if (gamecore::Sound* played = sound_->play2D("assets/sounds/button-25.wav", false, false, true))
+	{
+		played->setVolume(flow_.preferences().sfxVolume / 100.0f);
+		played->drop();
+	}
 }
 
 bool MenuScreens::clicked(s32 id)
@@ -765,6 +929,19 @@ bool MenuScreens::clicked(s32 id)
 			flow_.connect(panel_.text(GUI_ID_ADDRESS), panel_.text(GUI_ID_PORT));
 		break;
 	case GUI_ID_LEAVE: flow_.returnToTitle(); break;
+	case GUI_ID_MASTER_VOLUME:
+	case GUI_ID_MUSIC_VOLUME:
+	case GUI_ID_SFX_VOLUME:
+		return true;
+	case GUI_ID_WINDOWED:
+	case GUI_ID_FULLSCREEN:
+	{
+		menu::Preferences preferences = flow_.preferences();
+		preferences.fullscreen = id == GUI_ID_FULLSCREEN;
+		flow_.setPreferences(preferences);
+		break;
+	}
+	case GUI_ID_RESOLUTION: cycleResolution(1); break;
 	default:
 		if (id >= GUI_ID_MINUS_FIRST && id < GUI_ID_MINUS_FIRST + character::ATTRIBUTE_COUNT)
 			flow_.adjust(id - GUI_ID_MINUS_FIRST, -1);
@@ -776,6 +953,18 @@ bool MenuScreens::clicked(s32 id)
 			flow_.adjustSkill(id - GUI_ID_SKILL_PLUS_FIRST, 1);
 		else if (id >= GUI_ID_TIME_FIRST && id < GUI_ID_TIME_FIRST + 3)
 			timeMode_ = (menu::TimeMode)(id - GUI_ID_TIME_FIRST);
+		else if (id >= GUI_ID_TAB_FIRST && id < GUI_ID_TAB_FIRST + 4)
+		{
+			tab_ = id - GUI_ID_TAB_FIRST;
+			keepFocus_ = id;
+			hasBuilt_ = false;
+		}
+		else if (id >= GUI_ID_DEFAULT_TIME_FIRST && id < GUI_ID_DEFAULT_TIME_FIRST + 3)
+		{
+			menu::Preferences preferences = flow_.preferences();
+			preferences.time = (menu::TimeMode)(id - GUI_ID_DEFAULT_TIME_FIRST);
+			flow_.setPreferences(preferences);
+		}
 		else
 			return false;
 	}

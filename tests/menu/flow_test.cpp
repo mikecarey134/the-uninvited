@@ -825,3 +825,26 @@ TEST_CASE("keep saves what the character carries, so it is there after a restart
 	REQUIRE(back.worn.size() == 1);
 	CHECK(back.worn[0].type == "small_backpack");
 }
+
+TEST_CASE("the settings are kept on the first visit to the settings screen and on every change, and a change sticks")
+{
+	Fixture fixture("flow_preferences");
+	std::vector<Preferences> kept;
+	fixture.flow.onPreferences([&kept](const Preferences& preferences) { kept.push_back(preferences); });
+	CHECK(fixture.flow.preferences().masterVolume == 100);
+	fixture.flow.play();
+	fixture.flow.settings();
+	CHECK(kept.empty());
+	fixture.flow.back();
+	fixture.flow.settings();
+	REQUIRE(kept.size() == 1);
+	CHECK(kept[0].masterVolume == 100);
+	Preferences quieter = fixture.flow.preferences();
+	quieter.masterVolume = 40;
+	quieter.time = TimeMode::Fast;
+	fixture.flow.setPreferences(quieter);
+	REQUIRE(kept.size() == 2);
+	CHECK(kept[1].masterVolume == 40);
+	CHECK(fixture.flow.preferences().masterVolume == 40);
+	CHECK(fixture.flow.preferences().time == TimeMode::Fast);
+}

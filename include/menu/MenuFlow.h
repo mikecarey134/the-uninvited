@@ -1,5 +1,6 @@
 #pragma once
 #include "CharacterStore.h"
+#include "Preferences.h"
 #include "ScreenStack.h"
 #include <cstdint>
 #include <functional>
@@ -11,7 +12,6 @@ namespace menu
 {
 	enum class Screen { Title, Settings, CharacterSelect, CharacterCreation, SkillAllocation, WorldSelect, WorldSettings, JoinGame, Playing, Quit };
 	enum class Session { None, Host, Join };
-	enum class TimeMode { RealTime, HalfSpeed, Fast };
 
 	float timeScale(TimeMode mode);
 
@@ -50,6 +50,9 @@ namespace menu
 		bool deleteHighlighted();
 		bool keep(const character::CharacterSheet& played);
 		void setWarning(std::function<void(const std::string&)> warn) { warn_ = warn; }
+		const Preferences& preferences() const { return preferences_; }
+		void setPreferences(const Preferences& preferences);
+		void onPreferences(std::function<void(const Preferences&)> keep) { keepPreferences_ = keep; }
 
 		const std::vector<character::Profession>& professions() const { return professions_; }
 		const character::Aegis& draft() const { return draft_; }
@@ -103,6 +106,8 @@ namespace menu
 		int bloodlineOneIn_;
 		int deleting_ = -1;
 		std::function<void(const std::string&)> warn_;
+		Preferences preferences_;
+		std::function<void(const Preferences&)> keepPreferences_;
 		character::Aegis draft_;
 		PendingCharacter pending_;
 		bool hasPending_ = false;

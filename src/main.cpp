@@ -56,12 +56,27 @@ namespace
 		return professions;
 	}
 
-	void run(IrrlichtDevice* device, gamecore::SoundEngine* sound, bool smoke)
+	const char* const settingsFile = "saves/settings.cfg";
+
+	void run(IrrlichtDevice* device, gamecore::SoundEngine* sound, bool smoke, const menu::Preferences& preferences)
 	{
 		IrrlichtCanvas canvas(device);
 		menu::CharacterStore store("saves/characters");
 		menu::MenuFlow flow(store, loadProfessionList());
 		flow.setWarning([](const std::string& line) { std::cerr << line << std::endl; });
+		flow.setPreferences(preferences);
+		if (sound)
+			sound->setSoundVolume(preferences.masterVolume / 100.0f);
+		flow.onPreferences([sound](const menu::Preferences& changed) {
+			std::string text = changed.toText();
+			std::ofstream out(settingsFile, std::ios::binary);
+			out << text;
+			if (!out)
+				std::cerr << "Settings could not be saved to " << settingsFile << std::endl;
+			if (sound)
+				sound->setSoundVolume(changed.masterVolume / 100.0f);
+			// TODO: apply musicVolume once the game plays music.
+		});
 		menu::Autosave autosave;
 
 		std::deque<std::string> status;
@@ -304,7 +319,17 @@ namespace
 int main(int argc, char** argv)
 {
 	const bool smoke = argc > 1 && std::string(argv[1]) == "--smoke";
-	IrrlichtDevice* device = createDevice(smoke ? video::EDT_NULL : video::EDT_OPENGL, core::dimension2d<u32>(1280, 720), 32);
+	std::vector<std::string> problems;
+	menu::Preferences preferences = menu::Preferences::fromText(readText(settingsFile), problems);
+	for (const std::string& problem : problems)
+		std::cerr << "Settings: " << problem << std::endl;
+	IrrlichtDevice* device = createDevice(smoke ? video::EDT_NULL : video::EDT_OPENGL,
+		core::dimension2d<u32>((u32)preferences.width, (u32)preferences.height), 32, preferences.fullscreen);
+	if (!device)
+	{
+		std::cerr << "Could not open the saved window, using 1280 x 720 windowed" << std::endl;
+		device = createDevice(smoke ? video::EDT_NULL : video::EDT_OPENGL, core::dimension2d<u32>(1280, 720), 32);
+	}
 	if (!device)
 		return 1;
 	device->setWindowCaption(L"The Uninvited");
@@ -319,7 +344,7 @@ int main(int argc, char** argv)
 	skin->drop();
 	gamecore::SoundEngine* sound = gamecore::createSoundEngine();
 
-	run(device, sound, smoke);
+	run(device, sound, smoke, preferences);
 
 	if (sound)
 		sound->drop();

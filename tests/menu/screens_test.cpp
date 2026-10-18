@@ -1113,3 +1113,212 @@ TEST_CASE("once in the world the menu arrows stand down, so the Leave button is 
 	CHECK_FALSE(menu.screens->onEvent(event));
 	CHECK(menu.focused() != MenuScreens::GUI_ID_LEAVE);
 }
+
+namespace
+{
+	core::rect<s32> areaOf(Menu& menu, s32 id)
+	{
+		IGUIElement* element = menu.device->getGUIEnvironment()->getRootGUIElement()->getElementFromId(id, true);
+		REQUIRE(element != nullptr);
+		return element->getAbsolutePosition();
+	}
+
+	bool exists(Menu& menu, s32 id)
+	{
+		return menu.device->getGUIEnvironment()->getRootGUIElement()->getElementFromId(id, true) != nullptr;
+	}
+}
+
+TEST_CASE("Settings opens four category tabs down the left, Audio first with its three volume sliders on the right")
+{
+	Menu menu("screens_settings_tabs");
+	menu.flow.settings();
+	menu.screens->draw();
+	for (s32 i = 0; i < 4; ++i)
+		REQUIRE(exists(menu, MenuScreens::GUI_ID_TAB_FIRST + i));
+	for (s32 i = 1; i < 4; ++i)
+		CHECK(areaOf(menu, MenuScreens::GUI_ID_TAB_FIRST + i).UpperLeftCorner.Y > areaOf(menu, MenuScreens::GUI_ID_TAB_FIRST + i - 1).UpperLeftCorner.Y);
+	for (s32 id : { MenuScreens::GUI_ID_MASTER_VOLUME, MenuScreens::GUI_ID_MUSIC_VOLUME, MenuScreens::GUI_ID_SFX_VOLUME })
+	{
+		REQUIRE(exists(menu, id));
+		CHECK(areaOf(menu, id).UpperLeftCorner.X > areaOf(menu, MenuScreens::GUI_ID_TAB_FIRST).LowerRightCorner.X);
+	}
+	CHECK_FALSE(exists(menu, MenuScreens::GUI_ID_FULLSCREEN));
+	CHECK(exists(menu, MenuScreens::GUI_ID_BACK));
+	CHECK(menu.focused() == MenuScreens::GUI_ID_TAB_FIRST);
+	menu.key(KEY_DOWN);
+	CHECK(menu.focused() == MenuScreens::GUI_ID_TAB_FIRST + 1);
+	menu.key(KEY_RETURN);
+	menu.screens->draw();
+	CHECK(exists(menu, MenuScreens::GUI_ID_FULLSCREEN));
+	CHECK_FALSE(exists(menu, MenuScreens::GUI_ID_MASTER_VOLUME));
+	CHECK(menu.focused() == MenuScreens::GUI_ID_TAB_FIRST + 1);
+	menu.screens->back();
+	CHECK(menu.flow.screen() == menu::Screen::Title);
+	menu.screens->draw();
+	menu.flow.settings();
+	menu.screens->draw();
+	CHECK(exists(menu, MenuScreens::GUI_ID_MASTER_VOLUME));
+}
+
+TEST_CASE("a volume slider steps by five with Left and Right, stops at 0 and 100, jumps to a click, and every change is kept")
+{
+	Menu menu("screens_settings_sliders");
+	std::vector<menu::Preferences> kept;
+	menu.flow.onPreferences([&kept](const menu::Preferences& preferences) { kept.push_back(preferences); });
+	menu.flow.settings();
+	menu.screens->draw();
+	REQUIRE(menu.tabTo(MenuScreens::GUI_ID_MASTER_VOLUME));
+	menu.key(KEY_LEFT);
+	CHECK(menu.flow.preferences().masterVolume == 95);
+	CHECK(menu.focused() == MenuScreens::GUI_ID_MASTER_VOLUME);
+	for (int i = 0; i < 3; ++i)
+		menu.key(KEY_RIGHT);
+	CHECK(menu.flow.preferences().masterVolume == 100);
+	for (int i = 0; i < 30; ++i)
+		menu.key(KEY_LEFT);
+	CHECK(menu.flow.preferences().masterVolume == 0);
+	CHECK(kept.back().masterVolume == 0);
+	menu.key(KEY_DOWN);
+	CHECK(menu.focused() == MenuScreens::GUI_ID_MUSIC_VOLUME);
+	core::rect<s32> music = areaOf(menu, MenuScreens::GUI_ID_MUSIC_VOLUME);
+	menu.mouse(EMIE_LMOUSE_PRESSED_DOWN, music.UpperLeftCorner.X + music.getWidth() / 4, music.getCenter().Y);
+	CHECK(menu.flow.preferences().musicVolume == 25);
+	menu.mouse(EMIE_LMOUSE_PRESSED_DOWN, music.LowerRightCorner.X - 1, music.getCenter().Y);
+	CHECK(menu.flow.preferences().musicVolume == 100);
+	REQUIRE(menu.tabTo(MenuScreens::GUI_ID_SFX_VOLUME));
+	menu.key(KEY_LEFT);
+	CHECK(menu.flow.preferences().sfxVolume == 95);
+	CHECK(kept.back().sfxVolume == 95);
+	CHECK(kept.back().masterVolume == 0);
+	CHECK(kept.back().musicVolume == 100);
+}
+
+TEST_CASE("Display chooses windowed or fullscreen and cycles the resolution, Gameplay sets the time new worlds start with")
+{
+	Menu menu("screens_settings_display");
+	menu.flow.settings();
+	menu.screens->draw();
+	menu.press(MenuScreens::GUI_ID_TAB_FIRST + 1);
+	menu.screens->draw();
+	menu.press(MenuScreens::GUI_ID_FULLSCREEN);
+	CHECK(menu.flow.preferences().fullscreen);
+	menu.press(MenuScreens::GUI_ID_WINDOWED);
+	CHECK_FALSE(menu.flow.preferences().fullscreen);
+	menu::Preferences big = menu.flow.preferences();
+	big.width = 1920;
+	big.height = 1080;
+	menu.flow.setPreferences(big);
+	REQUIRE(menu.tabTo(MenuScreens::GUI_ID_RESOLUTION));
+	menu.key(KEY_RIGHT);
+	CHECK(menu.focused() == MenuScreens::GUI_ID_RESOLUTION);
+	CHECK(menu.flow.preferences().width == 1280);
+	CHECK(menu.flow.preferences().height == 720);
+	menu.flow.setPreferences(big);
+	menu.key(KEY_LEFT);
+	CHECK(menu.flow.preferences().width == 1280);
+	menu.flow.setPreferences(big);
+	menu.press(MenuScreens::GUI_ID_RESOLUTION);
+	CHECK(menu.flow.preferences().width == 1280);
+
+	menu.press(MenuScreens::GUI_ID_TAB_FIRST + 2);
+	menu.screens->draw();
+	menu.press(MenuScreens::GUI_ID_DEFAULT_TIME_FIRST + 1);
+	CHECK(menu.flow.preferences().time == menu::TimeMode::HalfSpeed);
+	menu.screens->back();
+	menu.flow.play();
+	menu.flow.newCharacter();
+	REQUIRE(menu.flow.create("Rook", character::Gender::Male, 0));
+	menu.flow.highlight(0);
+	REQUIRE(menu.flow.select());
+	menu.flow.host();
+	menu.screens->draw();
+	menu.press(MenuScreens::GUI_ID_START);
+	REQUIRE(menu.flow.screen() == menu::Screen::Playing);
+	CHECK(menu.flow.timeScale() == menu::timeScale(menu::TimeMode::HalfSpeed));
+}
+
+TEST_CASE("the resolution choices are the driver's modes of 1280 by 720 and up, since the menus are laid out for that, each once, smallest first, always with the current size")
+{
+	std::vector<core::dimension2d<u32> > modes = { { 1920, 1080 }, { 640, 480 }, { 1280, 1024 }, { 1280, 720 }, { 1920, 1080 }, { 1024, 768 },
+		{ 1366, 700 } };
+	std::vector<core::dimension2d<u32> > choices = MenuScreens::resolutions(modes, core::dimension2d<u32>(1600, 900));
+	const std::vector<core::dimension2d<u32> > expected = { { 1280, 720 }, { 1280, 1024 }, { 1600, 900 }, { 1920, 1080 } };
+	CHECK(choices == expected);
+	CHECK(MenuScreens::resolutions(std::vector<core::dimension2d<u32> >(), core::dimension2d<u32>(1280, 720)).size() == 1);
+	const std::vector<core::dimension2d<u32> > bare = { { 1280, 720 }, { 1920, 1080 } };
+	CHECK(MenuScreens::resolutions(std::vector<core::dimension2d<u32> >(), core::dimension2d<u32>(1920, 1080)) == bare);
+}
+
+TEST_CASE("Tab reaches every control on every settings tab, and the Controls tab is a read-only card of the keys")
+{
+	IrrlichtDevice* device = createDevice(video::EDT_NULL, core::dimension2d<u32>(1280, 720));
+	RecordingCanvas canvas;
+	canvas.screenDimension = core::dimension2d<u32>(1280, 720);
+	std::string directory = (std::filesystem::temp_directory_path() / "screens_settings_controls").string();
+	std::filesystem::remove_all(directory);
+	{
+		menu::CharacterStore store(directory);
+		menu::MenuFlow flow(store, professions(), 3);
+		std::deque<std::string> status;
+		MenuScreens screens(device, canvas, flow, nullptr, status, nullptr);
+		flow.settings();
+		screens.draw();
+		IGUIEnvironment* gui = device->getGUIEnvironment();
+		std::set<std::wstring> seen;
+		for (s32 tab = 0; tab < 4; ++tab)
+		{
+			INFO(tab);
+			SEvent click;
+			click.EventType = EET_GUI_EVENT;
+			click.GUIEvent.EventType = EGET_BUTTON_CLICKED;
+			click.GUIEvent.Caller = gui->getRootGUIElement()->getElementFromId(MenuScreens::GUI_ID_TAB_FIRST + tab, true);
+			click.GUIEvent.Element = nullptr;
+			REQUIRE(click.GUIEvent.Caller != nullptr);
+			screens.onGuiEvent(click);
+			canvas.calls.clear();
+			screens.draw();
+			for (const RecordingCanvas::Call& call : canvas.calls)
+				if (call.kind == RecordingCanvas::TEXT)
+					seen.insert(call.text);
+			std::set<s32> expected;
+			controls(gui->getRootGUIElement(), expected);
+			std::set<s32> reached;
+			for (size_t step = 0; step <= expected.size(); ++step)
+			{
+				reached.insert(gui->getFocus() ? gui->getFocus()->getID() : -1);
+				SEvent tabKey;
+				tabKey.EventType = EET_KEY_INPUT_EVENT;
+				tabKey.KeyInput.Key = KEY_TAB;
+				tabKey.KeyInput.PressedDown = true;
+				tabKey.KeyInput.Shift = false;
+				tabKey.KeyInput.Control = false;
+				tabKey.KeyInput.Char = 0;
+				screens.onEvent(tabKey);
+			}
+			CHECK(reached == expected);
+		}
+		for (const wchar_t* line : { L"MASTER VOLUME", L"MUSIC VOLUME", L"SFX VOLUME", L"100", L"WINDOW", L"RESOLUTION", L"<   1280 x 720   >",
+				 L"Applies the next time the game starts.", L"DEFAULT TIME FOR NEW WORLDS", L"Half Speed" })
+		{
+			INFO(std::string(line, line + wcslen(line)));
+			CHECK(seen.count(line) == 1);
+		}
+		auto says = [&canvas](const std::wstring& line) {
+			for (const RecordingCanvas::Call& call : canvas.calls)
+				if (call.kind == RecordingCanvas::TEXT && call.text == line)
+					return true;
+			return false;
+		};
+		for (const wchar_t* line : { L"WASD", L"Move", L"Mouse", L"Look", L"I", L"Inventory", L"C", L"Notebook / Character Sheet", L"E",
+				 L"Search Container", L"R", L"Rotate Item", L"F3", L"Debug Overlay", L"Backtick", L"Console", L"Escape", L"Back / Close",
+				 L"Tab / Shift+Tab", L"Navigate UI", L"Arrow Keys", L"Enter / Space", L"Confirm", L"Gamepad A", L"Gamepad B", L"Back",
+				 L"Gamepad X", L"Gamepad Start", L"Gamepad Back", L"Notebook", L"Stick / D-pad", L"Navigate" })
+		{
+			INFO(std::string(line, line + wcslen(line)));
+			CHECK(says(line));
+		}
+	}
+	std::filesystem::remove_all(directory);
+	device->drop();
+}
