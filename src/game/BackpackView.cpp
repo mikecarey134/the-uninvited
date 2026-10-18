@@ -92,6 +92,17 @@ namespace backpack
 		}
 	}
 
+	void drawCells(Canvas& canvas, const Catalog& catalog, const std::vector<Item>& items, const std::vector<rect<s32> >& cells)
+	{
+		for (size_t i = 0; i < cells.size(); ++i)
+		{
+			canvas.drawRect(cells[i], emptyCells);
+			canvas.drawRectOutline(cells[i], gridLine);
+			if (i < items.size())
+				drawItem(canvas, catalog, Item{ items[i].type, items[i].count }, cells[i], false);
+		}
+	}
+
 	void drawGrid(Canvas& canvas, const Inventory& carried, const Catalog& catalog, const Layout& layout)
 	{
 		const rect<s32>& grid = layout.grid;

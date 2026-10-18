@@ -10,16 +10,19 @@ using namespace inventory;
 
 namespace
 {
-	const SColor rowFill(255, 34, 34, 38);
-	const SColor rowEdge(90, 255, 255, 255);
+	const SColor dim(110, 0, 0, 0);
+	const s32 cellSize = 64;
+	const s32 padding = 24;
+	const s32 titleHeight = 56;
+	const s32 gap = 24;
+	const s32 bagWidth = 920;
+	const s32 bagHeight = 600;
 
-	std::wstring wide(const std::string& line)
+	rect<s32> ring(const rect<s32>& area)
 	{
-		return std::wstring(line.begin(), line.end());
+		return rect<s32>(area.UpperLeftCorner.X - 2, area.UpperLeftCorner.Y - 2, area.LowerRightCorner.X + 2, area.LowerRightCorner.Y + 2);
 	}
 }
-
-const s32 LootScreen::ROW_HEIGHT;
 
 LootScreen::LootScreen(std::function<bool()> blocked, std::function<void()> opened, std::function<loot::Container*()> nearby)
 	: blocked_(blocked), opened_(opened), nearby_(nearby)
@@ -33,17 +36,16 @@ void LootScreen::open()
 		return;
 	container_ = found;
 	container_->searched = true;
-	scroll_ = 0;
 	message_.clear();
 	if (!open_)
 	{
-		inList_ = true;
-		row_ = 0;
+		inContainer_ = true;
+		slot_ = 0;
 		cell_ = Cell{ 0, 0 };
 		keyboard_ = true;
+		if (opened_)
+			opened_();
 	}
-	if (!open_ && opened_)
-		opened_();
 	open_ = true;
 }
 
@@ -53,49 +55,58 @@ void LootScreen::close()
 	container_ = nullptr;
 }
 
-rect<s32> LootScreen::panel() const
+int LootScreen::containerColumns() const
 {
-	s32 width = std::min((s32)screen_.Width - 80, 1160);
-	s32 height = std::min((s32)screen_.Height - 80, 600);
-	s32 left = ((s32)screen_.Width - width) / 2;
+	if (!container_ || container_->capacity <= 1)
+		return 1;
+	return container_->capacity <= 4 ? 2 : 4;
+}
+
+int LootScreen::containerRows() const
+{
+	return container_ ? std::max(1, (container_->capacity + containerColumns() - 1) / containerColumns()) : 1;
+}
+
+s32 LootScreen::left() const
+{
+	s32 boxWidth = containerColumns() * cellSize + 2 * padding;
+	s32 bag = std::min(bagWidth, (s32)screen_.Width - 48 - boxWidth - gap);
+	return ((s32)screen_.Width - boxWidth - gap - bag) / 2;
+}
+
+rect<s32> LootScreen::containerPanel() const
+{
+	s32 width = containerColumns() * cellSize + 2 * padding;
+	s32 height = titleHeight + containerRows() * cellSize + padding;
 	s32 top = ((s32)screen_.Height - height) / 2;
-	return rect<s32>(left, top, left + width, top + height);
+	return rect<s32>(left(), top, left() + width, top + height);
 }
 
-rect<s32> LootScreen::list() const
+rect<s32> LootScreen::playerPanel() const
 {
-	rect<s32> area = panel();
-	return rect<s32>(area.UpperLeftCorner.X + 28, area.UpperLeftCorner.Y + 84, area.UpperLeftCorner.X + 328, area.LowerRightCorner.Y - 56);
+	s32 start = containerPanel().LowerRightCorner.X + gap;
+	s32 width = std::min(bagWidth, (s32)screen_.Width - 48 - containerPanel().getWidth() - gap);
+	s32 height = std::min(bagHeight, (s32)screen_.Height - 48);
+	s32 top = ((s32)screen_.Height - height) / 2;
+	return rect<s32>(start, top, start + width, top + height);
 }
 
-int LootScreen::visibleRows() const
+rect<s32> LootScreen::containerCell(int index) const
 {
-	return std::max(1, list().getHeight() / ROW_HEIGHT);
-}
-
-void LootScreen::showRow()
-{
-	row_ = std::max(0, std::min(row_, (int)container_->items.size() - 1));
-	scroll_ = std::min(scroll_, row_);
-	scroll_ = std::max(scroll_, row_ - visibleRows() + 1);
-	scroll_ = std::max(0, std::min(scroll_, (int)container_->items.size() - visibleRows()));
-}
-
-rect<s32> LootScreen::row(int index) const
-{
-	rect<s32> area = list();
-	s32 top = area.UpperLeftCorner.Y + (index - scroll_) * ROW_HEIGHT;
-	return rect<s32>(area.UpperLeftCorner.X, top, area.LowerRightCorner.X, top + ROW_HEIGHT - 4);
+	rect<s32> box = containerPanel();
+	s32 x = box.UpperLeftCorner.X + padding + (index % containerColumns()) * cellSize;
+	s32 y = box.UpperLeftCorner.Y + titleHeight + (index / containerColumns()) * cellSize;
+	return rect<s32>(x + 2, y + 2, x + cellSize - 2, y + cellSize - 2);
 }
 
 backpack::Layout LootScreen::layout() const
 {
-	rect<s32> area = panel();
-	rect<s32> shelf = list();
+	rect<s32> area = playerPanel();
+	s32 width = area.getWidth();
 	s32 top = area.UpperLeftCorner.Y + 56;
 	s32 bottom = area.LowerRightCorner.Y - 20;
-	rect<s32> doll(shelf.LowerRightCorner.X + 28, top, shelf.LowerRightCorner.X + 268, bottom);
-	rect<s32> grid(doll.LowerRightCorner.X + 20, top, area.LowerRightCorner.X - 28, bottom);
+	rect<s32> doll(area.UpperLeftCorner.X + 28, top, area.UpperLeftCorner.X + width * 36 / 100, bottom);
+	rect<s32> grid(area.UpperLeftCorner.X + width * 40 / 100, top, area.LowerRightCorner.X - 28, bottom);
 	return backpack::Layout(*catalog_, doll, grid, carried_->columns(), carried_->rows());
 }
 
@@ -105,31 +116,23 @@ bool LootScreen::onEvent(const SEvent& event)
 	{
 		if (!open_)
 			return false;
-		position2d<s32> point(event.MouseInput.X, event.MouseInput.Y);
 		keyboard_ = false;
-		if (event.MouseInput.Event == EMIE_MOUSE_WHEEL && container_)
+		if (event.MouseInput.Event == EMIE_LMOUSE_PRESSED_DOWN && container_ && carried_ && catalog_)
 		{
-			int most = std::max(0, (int)container_->items.size() - visibleRows());
-			scroll_ = std::min(most, std::max(0, scroll_ - (event.MouseInput.Wheel > 0.0f ? 1 : -1)));
-		}
-		else if (event.MouseInput.Event == EMIE_LMOUSE_PRESSED_DOWN && container_ && carried_ && catalog_)
-		{
+			position2d<s32> point(event.MouseInput.X, event.MouseInput.Y);
 			Cell cell{ 0, 0 };
-			if (list().isPointInside(point))
-			{
-				int index = scroll_ + (point.Y - list().UpperLeftCorner.Y) / ROW_HEIGHT;
-				if (index < (int)container_->items.size())
-					message_ = loot::take(*container_, index, *carried_);
-				scroll_ = std::min(scroll_, std::max(0, (int)container_->items.size() - visibleRows()));
-			}
-			else if (layout().cellAt(point, cell))
+			for (int i = 0; i < container_->capacity; ++i)
+				if (containerCell(i).isPointInside(point))
+					message_ = loot::take(*container_, i, *carried_);
+			if (layout().cellAt(point, cell))
 				message_ = loot::give(*container_, cell, *carried_);
 		}
 		return true;
 	}
 	if (event.EventType != EET_KEY_INPUT_EVENT || !event.KeyInput.PressedDown || (blocked_ && blocked_()))
 		return false;
-	switch (event.KeyInput.Key)
+	EKEY_CODE key = event.KeyInput.Key;
+	switch (key)
 	{
 	case KEY_KEY_E:
 		if (open_)
@@ -149,32 +152,35 @@ bool LootScreen::onEvent(const SEvent& event)
 	case KEY_DOWN:
 	case KEY_LEFT:
 	case KEY_RIGHT:
+	{
 		if (!open_ || !container_ || !carried_)
 			return open_;
 		keyboard_ = true;
-		if (event.KeyInput.Key == KEY_TAB || (inList_ && event.KeyInput.Key == KEY_RIGHT) || (!inList_ && event.KeyInput.Key == KEY_LEFT && cell_.column == 0))
-			inList_ = !inList_;
-		else if (inList_ && event.KeyInput.Key != KEY_LEFT)
-			row_ += event.KeyInput.Key == KEY_UP ? -1 : 1;
-		else if (!inList_)
+		int columns = containerColumns();
+		bool leaves = key == KEY_TAB || (inContainer_ && key == KEY_RIGHT && (slot_ % columns == columns - 1 || slot_ == container_->capacity - 1)) ||
+			(!inContainer_ && key == KEY_LEFT && cell_.column == 0);
+		if (leaves)
+			inContainer_ = !inContainer_;
+		else if (inContainer_)
 		{
-			cell_.column += event.KeyInput.Key == KEY_LEFT ? -1 : event.KeyInput.Key == KEY_RIGHT ? 1 : 0;
-			cell_.row += event.KeyInput.Key == KEY_UP ? -1 : event.KeyInput.Key == KEY_DOWN ? 1 : 0;
-			cell_.column = std::max(0, std::min(cell_.column, carried_->columns() - 1));
-			cell_.row = std::max(0, std::min(cell_.row, carried_->rows() - 1));
+			int moved = slot_ + (key == KEY_LEFT ? -1 : key == KEY_RIGHT ? 1 : key == KEY_UP ? -columns : columns);
+			bool sameRow = key == KEY_UP || key == KEY_DOWN || moved / columns == slot_ / columns;
+			if (moved >= 0 && moved < container_->capacity && sameRow)
+				slot_ = moved;
 		}
-		showRow();
+		else
+		{
+			cell_.column = std::max(0, std::min(cell_.column + (key == KEY_LEFT ? -1 : key == KEY_RIGHT ? 1 : 0), carried_->columns() - 1));
+			cell_.row = std::max(0, std::min(cell_.row + (key == KEY_UP ? -1 : key == KEY_DOWN ? 1 : 0), carried_->rows() - 1));
+		}
 		return true;
+	}
 	case KEY_RETURN:
 	case KEY_SPACE:
 		if (!open_ || !container_ || !carried_)
 			return open_;
 		keyboard_ = true;
-		if (!inList_)
-			message_ = loot::give(*container_, cell_, *carried_);
-		else if (row_ < (int)container_->items.size())
-			message_ = loot::take(*container_, row_, *carried_);
-		showRow();
+		message_ = inContainer_ ? loot::take(*container_, slot_, *carried_) : loot::give(*container_, cell_, *carried_);
 		return true;
 	case KEY_KEY_I:
 	case KEY_KEY_C:
@@ -190,48 +196,22 @@ void LootScreen::draw(Canvas& canvas)
 	if (!open_ || !container_ || !carried_ || !catalog_)
 		return;
 	screen_ = canvas.screenSize();
-	canvas.drawRect(rect<s32>(0, 0, (s32)screen_.Width, (s32)screen_.Height), backpack::look::shade);
-	rect<s32> area = panel();
-	backpack::drawPanel(canvas, area, wide(container_->kind));
-	FontHandle label = canvas.loadFont(backpack::look::labelFont);
-	FontHandle body = canvas.loadFont(backpack::look::bodyFont);
-	rect<s32> shelf = list();
-	canvas.drawText(label, L"CONTENTS", rect<s32>(shelf.UpperLeftCorner.X, shelf.UpperLeftCorner.Y - 28, shelf.LowerRightCorner.X,
-		shelf.UpperLeftCorner.Y - 4), backpack::look::muted, false, true, false);
-	std::string used = std::to_string(container_->items.size()) + " / " + std::to_string(container_->capacity);
-	s32 usedWidth = (s32)canvas.textSize(label, wide(used).c_str()).Width;
-	canvas.drawText(label, wide(used).c_str(), rect<s32>(shelf.LowerRightCorner.X - usedWidth, shelf.UpperLeftCorner.Y - 28, shelf.LowerRightCorner.X,
-		shelf.UpperLeftCorner.Y - 4), backpack::look::muted, false, true, false);
-	for (int i = scroll_; i < (int)container_->items.size() && i < scroll_ + visibleRows(); ++i)
-	{
-		const Item& item = container_->items[i];
-		rect<s32> line = row(i);
-		canvas.drawRect(line, rowFill);
-		canvas.drawRectOutline(line, rowEdge);
-		rect<s32> mark(line.UpperLeftCorner.X + 4, line.UpperLeftCorner.Y + 4, line.UpperLeftCorner.X + line.getHeight() - 4,
-			line.LowerRightCorner.Y - 4);
-		canvas.drawImage(canvas.loadTexture(backpack::iconPath(*catalog_, item.type).c_str()), mark, backpack::look::icon);
-		const ItemType* type = catalog_->itemType(item.type);
-		canvas.drawText(body, wide(type ? type->name : item.type).c_str(), rect<s32>(mark.LowerRightCorner.X + 10, line.UpperLeftCorner.Y,
-			line.LowerRightCorner.X - 50, line.LowerRightCorner.Y), backpack::look::text, false, true, false);
-		if (item.count > 1)
-			canvas.drawText(label, wide("x" + std::to_string(item.count)).c_str(), rect<s32>(line.LowerRightCorner.X - 48, line.UpperLeftCorner.Y,
-				line.LowerRightCorner.X - 8, line.LowerRightCorner.Y), backpack::look::muted, false, true, false);
-	}
+	canvas.drawRect(rect<s32>(0, 0, (s32)screen_.Width, (s32)screen_.Height), dim);
+	rect<s32> box = containerPanel();
+	backpack::drawPanel(canvas, box, std::wstring(container_->kind.begin(), container_->kind.end()));
+	std::vector<rect<s32> > cells;
+	for (int i = 0; i < container_->capacity; ++i)
+		cells.push_back(containerCell(i));
+	backpack::drawCells(canvas, *catalog_, container_->items, cells);
 
+	rect<s32> bag = playerPanel();
+	backpack::drawPanel(canvas, bag, L"Inventory");
 	backpack::Layout grid = layout();
-	canvas.drawText(label, L"EQUIPMENT", rect<s32>(grid.left.UpperLeftCorner.X, grid.left.UpperLeftCorner.Y, grid.left.LowerRightCorner.X,
-		grid.left.UpperLeftCorner.Y + 24), backpack::look::muted, false, true, false);
-	canvas.drawText(label, L"BACKPACK", rect<s32>(grid.right.UpperLeftCorner.X, grid.right.UpperLeftCorner.Y, grid.right.LowerRightCorner.X,
-		grid.right.UpperLeftCorner.Y + 24), backpack::look::muted, false, true, false);
 	backpack::drawEquipment(canvas, *carried_, *catalog_, grid, "");
 	backpack::drawGrid(canvas, *carried_, *catalog_, grid);
 	if (keyboard_)
-	{
-		rect<s32> spot = inList_ ? row(row_) : grid.cellArea(cell_);
-		canvas.drawRectOutline(rect<s32>(spot.UpperLeftCorner.X - 2, spot.UpperLeftCorner.Y - 2, spot.LowerRightCorner.X + 2,
-			spot.LowerRightCorner.Y + 2), theme::accent);
-	}
-	canvas.drawText(body, wide(message_).c_str(), rect<s32>(area.UpperLeftCorner.X + 28, area.LowerRightCorner.Y - 46, area.LowerRightCorner.X - 28,
-		area.LowerRightCorner.Y - 16), backpack::look::warning, false, true, false);
+		canvas.drawRectOutline(ring(inContainer_ ? containerCell(slot_) : grid.cellArea(cell_)), theme::accent);
+	canvas.drawText(canvas.loadFont(backpack::look::bodyFont), std::wstring(message_.begin(), message_.end()).c_str(),
+		rect<s32>(grid.right.UpperLeftCorner.X, grid.grid.LowerRightCorner.Y + 8, grid.right.LowerRightCorner.X, grid.grid.LowerRightCorner.Y + 34),
+		backpack::look::warning, false, true, false);
 }

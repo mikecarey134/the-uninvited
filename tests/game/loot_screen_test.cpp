@@ -113,127 +113,14 @@ TEST_CASE("the open loot screen swallows movement and the mouse but lets I, C an
 	CHECK_FALSE(search.mouse(EMIE_LMOUSE_PRESSED_DOWN, position2d<s32>(3, 3)));
 }
 
-TEST_CASE("the loot screen is titled with the container's kind and lists each item with its icon, name and count beside the player's doll and grid")
-{
-	Search search;
-	search.near = true;
-	search.key(KEY_KEY_E);
-	search.draw();
-	const RecordingCanvas::Call& dim = search.canvas.calls.front();
-	CHECK(dim.area == rect<s32>(0, 0, 1280, 720));
-	CHECK(dim.colour.getAlpha() >= 120);
-	REQUIRE(search.text(L"Chest") != nullptr);
-	REQUIRE(search.text(L"3 / 8") != nullptr);
-	REQUIRE(search.text(L"CONTENTS") != nullptr);
-	CHECK(search.text(L"3 / 8")->area.UpperLeftCorner.X > search.text(L"CONTENTS")->area.UpperLeftCorner.X + 100);
-	const RecordingCanvas::Call* shotgun = search.text(L"Shotgun");
-	const RecordingCanvas::Call* armour = search.text(L"Body Armor");
-	const RecordingCanvas::Call* pills = search.text(L"Pills");
-	REQUIRE(shotgun != nullptr);
-	REQUIRE(armour != nullptr);
-	REQUIRE(pills != nullptr);
-	CHECK(search.screen.row(0).isRectCollided(shotgun->area));
-	CHECK(search.screen.row(1).isRectCollided(armour->area));
-	REQUIRE(search.text(L"x4") != nullptr);
-	CHECK(search.screen.row(2).isRectCollided(search.text(L"x4")->area));
-	CHECK(search.text(L"x1") == nullptr);
-	bool icon = false;
-	for (const RecordingCanvas::Call& call : search.canvas.calls)
-		icon = icon || (call.kind == RecordingCanvas::IMAGE && search.canvas.pathOf(call.texture) == std::string(backpack::ICON_FOLDER) + "shotgun.png" &&
-			search.screen.row(0).isRectCollided(call.area));
-	CHECK(icon);
-
-	backpack::Layout layout = search.screen.layout();
-	rect<s32> panel = search.screen.panel();
-	CHECK(search.screen.list().UpperLeftCorner.X >= panel.UpperLeftCorner.X);
-	for (const rect<s32>& slot : layout.slots)
-		CHECK(slot.UpperLeftCorner.X > search.screen.list().LowerRightCorner.X);
-	CHECK(layout.grid.UpperLeftCorner.X > layout.slots[0].LowerRightCorner.X);
-	CHECK(layout.grid.LowerRightCorner.X <= panel.LowerRightCorner.X);
-	CHECK(layout.grid.LowerRightCorner.Y <= panel.LowerRightCorner.Y);
-	CHECK(layout.cell >= 32);
-	int lines = 0;
-	for (const RecordingCanvas::Call& call : search.canvas.calls)
-		if (call.kind == RecordingCanvas::LINE && layout.grid.isPointInside(call.from) && layout.grid.isPointInside(call.to))
-			++lines;
-	CHECK(lines == backpack::COLUMNS + backpack::ROWS - 2);
-}
-
-TEST_CASE("clicking a row takes it into the grid, clicking a grid item puts it in the container, and refusals show in the status line")
-{
-	Search search;
-	search.near = true;
-	search.key(KEY_KEY_E);
-	search.draw();
-	search.mouse(EMIE_LMOUSE_PRESSED_DOWN, search.screen.row(1).getCenter());
-	REQUIRE(search.chest.items.size() == 2);
-	CHECK(search.chest.items[1].type == "pills");
-	REQUIRE(search.carried->itemAt(Cell{ 0, 0 }) != nullptr);
-	CHECK(search.carried->itemAt(Cell{ 0, 0 })->type == "body_armor");
-
-	backpack::Layout layout = search.screen.layout();
-	search.mouse(EMIE_LMOUSE_PRESSED_DOWN, layout.cellArea(Cell{ 1, 2 }).getCenter());
-	CHECK(search.carried->itemAt(Cell{ 0, 0 }) == nullptr);
-	REQUIRE(search.chest.items.size() == 3);
-	CHECK(search.chest.items[2].type == "body_armor");
-
-	search.chest.capacity = 3;
-	REQUIRE(search.carried->placeAt(Item{ "key", 1 }, Cell{ 4, 4 }).outcome == Outcome::Done);
-	search.mouse(EMIE_LMOUSE_PRESSED_DOWN, layout.cellArea(Cell{ 4, 4 }).getCenter());
-	CHECK(search.screen.message() == "Container full.");
-	search.draw();
-	const RecordingCanvas::Call* full = search.text(L"Container full.");
-	REQUIRE(full != nullptr);
-	CHECK(full->area.UpperLeftCorner.Y >= search.screen.list().UpperLeftCorner.Y);
-
-	for (int column = 0; column < backpack::COLUMNS; ++column)
-		for (int row = 0; row < backpack::ROWS; ++row)
-			search.carried->placeAt(Item{ "key", 1 }, Cell{ column, row });
-	search.mouse(EMIE_LMOUSE_PRESSED_DOWN, search.screen.row(0).getCenter());
-	CHECK(search.screen.message() == "Inventory full.");
-	CHECK(search.chest.items.size() == 3);
-	search.mouse(EMIE_LMOUSE_PRESSED_DOWN, position2d<s32>(search.screen.panel().UpperLeftCorner.X + 5, search.screen.panel().UpperLeftCorner.Y + 5));
-	CHECK(search.chest.items.size() == 3);
-}
-
-TEST_CASE("a long container list scrolls with the wheel, and clicks follow the scroll")
-{
-	Search search;
-	search.chest.capacity = 30;
-	search.chest.items.clear();
-	for (int i = 0; i < 20; ++i)
-		search.chest.items.push_back(Item{ i == 15 ? "shotgun" : "key", 1 });
-	search.near = true;
-	search.key(KEY_KEY_E);
-	search.draw();
-	CHECK(search.text(L"Shotgun") == nullptr);
-	for (int i = 0; i < 10; ++i)
-		search.mouse(EMIE_MOUSE_WHEEL, search.screen.list().getCenter(), -1.0f);
-	search.draw();
-	const RecordingCanvas::Call* shotgun = search.text(L"Shotgun");
-	REQUIRE(shotgun != nullptr);
-	int shown = -1;
-	for (int i = 0; i < 20; ++i)
-		if (search.screen.row(i).isRectCollided(shotgun->area))
-			shown = i;
-	REQUIRE(shown >= 0);
-	CHECK(search.screen.list().isPointInside(search.screen.row(shown).UpperLeftCorner));
-	CHECK(search.screen.list().isPointInside(search.screen.row(shown).LowerRightCorner));
-	search.mouse(EMIE_LMOUSE_PRESSED_DOWN, search.screen.row(shown).getCenter());
-	CHECK(search.chest.items.size() == 19);
-	bool taken = false;
-	for (const Placed& placed : search.carried->backpackContents())
-		taken = taken || placed.item.type == "shotgun";
-	CHECK(taken);
-	for (int i = 0; i < 40; ++i)
-		search.mouse(EMIE_MOUSE_WHEEL, search.screen.list().getCenter(), 1.0f);
-	search.draw();
-	CHECK(search.screen.list().isPointInside(search.screen.row(0).UpperLeftCorner));
-	CHECK(search.screen.list().isPointInside(search.screen.row(0).LowerRightCorner));
-}
-
 namespace
 {
+	bool inside(const rect<s32>& outer, const rect<s32>& inner)
+	{
+		return outer.isPointInside(inner.UpperLeftCorner) && inner.LowerRightCorner.X <= outer.LowerRightCorner.X &&
+			inner.LowerRightCorner.Y <= outer.LowerRightCorner.Y;
+	}
+
 	bool ringed(const RecordingCanvas& canvas, const rect<s32>& around)
 	{
 		for (const RecordingCanvas::Call& call : canvas.calls)
@@ -243,34 +130,204 @@ namespace
 				return true;
 		return false;
 	}
+
+	const RecordingCanvas::Call* icon(const RecordingCanvas& canvas, const std::string& file)
+	{
+		for (const RecordingCanvas::Call& call : canvas.calls)
+			if (call.kind == RecordingCanvas::IMAGE && canvas.pathOf(call.texture) == std::string(backpack::ICON_FOLDER) + file)
+				return &call;
+		return nullptr;
+	}
 }
 
-TEST_CASE("with the keyboard alone the list and the grid take turns with Tab or the arrows, and Enter moves the highlighted stack either way")
+TEST_CASE("two floating panels sit over a dimmed world, the container's icon grid on the left and the player's inventory on the right")
 {
 	Search search;
 	search.near = true;
 	search.key(KEY_KEY_E);
 	search.draw();
-	CHECK(ringed(search.canvas, search.screen.row(0)));
-	CHECK(search.key(KEY_DOWN));
+	const RecordingCanvas::Call& dim = search.canvas.calls.front();
+	CHECK(dim.area == rect<s32>(0, 0, 1280, 720));
+	CHECK(dim.colour.getAlpha() >= 60);
+	CHECK(dim.colour.getAlpha() <= 140);
+
+	rect<s32> box = search.screen.containerPanel();
+	rect<s32> bag = search.screen.playerPanel();
+	rect<s32> screen(0, 0, 1280, 720);
+	CHECK(inside(screen, box));
+	CHECK(inside(screen, bag));
+	CHECK(box.LowerRightCorner.X + 16 <= bag.UpperLeftCorner.X);
+	CHECK(box.getWidth() < bag.getWidth());
+	CHECK(box.getHeight() < bag.getHeight());
+	CHECK(std::abs(box.getCenter().Y - 360) <= 1);
+	CHECK(std::abs(bag.getCenter().Y - 360) <= 1);
+	CHECK(std::abs(box.UpperLeftCorner.X - (1280 - bag.LowerRightCorner.X)) <= 1);
+	REQUIRE(search.text(L"Chest") != nullptr);
+	REQUIRE(search.text(L"Inventory") != nullptr);
+	CHECK(box.isPointInside(search.text(L"Chest")->area.UpperLeftCorner));
+	CHECK(bag.isPointInside(search.text(L"Inventory")->area.UpperLeftCorner));
+
+	CHECK(search.screen.containerColumns() == 4);
+	CHECK(search.screen.containerRows() == 2);
+	for (int i = 0; i < 8; ++i)
+	{
+		INFO(i);
+		rect<s32> cell = search.screen.containerCell(i);
+		CHECK(cell.getWidth() == cell.getHeight());
+		CHECK(cell.getWidth() >= 40);
+		CHECK(inside(box, cell));
+		for (int j = 0; j < i; ++j)
+			CHECK_FALSE(cell.isRectCollided(search.screen.containerCell(j)));
+		if (i > 0 && i % 4 != 0)
+			CHECK(cell.UpperLeftCorner.X > search.screen.containerCell(i - 1).UpperLeftCorner.X);
+	}
+	CHECK(search.screen.containerCell(4).UpperLeftCorner.Y > search.screen.containerCell(0).UpperLeftCorner.Y);
+	const RecordingCanvas::Call* shotgun = icon(search.canvas, "shotgun.png");
+	REQUIRE(shotgun != nullptr);
+	CHECK(inside(search.screen.containerCell(0), shotgun->area));
+	REQUIRE(icon(search.canvas, "pills.png") != nullptr);
+	CHECK(inside(search.screen.containerCell(2), icon(search.canvas, "pills.png")->area));
+	REQUIRE(search.text(L"4") != nullptr);
+	CHECK(inside(search.screen.containerCell(2), search.text(L"4")->area));
+	CHECK(search.text(L"1") == nullptr);
+	CHECK(search.text(L"Shotgun") == nullptr);
+	int emptyCells = 0;
+	for (const RecordingCanvas::Call& call : search.canvas.calls)
+		for (int i = 3; i < 8; ++i)
+			if (call.kind == RecordingCanvas::RECT && call.area == search.screen.containerCell(i))
+				++emptyCells;
+	CHECK(emptyCells == 5);
+
+	backpack::Layout layout = search.screen.layout();
+	CHECK(inside(bag, layout.grid));
+	for (const rect<s32>& slot : layout.slots)
+	{
+		CHECK(inside(bag, slot));
+		CHECK(slot.LowerRightCorner.X < layout.grid.UpperLeftCorner.X);
+	}
+	CHECK(layout.cell >= 32);
+	int lines = 0;
+	for (const RecordingCanvas::Call& call : search.canvas.calls)
+		if (call.kind == RecordingCanvas::LINE && layout.grid.isPointInside(call.from) && layout.grid.isPointInside(call.to))
+			++lines;
+	CHECK(lines == backpack::COLUMNS + backpack::ROWS - 2);
+
+	search.canvas.screenDimension = dimension2d<u32>(1920, 1080);
 	search.draw();
-	CHECK(ringed(search.canvas, search.screen.row(1)));
-	CHECK_FALSE(ringed(search.canvas, search.screen.row(0)));
-	CHECK(search.key(KEY_RETURN));
+	box = search.screen.containerPanel();
+	bag = search.screen.playerPanel();
+	CHECK(box.UpperLeftCorner.X > 100);
+	CHECK(std::abs(box.UpperLeftCorner.X - (1920 - bag.LowerRightCorner.X)) <= 1);
+	CHECK(std::abs(box.getCenter().Y - 540) <= 1);
+	CHECK(std::abs(bag.getCenter().Y - 540) <= 1);
+}
+
+TEST_CASE("the container grid is as wide as its capacity up to four columns, with rows added as needed, and still fits the screen")
+{
+	Search search;
+	search.near = true;
+	const struct { int capacity; int columns; int rows; } sizes[] = { { 4, 2, 2 }, { 8, 4, 2 }, { 1, 1, 1 }, { 3, 2, 2 }, { 10, 4, 3 }, { 30, 4, 8 } };
+	for (const auto& size : sizes)
+	{
+		INFO(size.capacity);
+		search.chest.capacity = size.capacity;
+		search.screen.close();
+		search.key(KEY_KEY_E);
+		search.draw();
+		CHECK(search.screen.containerColumns() == size.columns);
+		CHECK(search.screen.containerRows() == size.rows);
+		CHECK(inside(search.screen.containerPanel(), search.screen.containerCell(size.capacity - 1)));
+		CHECK(inside(rect<s32>(0, 0, 1280, 720), search.screen.containerPanel()));
+		CHECK(search.screen.containerPanel().LowerRightCorner.X + 16 <= search.screen.playerPanel().UpperLeftCorner.X);
+	}
+}
+
+TEST_CASE("clicking a container icon takes it into the grid, clicking a grid item puts it in the container, and refusals show under the grid")
+{
+	Search search;
+	search.near = true;
+	search.key(KEY_KEY_E);
+	search.draw();
+	search.mouse(EMIE_LMOUSE_PRESSED_DOWN, search.screen.containerCell(1).getCenter());
 	REQUIRE(search.chest.items.size() == 2);
 	CHECK(search.chest.items[1].type == "pills");
-	CHECK(search.carried->itemAt(Cell{ 0, 0 }) != nullptr);
-	search.key(KEY_DOWN);
+	REQUIRE(search.carried->itemAt(Cell{ 0, 0 }) != nullptr);
+	CHECK(search.carried->itemAt(Cell{ 0, 0 })->type == "body_armor");
+	search.mouse(EMIE_LMOUSE_PRESSED_DOWN, search.screen.containerCell(6).getCenter());
+	CHECK(search.chest.items.size() == 2);
+
+	backpack::Layout layout = search.screen.layout();
+	search.mouse(EMIE_LMOUSE_PRESSED_DOWN, layout.cellArea(Cell{ 1, 2 }).getCenter());
+	CHECK(search.carried->itemAt(Cell{ 0, 0 }) == nullptr);
+	REQUIRE(search.chest.items.size() == 3);
+	CHECK(search.chest.items[2].type == "body_armor");
+
+	REQUIRE(search.carried->placeAt(Item{ "pills", 3 }, Cell{ 6, 0 }).outcome == Outcome::Done);
+	search.mouse(EMIE_LMOUSE_PRESSED_DOWN, search.screen.containerCell(1).getCenter());
+	REQUIRE(search.carried->itemAt(Cell{ 6, 0 }) != nullptr);
+	CHECK(search.carried->itemAt(Cell{ 6, 0 })->count == 7);
+	CHECK(search.chest.items.size() == 2);
+
+	search.chest.capacity = 2;
+	backpack::Layout narrower = search.screen.layout();
+	REQUIRE(search.carried->placeAt(Item{ "key", 1 }, Cell{ 4, 4 }).outcome == Outcome::Done);
+	search.mouse(EMIE_LMOUSE_PRESSED_DOWN, narrower.cellArea(Cell{ 4, 4 }).getCenter());
+	CHECK(search.screen.message() == "Container full.");
+	search.draw();
+	const RecordingCanvas::Call* full = search.text(L"Container full.");
+	REQUIRE(full != nullptr);
+	CHECK(full->area.UpperLeftCorner.Y >= narrower.grid.LowerRightCorner.Y);
+	CHECK(inside(search.screen.playerPanel(), full->area));
+
+	for (int column = 0; column < backpack::COLUMNS; ++column)
+		for (int row = 0; row < backpack::ROWS; ++row)
+			search.carried->placeAt(Item{ "key", 1 }, Cell{ column, row });
+	search.mouse(EMIE_LMOUSE_PRESSED_DOWN, search.screen.containerCell(0).getCenter());
+	CHECK(search.screen.message() == "Inventory full.");
+	CHECK(search.chest.items.size() == 2);
+}
+
+TEST_CASE("with the keyboard alone the two grids take turns with Tab or across their edges, arrows walk the cells, and Enter moves the stack either way")
+{
+	Search search;
+	search.near = true;
+	search.key(KEY_KEY_E);
+	search.draw();
+	CHECK(ringed(search.canvas, search.screen.containerCell(0)));
+	CHECK(search.key(KEY_RIGHT));
 	search.key(KEY_DOWN);
 	search.draw();
-	CHECK(ringed(search.canvas, search.screen.row(1)));
+	CHECK(ringed(search.canvas, search.screen.containerCell(5)));
+	CHECK_FALSE(ringed(search.canvas, search.screen.containerCell(0)));
+	CHECK(search.key(KEY_RETURN));
+	CHECK(search.chest.items.size() == 3);
+	search.key(KEY_DOWN);
+	search.draw();
+	CHECK(ringed(search.canvas, search.screen.containerCell(5)));
+	search.key(KEY_LEFT);
+	search.key(KEY_LEFT);
+	search.draw();
+	CHECK(ringed(search.canvas, search.screen.containerCell(4)));
+	search.key(KEY_RIGHT);
+	search.key(KEY_UP);
+	search.key(KEY_UP);
+	search.draw();
+	CHECK(ringed(search.canvas, search.screen.containerCell(1)));
+	search.key(KEY_LEFT);
+	search.key(KEY_LEFT);
+	search.draw();
+	CHECK(ringed(search.canvas, search.screen.containerCell(0)));
+	search.key(KEY_RIGHT);
+	CHECK(search.key(KEY_SPACE));
+	REQUIRE(search.chest.items.size() == 2);
+	CHECK(search.carried->itemAt(Cell{ 0, 0 }) != nullptr);
 
 	CHECK(search.key(KEY_TAB));
 	search.draw();
 	backpack::Layout layout = search.screen.layout();
 	CHECK(ringed(search.canvas, layout.cellArea(Cell{ 0, 0 })));
-	CHECK_FALSE(ringed(search.canvas, search.screen.row(1)));
-	CHECK(search.key(KEY_SPACE));
+	CHECK_FALSE(ringed(search.canvas, search.screen.containerCell(1)));
+	CHECK(search.key(KEY_RETURN));
 	CHECK(search.chest.items.size() == 3);
 	CHECK(search.carried->itemAt(Cell{ 0, 0 }) == nullptr);
 	search.key(KEY_RIGHT);
@@ -282,39 +339,21 @@ TEST_CASE("with the keyboard alone the list and the grid take turns with Tab or 
 	search.key(KEY_LEFT);
 	search.key(KEY_LEFT);
 	search.draw();
-	CHECK(ringed(search.canvas, search.screen.row(1)));
+	CHECK(ringed(search.canvas, search.screen.containerCell(1)));
+	search.key(KEY_RIGHT);
+	search.key(KEY_RIGHT);
 	search.key(KEY_RIGHT);
 	search.draw();
 	CHECK(ringed(search.canvas, layout.cellArea(Cell{ 0, 0 })));
 	search.key(KEY_TAB);
 	search.draw();
-	CHECK(ringed(search.canvas, search.screen.row(1)));
+	CHECK(ringed(search.canvas, search.screen.containerCell(3)));
 
-	search.mouse(EMIE_MOUSE_MOVED, search.screen.list().getCenter());
+	search.mouse(EMIE_MOUSE_MOVED, search.screen.containerCell(6).getCenter());
 	search.draw();
-	CHECK_FALSE(ringed(search.canvas, search.screen.row(1)));
-}
-
-TEST_CASE("walking the highlight down a long list scrolls it so the highlighted row stays in view")
-{
-	Search search;
-	search.chest.capacity = 30;
-	search.chest.items.clear();
-	for (int i = 0; i < 20; ++i)
-		search.chest.items.push_back(Item{ i == 15 ? "shotgun" : "key", 1 });
-	search.near = true;
+	CHECK_FALSE(ringed(search.canvas, search.screen.containerCell(3)));
 	search.key(KEY_KEY_E);
-	for (int i = 0; i < 15; ++i)
-		search.key(KEY_DOWN);
+	search.key(KEY_KEY_E);
 	search.draw();
-	CHECK(search.text(L"Shotgun") != nullptr);
-	CHECK(ringed(search.canvas, search.screen.row(15)));
-	CHECK(search.screen.list().isPointInside(search.screen.row(15).LowerRightCorner));
-	search.key(KEY_RETURN);
-	CHECK(search.chest.items.size() == 19);
-	for (int i = 0; i < 30; ++i)
-		search.key(KEY_UP);
-	search.draw();
-	CHECK(ringed(search.canvas, search.screen.row(0)));
-	CHECK(search.screen.list().isPointInside(search.screen.row(0).UpperLeftCorner));
+	CHECK(ringed(search.canvas, search.screen.containerCell(0)));
 }

@@ -2,6 +2,7 @@
 #define BACKPACKVIEW_H
 
 #include <string>
+#include <vector>
 #include "Backpack.h"
 #include "Canvas.h"
 
@@ -26,6 +27,8 @@ namespace backpack
 	void drawPanel(Canvas& canvas, const irr::core::rect<irr::s32>& panel, const std::wstring& title);
 	void drawEquipment(Canvas& canvas, const inventory::Inventory& carried, const inventory::Catalog& catalog, const Layout& layout,
 		const std::string& slotLine);
+	void drawCells(Canvas& canvas, const inventory::Catalog& catalog, const std::vector<inventory::Item>& items,
+		const std::vector<irr::core::rect<irr::s32> >& cells);
 	void drawGrid(Canvas& canvas, const inventory::Inventory& carried, const inventory::Catalog& catalog, const Layout& layout);
 	void drawItem(Canvas& canvas, const inventory::Catalog& catalog, const inventory::Item& item, const irr::core::rect<irr::s32>& footprint,
 		bool held);
