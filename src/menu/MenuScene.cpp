@@ -1,4 +1,5 @@
 #include "MenuScene.h"
+#include "AssimpMeshLoader.h"
 #include <algorithm>
 #include <cmath>
 #include <random>
@@ -31,6 +32,7 @@ MenuScene::MenuScene(IrrlichtDevice* device)
 	: device_(device), scene_(device->getSceneManager()->createNewSceneManager(false)), camera_(0), character_(0), yaw_(0.0f),
 	targetYaw_(0.0f), lastTime_(device->getTimer()->getTime())
 {
+	addAssimpMeshLoader(scene_);
 	camera_ = scene_->addCameraSceneNode(0, eye, ahead);
 	camera_->setFOV(fieldOfView);
 	camera_->setNearValue(0.1f);

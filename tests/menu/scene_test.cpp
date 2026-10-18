@@ -370,3 +370,11 @@ TEST_CASE("street primitives keep a floor of their own colour so no face drops t
 	visit(scene.menu->scene()->getRootSceneNode());
 	CHECK(checked >= 11);
 }
+
+TEST_CASE("the menu backdrop's scene manager loads .fbx models too")
+{
+	Scene scene;
+	scene::IAnimatedMesh* mesh = scene.menu->scene()->getMesh("engine/gamecorev0.1.1/gamecorev0.1.1/engine/tests/data/static.fbx");
+	REQUIRE(mesh != nullptr);
+	CHECK(mesh->getMeshBufferCount() > 0);
+}

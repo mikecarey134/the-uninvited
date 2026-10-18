@@ -726,3 +726,13 @@ TEST_CASE("wielding swaps the player's whole mesh in place, keeping where they s
 	fixture.world->wield("assets/models/no_such_model.ms3d");
 	CHECK(player->getMesh() == fixture.world->scene()->getMesh(mike));
 }
+
+TEST_CASE("the world's own scene manager loads .fbx models through the engine's Assimp loader")
+{
+	Fixture fixture;
+	const char* const rig = "engine/gamecorev0.1.1/gamecorev0.1.1/engine/tests/data/rig.fbx";
+	IAnimatedMesh* mesh = fixture.world->scene()->getMesh(rig);
+	REQUIRE(mesh != nullptr);
+	CHECK(mesh->getMeshBufferCount() > 0);
+	CHECK(mesh->getFrameCount() > 1);
+}

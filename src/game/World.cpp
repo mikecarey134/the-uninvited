@@ -1,5 +1,6 @@
 #include "World.h"
 #include "Sky.h"
+#include "AssimpMeshLoader.h"
 #include <algorithm>
 #include <cmath>
 #include <string>
@@ -51,6 +52,7 @@ World::World(IrrlichtDevice* device, const char* model, const char* skin, std::f
 	: device_(device), scene_(device->getSceneManager()->createNewSceneManager(false)), camera_(0), player_(0), leave_(leave),
 	walking_(false), yaw_(0.0f), feet_(0.0f), sheet_(sheet), unticked_(0.0f), compression_(1.0f), timeOfDay_(START_HOUR), speed_(3.5f), containers_(loot::flatWorldContainers()), debugShown_(false), sun_(0), clock_(0.0f)
 {
+	addAssimpMeshLoader(scene_);
 	for (bool& held : held_)
 		held = false;
 	camera_ = scene_->addCameraSceneNode();
