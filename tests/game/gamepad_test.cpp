@@ -8,7 +8,7 @@ namespace
 {
 	struct Pad
 	{
-		Pad() : layer([this](EKEY_CODE key) { keys.push_back(key); }) {}
+		Pad() : layer([this](EKEY_CODE key) { keys.push_back(key); }, [this](s16& x, s16& y) { x = hatX; y = hatY; }) {}
 
 		bool send(u32 buttons, s16 x = 0, s16 y = 0, u16 pov = 65535)
 		{
@@ -24,6 +24,8 @@ namespace
 			return layer.onEvent(event);
 		}
 
+		s16 hatX = 0;
+		s16 hatY = 0;
 		std::vector<EKEY_CODE> keys;
 		GamepadLayer layer;
 	};
@@ -80,4 +82,45 @@ TEST_CASE("the gamepad layer leaves every other event alone")
 	event.KeyInput.PressedDown = true;
 	CHECK_FALSE(pad.layer.onEvent(event));
 	CHECK(pad.keys.empty());
+}
+
+TEST_CASE("the Linux D-pad, read as hat axes 6 and 7, presses an arrow once per push like the POV hat, and the stick still works beside it")
+{
+	Pad pad;
+	pad.hatX = -32767;
+	pad.send(0);
+	pad.send(0);
+	pad.hatX = 0;
+	pad.send(0);
+	pad.hatY = -32767;
+	pad.send(0);
+	pad.hatY = 32767;
+	pad.send(0);
+	pad.hatY = 0;
+	pad.hatX = 32767;
+	pad.send(0);
+	pad.hatX = 0;
+	pad.send(0);
+	pad.send(0, 30000, 0);
+	pad.send(0);
+	pad.hatX = 5000;
+	pad.send(0);
+	const std::vector<EKEY_CODE> expected = { KEY_LEFT, KEY_UP, KEY_DOWN, KEY_RIGHT, KEY_RIGHT };
+	CHECK(pad.keys == expected);
+}
+
+TEST_CASE("a Linux joystick record sets the hat from axes 6 and 7, including the opening snapshot, and leaves the rest alone")
+{
+	s16 x = 0;
+	s16 y = 0;
+	applyHat(JoystickRecord{ 0, -32767, 0x02, 6 }, x, y);
+	CHECK(x == -32767);
+	applyHat(JoystickRecord{ 0, 32767, 0x82, 7 }, x, y);
+	CHECK(y == 32767);
+	applyHat(JoystickRecord{ 0, 1234, 0x02, 0 }, x, y);
+	applyHat(JoystickRecord{ 0, 1, 0x01, 6 }, x, y);
+	applyHat(JoystickRecord{ 0, 1, 0x01, 7 }, x, y);
+	CHECK(x == -32767);
+	CHECK(y == 32767);
+	CHECK(sizeof(JoystickRecord) == 8);
 }
