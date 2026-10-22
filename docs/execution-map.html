@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Uninvited Execution Map</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface2: #1c2129;
+  --border: #30363d;
+  --fg: #c9d1d9;
+  --fg-dim: #8b949e;
+  --fg-bright: #e6edf3;
+  --accent: #58a6ff;
+  --search-bg: #1c2129;
+  --search-border: #30363d;
+  --search-focus: #58a6ff;
+  --highlight-bg: rgba(88,166,255,0.15);
+  --highlight-border: #58a6ff;
+  --dimmed: 0.25;
+  --w0: #da3633;
+  --w1: #d29922;
+  --w2: #3fb950;
+  --w3: #58a6ff;
+  --w4: #bc8cff;
+  --w5: #f778ba;
+  --track1: #da3633;
+  --track2: #d29922;
+  --track3: #3fb950;
+  --track4: #58a6ff;
+  --track5: #8b949e;
+  --track6: #bc8cff;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --bg: #f6f8fa; --surface: #ffffff; --surface2: #f0f2f5;
+    --border: #d0d7de; --fg: #1f2328; --fg-dim: #656d76; --fg-bright: #0d1117;
+    --accent: #0969da; --search-bg: #ffffff; --search-border: #d0d7de; --search-focus: #0969da;
+    --highlight-bg: rgba(9,105,218,0.1); --highlight-border: #0969da;
+    --w0: #cf222e; --w1: #bf8700; --w2: #1a7f37; --w3: #0969da; --w4: #8250df; --w5: #bf3989;
+    --track1: #cf222e; --track2: #bf8700; --track3: #1a7f37; --track4: #0969da; --track5: #656d76; --track6: #8250df;
+  }
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f6f8fa; --surface: #ffffff; --surface2: #f0f2f5;
+  --border: #d0d7de; --fg: #1f2328; --fg-dim: #656d76; --fg-bright: #0d1117;
+  --accent: #0969da; --search-bg: #ffffff; --search-border: #d0d7de; --search-focus: #0969da;
+  --highlight-bg: rgba(9,105,218,0.1); --highlight-border: #0969da;
+  --w0: #cf222e; --w1: #bf8700; --w2: #1a7f37; --w3: #0969da; --w4: #8250df; --w5: #bf3989;
+  --track1: #cf222e; --track2: #bf8700; --track3: #1a7f37; --track4: #0969da; --track5: #656d76; --track6: #8250df;
+}
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  margin: 0; padding: 24px 16px 48px; line-height: 1.5;
+}
+h1 {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: clamp(1.25rem, 3vw, 1.75rem); font-weight: 700;
+  color: var(--fg-bright); margin: 0 0 4px; text-wrap: balance; letter-spacing: -0.02em;
+}
+.subtitle { font-size: 0.85rem; color: var(--fg-dim); margin: 0 0 20px; }
+.search-wrap { position: relative; margin-bottom: 20px; }
+.search-input {
+  width: 100%; box-sizing: border-box; padding: 10px 14px 10px 36px;
+  background: var(--search-bg); border: 1px solid var(--search-border); border-radius: 8px;
+  color: var(--fg); font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; outline: none;
+  transition: border-color 0.15s;
+}
+.search-input::placeholder { color: var(--fg-dim); opacity: 0.6; }
+.search-input:focus { border-color: var(--search-focus); }
+.search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--fg-dim); font-size: 0.85rem; pointer-events: none; }
+.search-clear {
+  position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 4px;
+  color: var(--fg-dim); font-size: 0.65rem; font-family: 'JetBrains Mono', monospace;
+  padding: 2px 6px; cursor: pointer; line-height: 1.3;
+}
+.search-clear:hover { color: var(--fg); border-color: var(--fg-dim); }
+.search-count { position: absolute; right: 52px; top: 50%; transform: translateY(-50%); font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; color: var(--fg-dim); }
+.stats-row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; }
+.stat { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; min-width: 120px; flex: 1; }
+.stat-val { font-family: 'JetBrains Mono', monospace; font-size: 1.5rem; font-weight: 700; color: var(--fg-bright); font-variant-numeric: tabular-nums; }
+.stat-label { font-size: 0.75rem; color: var(--fg-dim); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-bottom: 20px; font-size: 0.8rem; }
+.legend-item { display: flex; align-items: center; gap: 6px; color: var(--fg-dim); cursor: pointer; padding: 3px 8px; border-radius: 4px; border: 1px solid transparent; transition: opacity 0.15s, border-color 0.15s; user-select: none; }
+.legend-item:hover { border-color: var(--border); }
+.legend-item.active { border-color: var(--fg-dim); color: var(--fg); }
+.legend-item.dimmed { opacity: var(--dimmed); }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.filter-reset { display: none; align-items: center; gap: 4px; font-size: 0.72rem; color: var(--accent); cursor: pointer; padding: 3px 8px; border: 1px solid var(--accent); border-radius: 4px; background: none; font-family: inherit; margin-left: 4px; }
+.filter-reset.visible { display: inline-flex; }
+.filter-reset:hover { background: var(--highlight-bg); }
+.tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 24px; overflow-x: auto; }
+.tab { padding: 10px 16px; font-size: 0.85rem; font-weight: 500; color: var(--fg-dim); cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; background: none; border-top: none; border-left: none; border-right: none; font-family: inherit; }
+.tab:hover { color: var(--fg); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.view { display: none; }
+.view.active { display: block; }
+.search-hit { background: var(--highlight-bg) !important; border-color: var(--highlight-border) !important; box-shadow: 0 0 0 1px var(--highlight-border); }
+.search-dimmed { opacity: var(--dimmed); }
+.path-section { margin-bottom: 32px; transition: opacity 0.2s; }
+.path-label { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+.path-line { width: 24px; height: 2px; flex-shrink: 0; }
+.flow { display: flex; flex-wrap: wrap; align-items: center; gap: 0; }
+.node { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; font-size: 0.8rem; position: relative; min-width: 0; max-width: 220px; cursor: default; transition: border-color 0.15s, opacity 0.2s, background 0.15s, box-shadow 0.15s; }
+.node:hover { border-color: var(--accent); }
+.node-key { font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; font-weight: 600; opacity: 0.7; }
+.node-title { font-size: 0.78rem; font-weight: 500; color: var(--fg-bright); line-height: 1.3; }
+.node-meta { font-size: 0.65rem; color: var(--fg-dim); margin-top: 2px; }
+.node-wave { position: absolute; top: 0; left: 0; width: 4px; height: 100%; border-radius: 6px 0 0 6px; }
+.arrow { color: var(--fg-dim); font-size: 1.2rem; padding: 0 4px; flex-shrink: 0; user-select: none; }
+.fan-out { background: var(--surface2); border: 1px dashed var(--border); border-radius: 6px; padding: 8px 14px; font-size: 0.78rem; color: var(--fg-dim); font-style: italic; transition: opacity 0.2s; }
+.wave-section { margin-bottom: 28px; transition: opacity 0.2s; }
+.wave-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); cursor: pointer; user-select: none; }
+.wave-header:hover { opacity: 0.85; }
+.wave-collapse-icon { font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--fg-dim); margin-left: 4px; transition: transform 0.2s; display: inline-block; }
+.wave-section.collapsed .wave-collapse-icon { transform: rotate(-90deg); }
+.wave-section.collapsed .wave-body { display: none; }
+.wave-badge { font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; font-weight: 700; padding: 3px 8px; border-radius: 4px; color: var(--bg); letter-spacing: 0.04em; }
+.wave-title { font-size: 0.95rem; font-weight: 600; color: var(--fg-bright); }
+.wave-timing { font-size: 0.75rem; color: var(--fg-dim); margin-left: auto; white-space: nowrap; }
+.wave-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
+.wave-item { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; display: flex; gap: 10px; align-items: flex-start; transition: opacity 0.2s, background 0.15s, border-color 0.15s, box-shadow 0.15s; }
+.wave-item-bar { width: 3px; min-height: 32px; border-radius: 2px; flex-shrink: 0; align-self: stretch; }
+.wave-item-content { min-width: 0; }
+.wave-item-key { font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; font-weight: 600; color: var(--fg-dim); }
+.wave-item-title { font-size: 0.8rem; font-weight: 500; color: var(--fg-bright); }
+.wave-item-downstream { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--fg-dim); margin-top: 2px; }
+.track-section { margin-bottom: 24px; padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; transition: opacity 0.2s, border-color 0.15s; cursor: pointer; }
+.track-section:hover { border-color: var(--fg-dim); }
+.track-section.isolated { border-color: var(--accent); }
+.track-section.track-dimmed { opacity: var(--dimmed); cursor: pointer; }
+.track-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.track-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+.track-name { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; font-weight: 600; color: var(--fg-bright); }
+.track-isolate-hint { font-size: 0.65rem; color: var(--fg-dim); margin-left: auto; opacity: 0; transition: opacity 0.15s; }
+.track-section:hover .track-isolate-hint { opacity: 1; }
+.track-section.isolated .track-isolate-hint { opacity: 1; color: var(--accent); }
+.track-chain { display: flex; flex-wrap: wrap; align-items: center; gap: 0; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; }
+.track-node { padding: 4px 8px; background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; color: var(--fg); white-space: nowrap; transition: background 0.15s, border-color 0.15s; }
+.track-node.highlight { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.track-arrow { color: var(--fg-dim); padding: 0 3px; font-size: 0.9rem; }
+.track-desc { font-size: 0.78rem; color: var(--fg-dim); margin-top: 8px; line-height: 1.4; }
+.bottleneck-list { display: flex; flex-direction: column; gap: 10px; }
+.bottleneck-item { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; display: flex; gap: 14px; align-items: flex-start; transition: opacity 0.2s, background 0.15s, border-color 0.15s, box-shadow 0.15s; }
+.bottleneck-rank { font-family: 'JetBrains Mono', monospace; font-size: 1.5rem; font-weight: 700; color: var(--fg-dim); min-width: 32px; text-align: right; font-variant-numeric: tabular-nums; line-height: 1; padding-top: 4px; }
+.bottleneck-info { min-width: 0; flex: 1; }
+.bottleneck-key { font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; font-weight: 600; }
+.bottleneck-title { font-size: 0.9rem; font-weight: 600; color: var(--fg-bright); }
+.bottleneck-bar-wrap { height: 6px; background: var(--surface2); border-radius: 3px; margin-top: 8px; overflow: hidden; }
+.bottleneck-bar { height: 100%; border-radius: 3px; }
+.bottleneck-detail { font-size: 0.75rem; color: var(--fg-dim); margin-top: 4px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; }
+@media (max-width: 600px) {
+  .stats-row { gap: 8px; }
+  .stat { min-width: 0; padding: 10px 12px; }
+  .stat-val { font-size: 1.2rem; }
+  .node { max-width: 160px; padding: 6px 8px; }
+  .node-title { font-size: 0.72rem; }
+  .wave-grid { grid-template-columns: 1fr; }
+  .bottleneck-item { flex-direction: column; gap: 4px; }
+  .bottleneck-rank { text-align: left; font-size: 1.1rem; }
+  .legend { gap: 4px 8px; }
+  .legend-item { padding: 2px 6px; font-size: 0.72rem; }
+}
+</style>
+</head>
+<body>
+
+<h1>The Uninvited -- Execution Map</h1>
+<p class="subtitle">784 To Do items . 1,226 dependency edges . 0 circular dependencies</p>
+
+<div class="search-wrap">
+  <span class="search-icon">&#x1F50D;</span>
+  <input class="search-input" id="search" type="text" placeholder="Search by SCRUM key or title..." autocomplete="off" spellcheck="false">
+  <span class="search-count" id="search-count"></span>
+  <button class="search-clear" id="search-clear" title="Clear search (Esc)">ESC</button>
+</div>
+
+<div class="stats-row">
+  <div class="stat"><div class="stat-val">6</div><div class="stat-label">Start here</div></div>
+  <div class="stat"><div class="stat-val">445</div><div class="stat-label">Can start now</div></div>
+  <div class="stat"><div class="stat-val">9</div><div class="stat-label">Deepest chain</div></div>
+  <div class="stat"><div class="stat-val">158</div><div class="stat-label">Archetype builds</div></div>
+</div>
+
+<div class="legend" id="legend">
+  <div class="legend-item active" data-wave="0"><div class="legend-dot" style="background:var(--w0)"></div> Wave 0 -- Start now</div>
+  <div class="legend-item active" data-wave="1"><div class="legend-dot" style="background:var(--w1)"></div> Wave 1 -- 2-4 wk</div>
+  <div class="legend-item active" data-wave="2"><div class="legend-dot" style="background:var(--w2)"></div> Wave 2 -- 4-8 wk</div>
+  <div class="legend-item active" data-wave="3"><div class="legend-dot" style="background:var(--w3)"></div> Wave 3 -- 8-12 wk</div>
+  <div class="legend-item active" data-wave="4"><div class="legend-dot" style="background:var(--w4)"></div> Wave 4 -- 12-16 wk</div>
+  <div class="legend-item active" data-wave="5"><div class="legend-dot" style="background:var(--w5)"></div> Wave 5 -- 16-20 wk</div>
+  <button class="filter-reset" id="filter-reset">Reset filters</button>
+</div>
+
+<div class="tabs">
+  <button class="tab active" data-view="critical">Critical Paths</button>
+  <button class="tab" data-view="waves">Wave Breakdown</button>
+  <button class="tab" data-view="tracks">Parallel Tracks</button>
+  <button class="tab" data-view="bottlenecks">Bottlenecks</button>
+</div>
+
+<!-- CRITICAL PATHS VIEW -->
+<div class="view active" id="view-critical">
+
+  <div class="path-section" data-path="a">
+    <div class="path-label" style="color:var(--track1)">
+      <div class="path-line" style="background:var(--track1)"></div>
+      Path A -- World-Gen Spine (longest chain, 9 levels)
+    </div>
+    <div class="flow">
+      <div class="node" data-wave="0" data-scrum="21"><div class="node-wave" style="background:var(--w0)"></div><div class="node-key">SCRUM-21</div><div class="node-title">E4 Asset Registry</div><div class="node-meta">220 downstream</div></div>
+      <span class="arrow">-></span>
+      <div class="node" data-wave="1" data-scrum="426"><div class="node-wave" style="background:var(--w1)"></div><div class="node-key">SCRUM-426</div><div class="node-title">Biome Definition</div></div>
+      <span class="arrow">-></span>
+      <div class="node" data-wave="2" data-scrum="471"><div class="node-wave" style="background:var(--w2)"></div><div class="node-key">SCRUM-471</div><div class="node-title">Settlement Nuclei</div></div>
+      <span class="arrow">-></span>
+      <div class="node" data-wave="2" data-scrum="472"><div class="node-wave" style="background:var(--w2)"></div><div class="node-key">SCRUM-472</div><div class="node-title">Road Network</div></div>
+      <span class="arrow">-></span>
+      <div class="node" data-wave="4" data-scrum="450"><div class="node-wave" style="background:var(--w4)"></div><div class="node-key">SCRUM-450</div><div class="node-title">Building Placement</div></div>
+      <span class="arrow">-></span>
+      <div class="node" data-wave="4" data-scrum="473"><div class="node-wave" style="background:var(--w4)"></div><div class="node-key">SCRUM-473</div><div class="node-title">Settlement Zoning</div></div>
+      <span class="arrow">-></span>
+      <div class="node" data-wave="4" data-scrum="474"><div class="node-wave" style="background:var(--w4)"></div><div class="node-key">SCRUM-474</div><div class="node-title">Building Selection</div></div>
+      <span class="arrow">-></span>
+      <div class="node" data-wave="4" data-scrum="475"><div class="node-wave" style="background:var(--w4)"></div><div class="node-key">SCRUM-475</div><div class="node-title">Loot/Threat Scaling</div></div>
+      <span class="arrow">-></span>
+      <div class="node" data-wave="4" data-scrum="892"><div class="node-wave" style="background:var(--w4)"></div><div class="node-key">SCRUM-892</div><div class="node-title">Zombie Distribution</div></div>
+      <span class="arrow">-></span>
+      <div class="node" data-wave="4" data-scrum="894"><div class="node-wave" style="background:var(--w4)"></div><div class="node-key">SCRUM-894</div><div class="node-title">Survivor Placement</div><div class="node-meta">TERMINAL</div></div>
+    </div>
+  </div>
+
+  <div class="path-section" data-path="b">
+    <div class="path-label" style="color:var(--track2)">
+      <div class="path-line" style="background:var(--track2)"></div>
+      Path B -- Archetype Pipeline (feeds into Path A)
+    </div>
+    <div class="flow">
+      <div class="node" data-wave="0" data-scrum="425"><div class="node-wave" style="background:var(--w0)"></div><div class="node-key">SCRUM-425</div><div class="node-title">Chunk System</div><div class="node-meta">234 downstream . #1 leverage</div></div>
+      <span class="arrow">-></span>
+      <div class="node" data-wave="1" data-scrum="447"><div class="node-wave" style="background:var(--w1)"></div><div class="node-key">SCRUM-447</div><div class="node-title">Snap-Face</div><div class="node-meta">CRITICAL bottleneck</div></div>
+      <span class="arrow">-></span>
+      <div class="node" data-wave="2" data-scrum="448"><div class="node-wave" style="background:var(--w2)"></div><div class="node-key">SCRUM-448</div><div class="node-title">Building Data Structure</div><div class="node-meta">CRITICAL bottleneck</div></div>
+      <span class="arrow">-></span>
+      <div class="fan-out">158 archetype Builds (parallelizable)</div>
+    </div>
+  </div>
+
+  <div class="path-section" data-path="c">
+    <div class="path-label" style="color:var(--track3)">
+      <div class="path-line" style="background:var(--track3)"></div>
+      Path C -- Skill System Spine (deepest sub-chains)
+    </div>
+    <div class="flow">
+      <div class="node" data-wave="0" data-scrum="511"><div class="node-wave" style="background:var(--w0)"></div><div class="node-key">SCRUM-511</div><div class="node-title">Hitbox / HP Wiring</div><div class="node-meta">68 downstream</div></div>
+      <span class="arrow">-></span>
+      <div class="node" data-wave="1" data-scrum="63"><div class="node-wave" style="background:var(--w1)"></div><div class="node-key">SCRUM-63</div><div class="node-title">Combat Distraction</div></div>
+      <span class="arrow">-></span>
+      <div class="node" data-wave="2" data-scrum="143"><div class="node-wave" style="background:var(--w2)"></div><div class="node-key">SCRUM-143</div><div class="node-title">Skill Checks</div><div class="node-meta">MASSIVE fan-out</div></div>
+      <span class="arrow">-></span>
+      <div class="fan-out">All 10 skill wirings</div>
+      <span class="arrow">-></span>
+      <div class="fan-out">Recipes . Crafting . Tools</div>
+    </div>
+    <div style="margin-top:8px;padding-left:16px;">
+      <div style="font-size:0.72rem;color:var(--fg-dim);margin-bottom:6px;">Deepest sub-chain (farming):</div>
+      <div class="flow">
+        <div class="node" data-wave="3" data-scrum="385" style="padding:5px 8px;"><div class="node-wave" style="background:var(--w3)"></div><div class="node-key" style="font-size:0.62rem;">SCRUM-385</div><div class="node-title" style="font-size:0.7rem;">Survivalism Wiring</div></div>
+        <span class="arrow" style="font-size:0.9rem;">-></span>
+        <div class="node" data-wave="5" data-scrum="479" style="padding:5px 8px;"><div class="node-wave" style="background:var(--w5)"></div><div class="node-key" style="font-size:0.62rem;">479</div><div class="node-title" style="font-size:0.7rem;">Farming</div></div>
+        <span class="arrow" style="font-size:0.9rem;">-></span>
+        <div class="node" data-wave="5" data-scrum="480" style="padding:5px 8px;"><div class="node-wave" style="background:var(--w5)"></div><div class="node-key" style="font-size:0.62rem;">480</div><div class="node-title" style="font-size:0.7rem;">Seeds</div></div>
+        <span class="arrow" style="font-size:0.9rem;">-></span>
+        <div class="node" data-wave="5" data-scrum="481" style="padding:5px 8px;"><div class="node-wave" style="background:var(--w5)"></div><div class="node-key" style="font-size:0.62rem;">481</div><div class="node-title" style="font-size:0.7rem;">Growth</div></div>
+        <span class="arrow" style="font-size:0.9rem;">-></span>
+        <div class="node" data-wave="5" data-scrum="482" style="padding:5px 8px;"><div class="node-wave" style="background:var(--w5)"></div><div class="node-key" style="font-size:0.62rem;">482</div><div class="node-title" style="font-size:0.7rem;">Watering</div></div>
+        <span class="arrow" style="font-size:0.9rem;">-></span>
+        <div class="node" data-wave="5" data-scrum="483" style="padding:5px 8px;"><div class="node-wave" style="background:var(--w5)"></div><div class="node-key" style="font-size:0.62rem;">483</div><div class="node-title" style="font-size:0.7rem;">Harvest</div><div class="node-meta" style="font-size:0.58rem;">TERMINAL</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="path-section" data-path="d">
+    <div class="path-label" style="color:var(--track4)">
+      <div class="path-line" style="background:var(--track4)"></div>
+      Path D -- Infrastructure Chain
+    </div>
+    <div class="flow">
+      <div class="node" data-wave="0" data-scrum="16"><div class="node-wave" style="background:var(--w0)"></div><div class="node-key">SCRUM-16</div><div class="node-title">World Persistence</div></div>
+      <span class="arrow">-></span>
+      <div class="node" data-wave="1" data-scrum="486"><div class="node-wave" style="background:var(--w1)"></div><div class="node-key">SCRUM-486</div><div class="node-title">World Clock</div></div>
+      <span class="arrow">-></span>
+      <div class="node" data-wave="2" data-scrum="487"><div class="node-wave" style="background:var(--w2)"></div><div class="node-key">SCRUM-487</div><div class="node-title">Day/Night</div></div>
+      <span class="arrow">-></span>
+      <div class="node" data-wave="2" data-scrum="488"><div class="node-wave" style="background:var(--w2)"></div><div class="node-key">SCRUM-488</div><div class="node-title">Seasonal Calendar</div></div>
+      <span class="arrow">-></span>
+      <div class="fan-out">Farming . Hunting . Foraging</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- WAVE BREAKDOWN VIEW -->
+<div class="view" id="view-waves">
+
+  <div class="wave-section" data-wave-section="0">
+    <div class="wave-header" onclick="toggleWaveSection(this)">
+      <span class="wave-badge" style="background:var(--w0)">WAVE 0</span>
+      <span class="wave-title">Start Immediately</span>
+      <span class="wave-timing">445 items can begin</span>
+      <span class="wave-collapse-icon">&#9660;</span>
+    </div>
+    <div class="wave-body">
+      <div style="font-size:0.78rem;color:var(--fg-dim);margin-bottom:10px;">Priority A -- These 6 unlock 80%+ of all downstream work:</div>
+      <div class="wave-grid">
+        <div class="wave-item" data-wave="0" data-scrum="425"><div class="wave-item-bar" style="background:var(--w0)"></div><div class="wave-item-content"><div class="wave-item-key">SCRUM-425</div><div class="wave-item-title">W-WG-W1 Chunk System</div><div class="wave-item-downstream">234 downstream . #1 leverage</div></div></div>
+        <div class="wave-item" data-wave="0" data-scrum="145"><div class="wave-item-bar" style="background:var(--w0)"></div><div class="wave-item-content"><div class="wave-item-key">SCRUM-145</div><div class="wave-item-title">E4-W1 Core Registry</div><div class="wave-item-downstream">56 downstream</div></div></div>
+        <div class="wave-item" data-wave="0" data-scrum="51"><div class="wave-item-bar" style="background:var(--w0)"></div><div class="wave-item-content"><div class="wave-item-key">SCRUM-51</div><div class="wave-item-title">W-SY1 Four-Way Interaction</div><div class="wave-item-downstream">87 downstream</div></div></div>
+        <div class="wave-item" data-wave="0" data-scrum="511"><div class="wave-item-bar" style="background:var(--w0)"></div><div class="wave-item-content"><div class="wave-item-key">SCRUM-511</div><div class="wave-item-title">W-CO2 Hitbox / HP Wiring</div><div class="wave-item-downstream">68 downstream</div></div></div>
+        <div class="wave-item" data-wave="0" data-scrum="136"><div class="wave-item-bar" style="background:var(--w0)"></div><div class="wave-item-content"><div class="wave-item-key">SCRUM-136</div><div class="wave-item-title">P1-W2 Consumable Items</div><div class="wave-item-downstream">80 downstream</div></div></div>
+        <div class="wave-item" data-wave="0" data-scrum="470"><div class="wave-item-bar" style="background:var(--w0)"></div><div class="wave-item-content"><div class="wave-item-key">SCRUM-470</div><div class="wave-item-title">W-WG-W17 Noise Library</div><div class="wave-item-downstream">feeds Phase 6 terrain</div></div></div>
+      </div>
+      <div style="font-size:0.72rem;color:var(--fg-dim);margin-top:12px;">Also in Wave 0: 79 Research Spikes, 6 Asset Packs, 159 prop/asset Tasks -- all independent, pure art/design pipeline.</div>
+    </div>
+  </div>
+
+  <div class="wave-section" data-wave-section="1">
+    <div class="wave-header" onclick="toggleWaveSection(this)">
+      <span class="wave-badge" style="background:var(--w1)">WAVE 1</span>
+      <span class="wave-title">After Foundation</span>
+      <span class="wave-timing">~2-4 weeks</span>
+      <span class="wave-collapse-icon">&#9660;</span>
+    </div>
+    <div class="wave-body">
+      <div class="wave-grid">
+        <div class="wave-item" data-wave="1" data-scrum="447"><div class="wave-item-bar" style="background:var(--w1)"></div><div class="wave-item-content"><div class="wave-item-key">SCRUM-447</div><div class="wave-item-title">Snap-Face Connection</div><div class="wave-item-downstream">needs 425 . unlocks 158 archetypes</div></div></div>
+        <div class="wave-item" data-wave="1" data-scrum="426"><div class="wave-item-bar" style="background:var(--w1)"></div><div class="wave-item-content"><div class="wave-item-key">SCRUM-426</div><div class="wave-item-title">Biome Definition</div><div class="wave-item-downstream">needs 425 + E4</div></div></div>
+        <div class="wave-item" data-wave="1" data-scrum="111"><div class="wave-item-bar" style="background:var(--w1)"></div><div class="wave-item-content"><div class="wave-item-key">SCRUM-111</div><div class="wave-item-title">Core Terminal UI</div><div class="wave-item-downstream">needs 145 + 51</div></div></div>
+        <div class="wave-item" data-wave="1" data-scrum="146"><div class="wave-item-bar" style="background:var(--w1)"></div><div class="wave-item-content"><div class="wave-item-key">SCRUM-146-148</div><div class="wave-item-title">Model/Texture/Item Registries</div><div class="wave-item-downstream">needs 145</div></div></div>
+        <div class="wave-item" data-wave="1" data-scrum="63"><div class="wave-item-bar" style="background:var(--w1)"></div><div class="wave-item-content"><div class="wave-item-key">SCRUM-63</div><div class="wave-item-title">Combat Distraction</div><div class="wave-item-downstream">needs 511</div></div></div>
+        <div class="wave-item" data-wave="1" data-scrum="137"><div class="wave-item-bar" style="background:var(--w1)"></div><div class="wave-item-content"><div class="wave-item-key">SCRUM-137</div><div class="wave-item-title">Use-Item Action</div><div class="wave-item-downstream">needs 136</div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="wave-section" data-wave-section="2">
+    <div class="wave-header" onclick="toggleWaveSection(this)">
+      <span class="wave-badge" style="background:var(--w2)">WAVE 2</span>
+      <span class="wave-title">Core Systems Online</span>
+      <span class="wave-timing">~4-8 weeks</span>
+      <span class="wave-collapse-icon">&#9660;</span>
+    </div>
+    <div class="wave-body">
+      <div class="wave-grid">
+        <div class="wave-item" data-wave="2" data-scrum="448"><div class="wave-item-bar" style="background:var(--w2)"></div><div class="wave-item-content"><div class="wave-item-key">SCRUM-448</div><div class="wave-item-title">Building Data Structure</div><div class="wave-item-downstream">needs 447 + E4 . gates 158 builds</div></div></div>
+        <div class="wave-item" data-wave="2" data-scrum="143"><div class="wave-item-bar" style="background:var(--w2)"></div><div class="wave-item-content"><div class="wave-item-key">SCRUM-143</div><div class="wave-item-title">P2-W3 Skill Checks</div><div class="wave-item-downstream">needs 63 + 51 . gates all skills</div></div></div>
+        <div class="wave-item" data-wave="2" data-scrum="471"><div class="wave-item-bar" style="background:var(--w2)"></div><div class="wave-item-content"><div class="wave-item-key">SCRUM-471</div><div class="wave-item-title">Settlement Nuclei</div><div class="wave-item-downstream">needs 425 + 426</div></div></div>
+        <div class="wave-item" data-wave="2" data-scrum="354"><div class="wave-item-bar" style="background:var(--w2)"></div><div class="wave-item-content"><div class="wave-item-key">SCRUM-354</div><div class="wave-item-title">Crafting UI</div><div class="wave-item-downstream">needs C2 + 51 + 136</div></div></div>
+        <div class="wave-item" data-wave="2" data-scrum="134"><div class="wave-item-bar" style="background:var(--w2)"></div><div class="wave-item-content"><div class="wave-item-key">SCRUM-134/144</div><div class="wave-item-title">Leveling + Scaling</div><div class="wave-item-downstream">needs 51 + 111</div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="wave-section" data-wave-section="3">
+    <div class="wave-header" onclick="toggleWaveSection(this)">
+      <span class="wave-badge" style="background:var(--w3)">WAVE 3</span>
+      <span class="wave-title">Skill Wiring Cascade</span>
+      <span class="wave-timing">~8-12 weeks</span>
+      <span class="wave-collapse-icon">&#9660;</span>
+    </div>
+    <div class="wave-body">
+      <div style="font-size:0.78rem;color:var(--fg-dim);margin-bottom:10px;">All 10 skill wirings unlock once Skill Checks (143) + Leveling (134) + Scaling (144) finish. Each follows: Wiring -> Items -> Recipes -> Tools</div>
+      <div class="wave-grid">
+        <div class="wave-item" data-wave="3" data-scrum="341"><div class="wave-item-bar" style="background:var(--w3)"></div><div class="wave-item-content"><div class="wave-item-key">SCRUM-341</div><div class="wave-item-title">Engineering Wiring</div></div></div>
+        <div class="wave-item" data-wave="3" data-scrum="348"><div class="wave-item-bar" style="background:var(--w3)"></div><div class="wave-item-content"><div class="wave-item-key">SCRUM-348</div><div class="wave-item-title">Construction Wiring</div></div></div>
+        <div class="wave-item" data-wave="3" data-scrum="355"><div class="wave-item-bar" style="background:var(--w3)"></div><div class="wave-item-content"><div class="wave-item-key">SCRUM-355</div><div class="wave-item-title">Medicine Wiring</div></div></div>
+        <div class="wave-item" data-wave="3" data-scrum="360"><div class="wave-item-bar" style="background:var(--w3)"></div><div class="wave-item-content"><div class="wave-item-key">SCRUM-360</div><div class="wave-item-title">Cooking Wiring</div></div></div>
+        <div class="wave-item" data-wave="3" data-scrum="364"><div class="wave-item-bar" style="background:var(--w3)"></div><div class="wave-item-content"><div class="wave-item-key">SCRUM-364</div><div class="wave-item-title">Chemistry Wiring</div></div></div>
+        <div class="wave-item" data-wave="3" data-scrum="370"><div class="wave-item-bar" style="background:var(--w3)"></div><div class="wave-item-content"><div class="wave-item-key">SCRUM-370</div><div class="wave-item-title">Smithing Wiring</div></div></div>
+        <div class="wave-item" data-wave="3" data-scrum="379"><div class="wave-item-bar" style="background:var(--w3)"></div><div class="wave-item-content"><div class="wave-item-key">SCRUM-379</div><div class="wave-item-title">Speech Wiring</div></div></div>
+        <div class="wave-item" data-wave="3" data-scrum="385"><div class="wave-item-bar" style="background:var(--w3)"></div><div class="wave-item-content"><div class="wave-item-key">SCRUM-385</div><div class="wave-item-title">Survivalism Wiring</div></div></div>
+        <div class="wave-item" data-wave="3" data-scrum="170"><div class="wave-item-bar" style="background:var(--w3)"></div><div class="wave-item-content"><div class="wave-item-key">SCRUM-170</div><div class="wave-item-title">Electronics Wiring</div></div></div>
+        <div class="wave-item" data-wave="3" data-scrum="172"><div class="wave-item-bar" style="background:var(--w3)"></div><div class="wave-item-content"><div class="wave-item-key">SCRUM-172</div><div class="wave-item-title">Lockpicking Wiring</div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="wave-section" data-wave-section="4">
+    <div class="wave-header" onclick="toggleWaveSection(this)">
+      <span class="wave-badge" style="background:var(--w4)">WAVE 4</span>
+      <span class="wave-title">World Population</span>
+      <span class="wave-timing">~12-16 weeks</span>
+      <span class="wave-collapse-icon">&#9660;</span>
+    </div>
+    <div class="wave-body">
+      <div class="wave-grid">
+        <div class="wave-item" data-wave="4"><div class="wave-item-bar" style="background:var(--w4)"></div><div class="wave-item-content"><div class="wave-item-key">158 items</div><div class="wave-item-title">Archetype Builds</div><div class="wave-item-downstream">all parallelizable</div></div></div>
+        <div class="wave-item" data-wave="4" data-scrum="450"><div class="wave-item-bar" style="background:var(--w4)"></div><div class="wave-item-content"><div class="wave-item-key">SCRUM-450+</div><div class="wave-item-title">Settlement pipeline</div><div class="wave-item-downstream">placement -> zoning -> selection</div></div></div>
+        <div class="wave-item" data-wave="4" data-scrum="864"><div class="wave-item-bar" style="background:var(--w4)"></div><div class="wave-item-content"><div class="wave-item-key">SCRUM-864+</div><div class="wave-item-title">Phase 6 terrain</div><div class="wave-item-downstream">heightmaps -> features -> caves -> rivers</div></div></div>
+        <div class="wave-item" data-wave="4" data-scrum="875"><div class="wave-item-bar" style="background:var(--w4)"></div><div class="wave-item-content"><div class="wave-item-key">SCRUM-875+</div><div class="wave-item-title">Phase 7 settlement props</div><div class="wave-item-downstream">parking -> signage -> vehicles -> debris</div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="wave-section" data-wave-section="5">
+    <div class="wave-header" onclick="toggleWaveSection(this)">
+      <span class="wave-badge" style="background:var(--w5)">WAVE 5</span>
+      <span class="wave-title">Late-Game Systems</span>
+      <span class="wave-timing">~16-20 weeks</span>
+      <span class="wave-collapse-icon">&#9660;</span>
+    </div>
+    <div class="wave-body">
+      <div class="wave-grid">
+        <div class="wave-item" data-wave="5" data-scrum="494"><div class="wave-item-bar" style="background:var(--w5)"></div><div class="wave-item-content"><div class="wave-item-key">SCRUM-494-497</div><div class="wave-item-title">AI System</div><div class="wave-item-downstream">framework -> zombie -> animal -> NPC</div></div></div>
+        <div class="wave-item" data-wave="5" data-scrum="498"><div class="wave-item-bar" style="background:var(--w5)"></div><div class="wave-item-content"><div class="wave-item-key">SCRUM-498-500</div><div class="wave-item-title">Scenario / Quest System</div><div class="wave-item-downstream">engine -> objectives -> journal</div></div></div>
+        <div class="wave-item" data-wave="5" data-scrum="479"><div class="wave-item-bar" style="background:var(--w5)"></div><div class="wave-item-content"><div class="wave-item-key">SCRUM-479-483</div><div class="wave-item-title">Farming Endgame</div><div class="wave-item-downstream">deepest sub-chain (6 items)</div></div></div>
+        <div class="wave-item" data-wave="5" data-scrum="892"><div class="wave-item-bar" style="background:var(--w5)"></div><div class="wave-item-content"><div class="wave-item-key">SCRUM-892-896</div><div class="wave-item-title">Population + POI</div><div class="wave-item-downstream">zombies -> survivors -> POI</div></div></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- PARALLEL TRACKS VIEW -->
+<div class="view" id="view-tracks">
+
+  <div class="track-section" data-track="1">
+    <div class="track-header">
+      <div class="track-dot" style="background:var(--track1)"></div>
+      <div class="track-name">Track 1 -- World-Gen Pipeline</div>
+      <span class="track-isolate-hint">click to isolate</span>
+    </div>
+    <div class="track-chain">
+      <span class="track-node highlight" data-scrum="425">425 Chunk</span>
+      <span class="track-arrow">-></span>
+      <span class="track-node" data-scrum="447">447 Snap-Face</span>
+      <span class="track-arrow">-></span>
+      <span class="track-node" data-scrum="448">448 Bldg Data</span>
+      <span class="track-arrow">-></span>
+      <span class="track-node" style="font-style:italic;color:var(--fg-dim)">158 archetypes</span>
+    </div>
+    <div class="track-chain" style="margin-top:6px;">
+      <span class="track-node highlight" data-scrum="425">425</span>
+      <span class="track-arrow">+</span>
+      <span class="track-node highlight" data-scrum="21">21 E4</span>
+      <span class="track-arrow">-></span>
+      <span class="track-node" data-scrum="426">426 Biome</span>
+      <span class="track-arrow">-></span>
+      <span class="track-node" data-scrum="471">471 Nuclei</span>
+      <span class="track-arrow">-></span>
+      <span class="track-node" data-scrum="472">472 Roads</span>
+      <span class="track-arrow">-></span>
+      <span class="track-node" data-scrum="450">450 Place</span>
+      <span class="track-arrow">-></span>
+      <span class="track-node">473-475</span>
+      <span class="track-arrow">-></span>
+      <span class="track-node">892-894</span>
+    </div>
+    <div class="track-desc">The critical path. 425 (Chunk System) is the single highest-leverage item -- start it first.</div>
+  </div>
+
+  <div class="track-section" data-track="2">
+    <div class="track-header">
+      <div class="track-dot" style="background:var(--track2)"></div>
+      <div class="track-name">Track 2 -- Combat + Skills</div>
+      <span class="track-isolate-hint">click to isolate</span>
+    </div>
+    <div class="track-chain">
+      <span class="track-node highlight" data-scrum="511">511 Hitbox</span>
+      <span class="track-arrow">-></span>
+      <span class="track-node" data-scrum="63">63 Distraction</span>
+      <span class="track-arrow">-></span>
+      <span class="track-node" data-scrum="143">143 Skill Checks</span>
+      <span class="track-arrow">-></span>
+      <span class="track-node" style="font-style:italic;color:var(--fg-dim)">10 skill wirings</span>
+      <span class="track-arrow">-></span>
+      <span class="track-node" style="font-style:italic;color:var(--fg-dim)">recipes + crafting</span>
+    </div>
+    <div class="track-desc">Gates the entire skill system. 511 has no blockers -- start immediately alongside Track 1.</div>
+  </div>
+
+  <div class="track-section" data-track="3">
+    <div class="track-header">
+      <div class="track-dot" style="background:var(--track3)"></div>
+      <div class="track-name">Track 3 -- Items + Registry</div>
+      <span class="track-isolate-hint">click to isolate</span>
+    </div>
+    <div class="track-chain">
+      <span class="track-node highlight" data-scrum="145">145 Registry</span>
+      <span class="track-arrow">-></span>
+      <span class="track-node" data-scrum="146">146 Model</span>
+      <span class="track-arrow">.</span>
+      <span class="track-node" data-scrum="147">147 Texture</span>
+      <span class="track-arrow">.</span>
+      <span class="track-node" data-scrum="148">148 Item</span>
+      <span class="track-arrow">-></span>
+      <span class="track-node" style="font-style:italic;color:var(--fg-dim)">all item types + tools</span>
+    </div>
+    <div class="track-chain" style="margin-top:6px;">
+      <span class="track-node highlight" data-scrum="136">136 Consumable</span>
+      <span class="track-arrow">-></span>
+      <span class="track-node" data-scrum="137">137 Use-Item</span>
+      <span class="track-arrow">-></span>
+      <span class="track-node" style="font-style:italic;color:var(--fg-dim)">consumable chains</span>
+    </div>
+    <div class="track-desc">Both 145 and 136 have no blockers. They converge at item/prop registry (148).</div>
+  </div>
+
+  <div class="track-section" data-track="4">
+    <div class="track-header">
+      <div class="track-dot" style="background:var(--track4)"></div>
+      <div class="track-name">Track 4 -- Server / Time</div>
+      <span class="track-isolate-hint">click to isolate</span>
+    </div>
+    <div class="track-chain">
+      <span class="track-node" data-scrum="12" style="border-color:var(--w1);color:var(--w1)">12 S2 (In Progress)</span>
+      <span class="track-arrow">-></span>
+      <span class="track-node" data-scrum="486">486 World Clock</span>
+      <span class="track-arrow">-></span>
+      <span class="track-node" data-scrum="487">487 Day/Night</span>
+      <span class="track-arrow">-></span>
+      <span class="track-node" data-scrum="488">488 Seasons</span>
+      <span class="track-arrow">-></span>
+      <span class="track-node" style="font-style:italic;color:var(--fg-dim)">farming + hunting</span>
+    </div>
+    <div class="track-desc">Blocked by S2 (already In Progress). Should unblock naturally.</div>
+  </div>
+
+  <div class="track-section" data-track="5">
+    <div class="track-header">
+      <div class="track-dot" style="background:var(--track5)"></div>
+      <div class="track-name">Track 5 -- Art Pipeline</div>
+      <span class="track-isolate-hint">click to isolate</span>
+    </div>
+    <div class="track-desc" style="margin-top:0;">79 Research Spikes + 6 Asset Packs + 159 prop Tasks = 244 items. Zero code dependencies. Pure art/design work that runs in parallel with everything else.</div>
+  </div>
+
+  <div class="track-section" data-track="6">
+    <div class="track-header">
+      <div class="track-dot" style="background:var(--track6)"></div>
+      <div class="track-name">Track 6 -- New Design Items</div>
+      <span class="track-isolate-hint">click to isolate</span>
+    </div>
+    <div class="track-desc" style="margin-top:0;">Trade (W-SY6) . Clan (W-SY7) . Entity/Mob (E10) . Sleep . Base Building (W-BB). Now wired into the graph with 7 dependency links added. Most can start design work immediately.</div>
+  </div>
+
+</div>
+
+<!-- BOTTLENECKS VIEW -->
+<div class="view" id="view-bottlenecks">
+  <div style="font-size:0.8rem;color:var(--fg-dim);margin-bottom:16px;">Ranked by downstream To Do items -- finishing these first unlocks the most work.</div>
+
+  <div class="bottleneck-list">
+    <div class="bottleneck-item" data-wave="0" data-scrum="425">
+      <div class="bottleneck-rank">1</div>
+      <div class="bottleneck-info">
+        <div class="bottleneck-key" style="color:var(--w0)">SCRUM-425</div>
+        <div class="bottleneck-title">W-WG-W1 Chunk System and Flat Terrain</div>
+        <div class="bottleneck-bar-wrap"><div class="bottleneck-bar" style="width:100%;background:var(--w0)"></div></div>
+        <div class="bottleneck-detail"><span>234 downstream items</span><span>No blockers . START NOW</span></div>
+      </div>
+    </div>
+
+    <div class="bottleneck-item" data-wave="0" data-scrum="21">
+      <div class="bottleneck-rank">2</div>
+      <div class="bottleneck-info">
+        <div class="bottleneck-key" style="color:var(--w0)">SCRUM-21</div>
+        <div class="bottleneck-title">E4 Asset Registry / Content Pipeline</div>
+        <div class="bottleneck-bar-wrap"><div class="bottleneck-bar" style="width:94%;background:var(--w0)"></div></div>
+        <div class="bottleneck-detail"><span>220 downstream items</span><span>No blockers . START NOW</span></div>
+      </div>
+    </div>
+
+    <div class="bottleneck-item" data-wave="0" data-scrum="51">
+      <div class="bottleneck-rank">3</div>
+      <div class="bottleneck-info">
+        <div class="bottleneck-key" style="color:var(--w0)">SCRUM-51</div>
+        <div class="bottleneck-title">W-SY1 Four-Way Interaction</div>
+        <div class="bottleneck-bar-wrap"><div class="bottleneck-bar" style="width:37%;background:var(--w0)"></div></div>
+        <div class="bottleneck-detail"><span>87 downstream items</span><span>No blockers . START NOW</span></div>
+      </div>
+    </div>
+
+    <div class="bottleneck-item" data-wave="0" data-scrum="136">
+      <div class="bottleneck-rank">4</div>
+      <div class="bottleneck-info">
+        <div class="bottleneck-key" style="color:var(--w0)">SCRUM-136</div>
+        <div class="bottleneck-title">P1-W2 Consumable Item Types</div>
+        <div class="bottleneck-bar-wrap"><div class="bottleneck-bar" style="width:34%;background:var(--w0)"></div></div>
+        <div class="bottleneck-detail"><span>80 downstream items</span><span>No blockers . START NOW</span></div>
+      </div>
+    </div>
+
+    <div class="bottleneck-item" data-wave="0" data-scrum="511">
+      <div class="bottleneck-rank">5</div>
+      <div class="bottleneck-info">
+        <div class="bottleneck-key" style="color:var(--w0)">SCRUM-511</div>
+        <div class="bottleneck-title">W-CO2 Hitbox / HP Wiring</div>
+        <div class="bottleneck-bar-wrap"><div class="bottleneck-bar" style="width:29%;background:var(--w0)"></div></div>
+        <div class="bottleneck-detail"><span>68 downstream items</span><span>No blockers . START NOW</span></div>
+      </div>
+    </div>
+
+    <div class="bottleneck-item" data-wave="0" data-scrum="145">
+      <div class="bottleneck-rank">6</div>
+      <div class="bottleneck-info">
+        <div class="bottleneck-key" style="color:var(--w0)">SCRUM-145</div>
+        <div class="bottleneck-title">E4-W1 Core Registry Architecture</div>
+        <div class="bottleneck-bar-wrap"><div class="bottleneck-bar" style="width:24%;background:var(--w0)"></div></div>
+        <div class="bottleneck-detail"><span>56 downstream items</span><span>No blockers . START NOW</span></div>
+      </div>
+    </div>
+
+    <div class="bottleneck-item" data-wave="1" data-scrum="447">
+      <div class="bottleneck-rank">7</div>
+      <div class="bottleneck-info">
+        <div class="bottleneck-key" style="color:var(--w1)">SCRUM-447</div>
+        <div class="bottleneck-title">W-WG-W7 Snap-Face Connection System</div>
+        <div class="bottleneck-bar-wrap"><div class="bottleneck-bar" style="width:68%;background:var(--w1)"></div></div>
+        <div class="bottleneck-detail"><span>gates 158 archetype builds</span><span>Blocked by: 425 only</span></div>
+      </div>
+    </div>
+
+    <div class="bottleneck-item" data-wave="2" data-scrum="448">
+      <div class="bottleneck-rank">8</div>
+      <div class="bottleneck-info">
+        <div class="bottleneck-key" style="color:var(--w2)">SCRUM-448</div>
+        <div class="bottleneck-title">W-WG-W8 Building Archetype Data Structure</div>
+        <div class="bottleneck-bar-wrap"><div class="bottleneck-bar" style="width:68%;background:var(--w2)"></div></div>
+        <div class="bottleneck-detail"><span>gates 158 archetype builds</span><span>Blocked by: 21, 447</span></div>
+      </div>
+    </div>
+
+    <div class="bottleneck-item" data-wave="2" data-scrum="143">
+      <div class="bottleneck-rank">9</div>
+      <div class="bottleneck-info">
+        <div class="bottleneck-key" style="color:var(--w2)">SCRUM-143</div>
+        <div class="bottleneck-title">P2-W3 Skill Checks</div>
+        <div class="bottleneck-bar-wrap"><div class="bottleneck-bar" style="width:45%;background:var(--w2)"></div></div>
+        <div class="bottleneck-detail"><span>gates all 10 skill wirings</span><span>Blocked by: 51, 63</span></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// Tab switching
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('view-' + tab.dataset.view).classList.add('active');
+    try { localStorage.setItem('uninvited-tab', tab.dataset.view); } catch(e) {}
+  });
+});
+try {
+  var saved = localStorage.getItem('uninvited-tab');
+  if (saved) { var tab = document.querySelector('.tab[data-view="' + saved + '"]'); if (tab) tab.click(); }
+} catch(e) {}
+
+// Wave collapse
+function toggleWaveSection(header) {
+  var section = header.closest('.wave-section');
+  section.classList.toggle('collapsed');
+  try { localStorage.setItem('uninvited-wave-' + section.dataset.waveSection, section.classList.contains('collapsed') ? '1' : '0'); } catch(e) {}
+}
+try {
+  document.querySelectorAll('.wave-section[data-wave-section]').forEach(function(s) {
+    if (localStorage.getItem('uninvited-wave-' + s.dataset.waveSection) === '1') s.classList.add('collapsed');
+  });
+} catch(e) {}
+
+// Wave legend filter
+var activeWaves = new Set(['0','1','2','3','4','5']);
+var legendItems = document.querySelectorAll('.legend-item[data-wave]');
+var resetBtn = document.getElementById('filter-reset');
+
+function isFiltering() { return activeWaves.size < 6; }
+
+function applyWaveFilter() {
+  var filtering = isFiltering();
+  resetBtn.classList.toggle('visible', filtering);
+  legendItems.forEach(function(li) {
+    var w = li.dataset.wave;
+    li.classList.toggle('active', activeWaves.has(w));
+    li.classList.toggle('dimmed', filtering && !activeWaves.has(w));
+  });
+  document.querySelectorAll('[data-wave]').forEach(function(el) {
+    if (el.classList.contains('legend-item')) return;
+    if (filtering) { el.classList.toggle('search-dimmed', !activeWaves.has(el.dataset.wave)); }
+    else { el.classList.remove('search-dimmed'); }
+  });
+  document.querySelectorAll('.wave-section[data-wave-section]').forEach(function(ws) {
+    ws.style.display = filtering ? (activeWaves.has(ws.dataset.waveSection) ? '' : 'none') : '';
+  });
+}
+
+legendItems.forEach(function(li) {
+  li.addEventListener('click', function() {
+    var w = li.dataset.wave;
+    if (activeWaves.has(w)) { if (activeWaves.size === 1) return; activeWaves.delete(w); }
+    else { activeWaves.add(w); }
+    applyWaveFilter();
+  });
+});
+
+resetBtn.addEventListener('click', function() {
+  for (var i = 0; i < 6; i++) activeWaves.add(String(i));
+  applyWaveFilter(); clearSearch(); clearTrackIsolation();
+});
+
+// Track isolation
+var isolatedTrack = null;
+document.querySelectorAll('.track-section[data-track]').forEach(function(ts) {
+  ts.addEventListener('click', function() {
+    var t = ts.dataset.track;
+    if (isolatedTrack === t) { clearTrackIsolation(); }
+    else {
+      isolatedTrack = t;
+      document.querySelectorAll('.track-section[data-track]').forEach(function(other) {
+        if (other.dataset.track === t) { other.classList.add('isolated'); other.classList.remove('track-dimmed'); }
+        else { other.classList.remove('isolated'); other.classList.add('track-dimmed'); }
+      });
+    }
+  });
+});
+
+function clearTrackIsolation() {
+  isolatedTrack = null;
+  document.querySelectorAll('.track-section[data-track]').forEach(function(ts) { ts.classList.remove('isolated', 'track-dimmed'); });
+}
+
+// Search
+var searchInput = document.getElementById('search');
+var searchCount = document.getElementById('search-count');
+var searchClear = document.getElementById('search-clear');
+
+function clearSearch() {
+  searchInput.value = ''; searchCount.textContent = '';
+  document.querySelectorAll('.search-hit').forEach(function(el) { el.classList.remove('search-hit'); });
+  document.querySelectorAll('.search-dimmed').forEach(function(el) {
+    if (!isFiltering() || !el.dataset.wave || activeWaves.has(el.dataset.wave)) el.classList.remove('search-dimmed');
+  });
+}
+
+function doSearch(query) {
+  document.querySelectorAll('.search-hit').forEach(function(el) { el.classList.remove('search-hit'); });
+  if (!query) { searchCount.textContent = ''; applyWaveFilter(); return; }
+  var q = query.toLowerCase();
+  var searchable = document.querySelectorAll('.node[data-scrum], .wave-item[data-scrum], .bottleneck-item[data-scrum], .track-node[data-scrum]');
+  var hits = 0;
+  searchable.forEach(function(el) {
+    var text = el.textContent.toLowerCase();
+    var scrum = el.dataset.scrum || '';
+    var scrumMatch = scrum === q || ('scrum-' + scrum) === q || q.includes(scrum);
+    if (text.includes(q) || scrumMatch) { el.classList.add('search-hit'); el.classList.remove('search-dimmed'); hits++; }
+    else { el.classList.remove('search-hit'); el.classList.add('search-dimmed'); }
+  });
+  searchCount.textContent = hits > 0 ? hits + ' found' : 'no matches';
+}
+
+searchInput.addEventListener('input', function() { doSearch(searchInput.value.trim()); });
+searchClear.addEventListener('click', function() { clearSearch(); searchInput.focus(); });
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') { clearSearch(); clearTrackIsolation(); for (var i = 0; i < 6; i++) activeWaves.add(String(i)); applyWaveFilter(); }
+});
+</script>
+
+</body>
+</html>
