@@ -10,6 +10,7 @@
 #include "GuiPanel.h"
 #include "InputRouter.h"
 #include "MenuFlow.h"
+#include "SoundEngine.h"
 
 namespace gamecore { class SoundEngine; }
 class MenuScene;
@@ -39,6 +40,7 @@ public:
 	void draw();
 	void hide();
 	void setWorld(World* world) { world_ = world; }
+	~MenuScreens() override; // Explicitly declare the destructor
 
 private:
 	enum class Style { Primary, Secondary, Link, Choice, Card, Step, Slider };
@@ -101,6 +103,7 @@ private:
 	irr::s32 turnFromX_;
 	int tab_ = 0;
 	irr::s32 keepFocus_ = -1;
+	gamecore::Sound* introMusic_;
 };
 
 #endif

@@ -66,6 +66,7 @@ public:
 private:
 	void addGround();
 	void addPlayer(const char* model, const char* skin);
+	void loadWorld(const char* file);
 	void addLights();
 	void addProps();
 	void addProp(const char* name, const char* file, irr::f32 x, irr::f32 z, const irr::core::vector3df& rotation, irr::f32 length);
@@ -107,6 +108,7 @@ private:
 	irr::video::SColor horizon_;
 	std::map<uint16_t, Remote> remotes_;
 	irr::f32 clock_;
+
 };
 
 #endif

@@ -1,0 +1,53 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "engine", "engine", "{D585295F-7994-3649-1065-7AA403C41681}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "gamecorev0.1.1", "gamecorev0.1.1", "{2BE0157C-5B82-9174-9B9E-6DACC29BAC23}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "gamecorev0.1.1", "gamecorev0.1.1", "{1B6F4AE7-4AA2-FFC9-B199-DD8DDC249659}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "third_party", "third_party", "{0564B8A5-90A2-17A7-C8AC-610B2B306D82}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "assimp-5.4.3", "assimp-5.4.3", "{D3942E55-FC52-D1EC-750C-BB1DE09AD2F0}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "contrib", "contrib", "{D8D41936-911D-A00D-5FBE-AAE605551674}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "zlib", "zlib", "{014318D5-E3F0-294D-3A2F-8F2E02F39C39}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "contrib", "contrib", "{4D33C27F-143B-692B-50B6-E9E8F0B44592}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "dotzlib", "dotzlib", "{E8E79A1A-0866-C0C6-730A-C57F9C0751B5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DotZLib", "engine\gamecorev0.1.1\gamecorev0.1.1\third_party\assimp-5.4.3\contrib\zlib\contrib\dotzlib\DotZLib\DotZLib.csproj", "{D8846FAA-9011-6548-7C12-456F0C0A4D76}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D8846FAA-9011-6548-7C12-456F0C0A4D76}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D8846FAA-9011-6548-7C12-456F0C0A4D76}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D8846FAA-9011-6548-7C12-456F0C0A4D76}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D8846FAA-9011-6548-7C12-456F0C0A4D76}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{2BE0157C-5B82-9174-9B9E-6DACC29BAC23} = {D585295F-7994-3649-1065-7AA403C41681}
+		{1B6F4AE7-4AA2-FFC9-B199-DD8DDC249659} = {2BE0157C-5B82-9174-9B9E-6DACC29BAC23}
+		{0564B8A5-90A2-17A7-C8AC-610B2B306D82} = {1B6F4AE7-4AA2-FFC9-B199-DD8DDC249659}
+		{D3942E55-FC52-D1EC-750C-BB1DE09AD2F0} = {0564B8A5-90A2-17A7-C8AC-610B2B306D82}
+		{D8D41936-911D-A00D-5FBE-AAE605551674} = {D3942E55-FC52-D1EC-750C-BB1DE09AD2F0}
+		{014318D5-E3F0-294D-3A2F-8F2E02F39C39} = {D8D41936-911D-A00D-5FBE-AAE605551674}
+		{4D33C27F-143B-692B-50B6-E9E8F0B44592} = {014318D5-E3F0-294D-3A2F-8F2E02F39C39}
+		{E8E79A1A-0866-C0C6-730A-C57F9C0751B5} = {4D33C27F-143B-692B-50B6-E9E8F0B44592}
+		{D8846FAA-9011-6548-7C12-456F0C0A4D76} = {E8E79A1A-0866-C0C6-730A-C57F9C0751B5}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {DF5F1AE1-6DF8-4083-B5AA-E637F72AC884}
+	EndGlobalSection
+EndGlobal

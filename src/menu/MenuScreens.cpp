@@ -91,6 +91,17 @@ MenuScreens::MenuScreens(IrrlichtDevice* device, Canvas& canvas, menu::MenuFlow&
 	panel_(device->getGUIEnvironment(), canvas.screenSize()), built_(Screen::Title), hasBuilt_(false),
 	gender_(character::Gender::Male), outfit_(0), timeMode_(menu::TimeMode::RealTime), backdrop_(backdrop), world_(nullptr), turning_(false), turnFromX_(0)
 {
+
+	if (sound_)
+    {
+        // Play the intro music on loop
+        introMusic_ = sound_->play2D("assets/sounds/intro.mp3", true, false, true);
+        if (introMusic_)
+        {
+            // Set the volume based on preferences
+            introMusic_->setVolume(flow_.preferences().musicVolume / 100.0f);
+        }
+    }
 }
 
 void MenuScreens::showCharacter()
@@ -862,7 +873,7 @@ void MenuScreens::click()
 {
 	if (!sound_)
 		return;
-	if (gamecore::Sound* played = sound_->play2D("assets/sounds/button-25.wav", false, false, true))
+	if (gamecore::Sound* played = sound_->play2D("assets/sounds/button-20.wav", false, false, true))
 	{
 		played->setVolume(flow_.preferences().sfxVolume / 100.0f);
 		played->drop();
@@ -997,4 +1008,13 @@ bool MenuScreens::onGuiEvent(const SEvent& event)
 	default:
 		return false;
 	}
+}
+
+MenuScreens::~MenuScreens()
+{
+    if (introMusic_)
+    {
+        introMusic_->stop();
+        introMusic_->drop();
+    }
 }
