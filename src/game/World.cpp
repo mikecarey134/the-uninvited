@@ -9,6 +9,7 @@ using namespace irr;
 using namespace core;
 using namespace scene;
 using namespace video;
+using namespace std;
 
 namespace
 {
@@ -60,6 +61,7 @@ World::World(IrrlichtDevice* device, const char* model, const char* skin, std::f
 	camera_->setFarValue(4000.0f);
 	camera_->setFOV(55.0f * DEGTORAD);
 	addGround();
+	loadWorld("assets/map/house.irr");
 	addProps();
 	addPlayer(model, skin);
 	addLights();
@@ -70,6 +72,19 @@ World::~World()
 {
 	scene_->drop();
 }
+
+void World::loadWorld(const char* file)
+{
+    if (!scene_->loadScene(file))
+    {
+		printf("Failed to load world scene from file: %s\n", file);
+        return;
+
+    }
+	printf("World scene loaded successfully from file: %s\n", file);
+    // Optional: Set up additional properties for the loaded scene
+}
+
 
 void World::addGround()
 {
@@ -143,10 +158,10 @@ void World::move(const vector3df& step)
 	vector3df at = player_->getPosition();
 	for (s32 i = 0; i < steps; ++i)
 	{
-		vector3df across(clamp(at.X + step.X / steps, -edge, edge), at.Y, at.Z);
+		vector3df across(irr::core::clamp(at.X + step.X / steps, -edge, edge), at.Y, at.Z);
 		if (!blocked(across))
 			at = across;
-		vector3df along(at.X, at.Y, clamp(at.Z + step.Z / steps, -edge, edge));
+		vector3df along(at.X, at.Y, irr::core::clamp(at.Z + step.Z / steps, -edge, edge));
 		if (!blocked(along))
 			at = along;
 	}
