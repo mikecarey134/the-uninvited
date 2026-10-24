@@ -314,6 +314,8 @@ TEST_CASE("walking straight at a prop brings the player right up against it, the
 	for (const aabbox3df& box : boxes)
 		if (gap(vector3df(), box) < gap(vector3df(), *nearest))
 			nearest = &box;
+	// A clear, angled run-up from in front of it and to one side (the test door, which blocks, stands between the origin and some props).
+	fixture.world->teleport(nearest->getCenter().X - 2.0f, 0.0f, nearest->MinEdge.Z - 3.0f);
 	f32 yaw = 0.0f;
 	aimAt(fixture.world, nearest->getCenter(), yaw);
 	f32 closest = 1000.0f;
@@ -920,4 +922,141 @@ TEST_CASE("with the camera tilted right up or down the lone test terminal is sti
 		REQUIRE(fixture.world->detector().hasTarget());
 		CHECK(fixture.world->detector().getTarget()->getInfo().name == "Test Terminal");
 	}
+}
+
+namespace
+{
+	character::CharacterSheet strongSheet()
+	{
+		character::Aegis aegis;
+		for (int i = 0; i < character::ATTRIBUTE_COUNT; ++i)
+			aegis.rolled[i] = 10;
+		aegis.rolled[character::STRENGTH] = TestDoor::STRENGTH_TO_KICK + 5;
+		return character::CharacterSheet::create("Brute", character::Gender::Male, character::Profession{ "Drifter", {}, {} }, aegis);
+	}
+
+	ISceneNode* testNode(World* world, const vector3df& near)
+	{
+		for (ISceneNode* node : world->scene()->getRootSceneNode()->getChildren())
+			if (std::string(node->getName()) == "test interactable" && node->getPosition().getDistanceFrom(near) < 1.2f)
+				return node;
+		return nullptr;
+	}
+
+	int particleSystems(World* world)
+	{
+		array<ISceneNode*> nodes;
+		world->scene()->getSceneNodesFromType(ESNT_PARTICLE_SYSTEM, nodes);
+		return (int)nodes.size();
+	}
+}
+
+TEST_CASE("the test door blocks the way until broken")
+{
+	Fixture fixture;
+	fixture.world->teleport(-2.5f, 0.0f, 2.5f);
+	fixture.walk(KEY_KEY_W, 2.0f);
+	CHECK(fixture.world->player()->getPosition().Z < 4.0f);
+}
+
+TEST_CASE("kicking the test door three times cracks it, splinters it, then bursts it into debris and opens the way")
+{
+	Fixture fixture(strongSheet());
+	ISceneNode* door = testNode(fixture.world, vector3df(-2.5f, 1.0f, 4.0f));
+	REQUIRE(door != nullptr);
+	fixture.world->teleport(-3.2f, 0.0f, 2.3f);
+	fixture.world->update(0.0f);
+	REQUIRE(fixture.world->detector().getTarget()->getInfo().name == "Test Door");
+	const Interactable* target = fixture.world->detector().getTarget();
+	fixture.key(KEY_LEFT, true);
+	const char* lines[3] = { "The door cracks.", "The door splinters.", "You break through the door!" };
+	for (int hit = 0; hit < 3; ++hit)
+	{
+		CAPTURE(hit);
+		fixture.key(KEY_KEY_E, true);
+		CHECK(fixture.world->interactionFeedback() == lines[hit]);
+		CHECK(fixture.world->forceBreak().hits(target) == hit + 1);
+		if (hit < 2)
+		{
+			ISceneNode* cracks = fixture.world->forceBreak().cracks(target);
+			REQUIRE(cracks != nullptr);
+			CHECK(cracks->getParent() == door);
+			std::string texture = cracks->getMaterial(0).getTexture(0)->getName().getPath().c_str();
+			CHECK(texture.find(hit == 0 ? "crack_stage1.png" : "crack_stage2.png") != std::string::npos);
+			CHECK(cracks->getMaterial(0).MaterialType == video::EMT_TRANSPARENT_ALPHA_CHANNEL);
+			CHECK(door->isVisible());
+			CHECK(particleSystems(fixture.world) == 0);
+		}
+	}
+	CHECK_FALSE(door->isVisible());
+	CHECK(particleSystems(fixture.world) == 1);
+	fixture.world->update(0.0f);
+	CHECK_FALSE(fixture.world->detector().hasTarget());
+	fixture.world->update(ForceBreak::BURST_SECONDS + 0.1f);
+	CHECK(particleSystems(fixture.world) == 0);
+	fixture.world->teleport(-2.5f, 0.0f, 2.5f);
+	fixture.walk(KEY_KEY_W, 2.0f);
+	CHECK(fixture.world->player()->getPosition().Z > 4.5f);
+}
+
+TEST_CASE("the debris burst is a short puff in the door's colour that falls and fades within a second")
+{
+	Fixture fixture(strongSheet());
+	fixture.world->teleport(-3.2f, 0.0f, 2.3f);
+	fixture.world->update(0.0f);
+	fixture.key(KEY_LEFT, true);
+	for (int hit = 0; hit < 3; ++hit)
+		fixture.key(KEY_KEY_E, true);
+	array<ISceneNode*> nodes;
+	fixture.world->scene()->getSceneNodesFromType(ESNT_PARTICLE_SYSTEM, nodes);
+	REQUIRE(nodes.size() == 1);
+	IParticleSystemSceneNode* ps = static_cast<IParticleSystemSceneNode*>(nodes[0]);
+	REQUIRE(ps->getEmitter() != nullptr);
+	CHECK(ps->getEmitter()->getMaxStartColor() == video::SColor(255, 110, 72, 40));
+	CHECK(ps->getEmitter()->getMaxLifeTime() <= 1000);
+	CHECK(ps->getEmitter()->getMinLifeTime() >= 500);
+	CHECK(ps->getPosition().getDistanceFrom(vector3df(-2.5f, 1.0f, 4.0f)) < 0.01f);
+	fixture.world->update(ForceBreak::PUFF_SECONDS + 0.01f);
+	CHECK(ps->getEmitter() == nullptr);
+}
+
+TEST_CASE("a weak kick does no damage: no cracks and the door still blocks")
+{
+	character::Aegis aegis;
+	for (int i = 0; i < character::ATTRIBUTE_COUNT; ++i)
+		aegis.rolled[i] = 10;
+	Fixture fixture(character::CharacterSheet::create("Weed", character::Gender::Male, character::Profession{ "Drifter", {}, {} }, aegis));
+	fixture.world->teleport(-3.2f, 0.0f, 2.3f);
+	fixture.world->update(0.0f);
+	const Interactable* target = fixture.world->detector().getTarget();
+	fixture.key(KEY_LEFT, true);
+	fixture.key(KEY_KEY_E, true);
+	CHECK(fixture.world->interactionFeedback() == "Not strong enough.");
+	CHECK(fixture.world->forceBreak().hits(target) == 0);
+	CHECK(fixture.world->forceBreak().cracks(target) == nullptr);
+}
+
+TEST_CASE("one Force hit smashes a world crate's prop to debris, opens its loot, and its spot can be walked through; it stays searchable")
+{
+	Fixture fixture;
+	std::vector<loot::Container*> opened;
+	fixture.world->setOpenLoot([&opened](loot::Container& container) { opened.push_back(&container); });
+	loot::Container& crate = fixture.world->containers()[0];
+	ISceneNode* prop = fixture.world->scene()->getSceneNodeFromName("prop crate");
+	REQUIRE(prop != nullptr);
+	REQUIRE(std::fabs(prop->getPosition().X - crate.x) < 0.1f);
+	fixture.world->teleport(crate.x, 0.0f, crate.z - 1.5f);
+	fixture.world->update(0.0f);
+	REQUIRE(fixture.world->detector().getTarget()->getObjectType() == "supply_crate");
+	fixture.key(KEY_LEFT, true);
+	fixture.key(KEY_KEY_E, true);
+	CHECK(opened == std::vector<loot::Container*>{ &crate });
+	CHECK_FALSE(prop->isVisible());
+	CHECK(particleSystems(fixture.world) == 1);
+	fixture.world->update(0.0f);
+	REQUIRE(fixture.world->detector().hasTarget());
+	CHECK(fixture.world->detector().getTarget()->getInfo().name == crate.kind);
+	fixture.world->teleport(crate.x, 0.0f, crate.z - 1.5f);
+	fixture.walk(KEY_KEY_W, 1.0f);
+	CHECK(fixture.world->player()->getPosition().Z > crate.z + 0.5f);
 }

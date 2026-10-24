@@ -68,6 +68,7 @@ World::World(IrrlichtDevice* device, const char* model, const char* skin, std::f
 	camera_->setFarValue(4000.0f);
 	camera_->setFOV(55.0f * DEGTORAD);
 	addGround();
+	forceBreak_.reset(new ForceBreak(scene_));
 	addProps();
 	addTestInteractables();
 	addContainerInteractables();
@@ -79,6 +80,7 @@ World::World(IrrlichtDevice* device, const char* model, const char* skin, std::f
 
 World::~World()
 {
+	forceBreak_.reset();
 	scene_->drop();
 }
 
@@ -120,6 +122,7 @@ void World::addProp(const char* name, const char* file, f32 x, f32 z, const vect
 	node->setPosition(vector3df(x, -node->getTransformedBoundingBox().MinEdge.Y, z));
 	node->updateAbsolutePosition();
 	obstacles_.push_back(node->getTransformedBoundingBox());
+	props_.push_back(node);
 	for (u32 i = 0; i < node->getMaterialCount(); ++i)
 	{
 		SMaterial& material = node->getMaterial(i);
@@ -168,6 +171,23 @@ void World::addTestInteractables()
 		node->setMaterialFlag(EMF_LIGHTING, false);
 		node->setMaterialFlag(EMF_FOG_ENABLE, true);
 		detector_.addInteractable(object.get());
+		// The door blocks until it is kicked through (3 hits); the test crate smashes in one. Both leave the detector when broken.
+		Interactable* breakable = object.get();
+		if (object->type == "locked_door" || object->type == "supply_crate")
+		{
+			object->breaker = forceBreak_.get();
+			bool door = object->type == "locked_door";
+			if (door)
+			{
+				node->updateAbsolutePosition();
+				obstacles_.push_back(node->getTransformedBoundingBox());
+			}
+			forceBreak_->add(breakable, node, door ? 3 : 1, spec.colour, [this, breakable, node, door] {
+				if (door)
+					unblock(node);
+				detector_.removeInteractable(breakable);
+			});
+		}
 		testInteractables_.push_back(std::move(object));
 	}
 }
@@ -180,6 +200,15 @@ void World::addContainerInteractables()
 			if (openLoot_)
 				openLoot_(chosen);
 		}));
+		// Force smashes the container's prop in one hit; the loot stays, so it stays searchable where the prop stood.
+		for (ISceneNode* prop : props_)
+			if (std::fabs(prop->getPosition().X - container.x) < 0.6f && std::fabs(prop->getPosition().Z - container.z) < 0.6f)
+			{
+				SColor wood = container.kind == "Chest" ? SColor(255, 112, 74, 42) : SColor(255, 150, 112, 64);
+				forceBreak_->add(object.get(), prop, 1, wood, [this, prop] { unblock(prop); });
+				object->setBreaker(forceBreak_.get());
+				break;
+			}
 		detector_.addInteractable(object.get());
 		containerInteractables_.push_back(std::move(object));
 	}
@@ -212,6 +241,16 @@ f32 World::groundBelow(const vector3df& at) const
 		if (at.X >= box.MinEdge.X && at.X <= box.MaxEdge.X && at.Z >= box.MinEdge.Z && at.Z <= box.MaxEdge.Z && box.MaxEdge.Y <= feetY + stepHeight)
 			ground = std::max(ground, box.MaxEdge.Y);
 	return ground;
+}
+
+// Stops a node's footprint blocking movement, once it has been broken.
+void World::unblock(ISceneNode* node)
+{
+	node->updateAbsolutePosition();
+	vector3df centre = node->getTransformedBoundingBox().getCenter();
+	obstacles_.erase(std::remove_if(obstacles_.begin(), obstacles_.end(), [&centre](const aabbox3df& box) {
+		return box.getCenter().getDistanceFrom(centre) < 0.01f;
+	}), obstacles_.end());
 }
 
 bool World::blocked(const vector3df& at) const
@@ -390,6 +429,7 @@ void World::settle(f32 seconds)
 void World::update(f32 seconds)
 {
 	dpad_.update(seconds);
+	forceBreak_->update(seconds);
 	unticked_ += seconds * compression_;
 	while (unticked_ >= 1.0f && !dead())
 	{

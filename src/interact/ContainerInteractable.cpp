@@ -1,4 +1,5 @@
 #include "ContainerInteractable.h"
+#include "ForceBreak.h"
 
 InteractableInfo ContainerInteractable::getInfo() const
 {
@@ -23,6 +24,8 @@ bool ContainerInteractable::onForce(Actor& player)
 {
 	if (!open_)
 		return false;
+	if (breaker_)
+		breaker_->applyDamage(this); // a crate takes one hit; once smashed, Force just reaches in
 	open_(container_);
 	player.openedScreen = true;
 	player.message = "You smash the " + container_.kind + " open.";

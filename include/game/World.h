@@ -10,6 +10,7 @@
 #include "DpadHud.h"
 #include "Hud.h"
 #include "InteractionDetector.h"
+#include "ForceBreak.h"
 #include "InteractionInput.h"
 #include "TargetHud.h"
 #include "InputRouter.h"
@@ -58,6 +59,7 @@ public:
 	const HudWeapon& weapon() const { return weapon_; }
 	DpadHud& dpad() { return dpad_; }
 	const InteractionDetector& detector() const { return detector_; }
+	const ForceBreak& forceBreak() const { return *forceBreak_; }
 	bool targetMarker(irr::core::position2d<irr::s32>& at) const;
 	ContextPanel& contextPanel() { return contextPanel_; }
 	bool contextPanelOpen() const { return contextPanel_.isOpen(); }
@@ -100,6 +102,7 @@ private:
 	void addProps();
 	void addProp(const char* name, const char* file, irr::f32 x, irr::f32 z, const irr::core::vector3df& rotation, irr::f32 length);
 	bool blocked(const irr::core::vector3df& at) const;
+	void unblock(irr::scene::ISceneNode* node);
 	irr::f32 groundBelow(const irr::core::vector3df& at) const;
 	void settle(irr::f32 seconds);
 	void move(const irr::core::vector3df& step);
@@ -146,6 +149,8 @@ private:
 	std::vector<std::unique_ptr<TestObject>> testInteractables_;
 	std::vector<std::unique_ptr<ContainerInteractable>> containerInteractables_;
 	std::function<void(loot::Container&)> openLoot_;
+	std::unique_ptr<ForceBreak> forceBreak_;
+	std::vector<irr::scene::ISceneNode*> props_;
 	std::string promptKey_ = "E";
 	Interactable* shownTarget_ = nullptr;
 	TargetHud targetHud_ = TargetHud(defaultApproaches());

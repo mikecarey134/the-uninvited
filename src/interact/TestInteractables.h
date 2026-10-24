@@ -3,12 +3,15 @@
 
 #include "Interactable.h"
 
+class ForceBreak;
+
 // TEMPORARY (SCRUM-1001/1005): stand-ins for real world objects, with placeholder handlers that prove stat checks work.
 struct TestObject : public Interactable
 {
 	InteractableInfo info;
 	irr::core::vector3df position;
 	std::string type;
+	ForceBreak* breaker = nullptr; // when set, Force hits that land wear the object down and break it
 
 	InteractableInfo getInfo() const override { return info; }
 	irr::core::vector3df getPosition() const override { return position; }

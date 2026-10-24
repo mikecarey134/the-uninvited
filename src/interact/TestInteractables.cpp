@@ -1,5 +1,6 @@
 #include "TestInteractables.h"
 #include "CharacterSheet.h"
+#include "ForceBreak.h"
 
 const int TestDoor::STRENGTH_TO_KICK;
 const int TestDoor::LOCKPICKING_TO_PICK;
@@ -22,7 +23,20 @@ bool TestDoor::onNormal(Actor& player)
 
 bool TestDoor::onForce(Actor& player)
 {
-	return say(player, player.sheet.getStrength() >= STRENGTH_TO_KICK, "You kick the door open!", "Not strong enough.");
+	if (player.sheet.getStrength() < STRENGTH_TO_KICK)
+		return say(player, false, "", "Not strong enough.");
+	if (!breaker)
+		return say(player, true, "You kick the door open!", "");
+	// Three kicks: it cracks, it splinters, it gives.
+	switch (breaker->applyDamage(this))
+	{
+	case BreakResult::Cracked:
+		return say(player, true, breaker->hits(this) == 1 ? "The door cracks." : "The door splinters.", "");
+	case BreakResult::Broken:
+		return say(player, true, "You break through the door!", "");
+	default:
+		return say(player, false, "", "There is nothing left to break.");
+	}
 }
 
 bool TestDoor::onSkill(Actor& player)
@@ -54,5 +68,7 @@ bool TestCrate::onNormal(Actor& player)
 
 bool TestCrate::onForce(Actor& player)
 {
+	if (breaker && breaker->applyDamage(this) == BreakResult::AlreadyBroken)
+		return say(player, false, "", "There is nothing left to break.");
 	return say(player, true, "You smash the test crate. Nothing inside.", "");
 }
