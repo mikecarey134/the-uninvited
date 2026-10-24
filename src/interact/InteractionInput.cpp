@@ -10,7 +10,7 @@ namespace
 
 bool InteractionInput::onEvent(const SEvent& event)
 {
-	if (!targets_.target())
+	if (!targets_.target() || (blocked_ && blocked_()))
 		return false;
 	if (event.EventType == EET_MOUSE_INPUT_EVENT)
 		return onMouse(event.MouseInput);

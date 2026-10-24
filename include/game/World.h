@@ -58,6 +58,7 @@ public:
 	ContextPanel& contextPanel() { return contextPanel_; }
 	bool contextPanelOpen() const { return contextPanel_.isOpen(); }
 	void setInteractionLog(std::function<void(const std::string&)> log) { interaction_.setLog(log); }
+	void setInteractionBlocked(std::function<bool()> blocked) { interaction_.setBlocked(blocked); }
 	void arm(const HudWeapon& weapon) { weapon_ = weapon; }
 	irr::f32 speed() const { return speed_; }
 	void setSpeed(irr::f32 speed) { speed_ = speed; }

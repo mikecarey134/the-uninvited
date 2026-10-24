@@ -292,3 +292,19 @@ TEST_CASE("a target with no Normal approach ignores E and left-click")
 	CHECK(rig.input.onEvent(mouse(EMIE_LMOUSE_PRESSED_DOWN)));
 	CHECK(rig.log.empty());
 }
+
+TEST_CASE("while the console or a screen is open every key and click passes through, so typing a 3 in the console runs nothing")
+{
+	Rig rig;
+	bool console = true;
+	rig.input.setBlocked([&console] { return console; });
+	rig.targets.update(&rig.door, 1, rig.hud);
+	for (EKEY_CODE code : { KEY_KEY_3, KEY_KEY_2, KEY_KEY_E, KEY_KEY_Q, KEY_TAB, KEY_RIGHT, KEY_KEY_R })
+		CHECK_FALSE(rig.press(code));
+	CHECK_FALSE(rig.input.onEvent(mouse(EMIE_LMOUSE_PRESSED_DOWN)));
+	CHECK(rig.log.empty());
+	CHECK_FALSE(rig.panel.isOpen());
+	console = false;
+	CHECK(rig.press(KEY_KEY_3));
+	CHECK(rig.log == std::vector<std::string>{ "INTERACT: Skill on Test Door" });
+}

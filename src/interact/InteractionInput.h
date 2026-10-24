@@ -18,6 +18,8 @@ public:
 	InteractionInput(TargetHud& targets, DpadHud& hud, ContextPanel& panel) : targets_(targets), hud_(hud), panel_(panel) {}
 
 	void setLog(std::function<void(const std::string&)> log) { log_ = log; }
+	// While this returns true (the console or a screen is open) every event passes through.
+	void setBlocked(std::function<bool()> blocked) { blocked_ = blocked; }
 	bool onEvent(const irr::SEvent& event);
 	// Call every frame after the target updates: the panel closes when its target goes.
 	void update();
@@ -33,6 +35,7 @@ private:
 	ContextPanel& panel_;
 	const Interactable* panelTarget_ = nullptr;
 	std::function<void(const std::string&)> log_;
+	std::function<bool()> blocked_;
 };
 
 #endif

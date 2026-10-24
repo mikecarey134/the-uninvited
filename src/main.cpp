@@ -207,6 +207,9 @@ namespace
 						console.logMessage_ANSI(ELL_INFORMATION, line.c_str());
 						std::cout << line << std::endl;
 					});
+					world->setInteractionBlocked([&console, &notebook, &inventoryScreen, &lootScreen] {
+						return console.isVisible() || notebook.isOpen() || inventoryScreen.isOpen() || lootScreen.isOpen();
+					});
 					if (hosting)
 						world->setTimeCompression(flow.timeScale());
 					screens.setWorld(world.get());
