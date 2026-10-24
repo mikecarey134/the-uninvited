@@ -55,6 +55,8 @@ public:
 	DpadHud& dpad() { return dpad_; }
 	const InteractionDetector& detector() const { return detector_; }
 	bool targetMarker(irr::core::position2d<irr::s32>& at) const;
+	ContextPanel& contextPanel() { return contextPanel_; }
+	bool contextPanelOpen() const { return contextPanel_.isOpen(); }
 	void setInteractionLog(std::function<void(const std::string&)> log) { interaction_.setLog(log); }
 	void arm(const HudWeapon& weapon) { weapon_ = weapon; }
 	irr::f32 speed() const { return speed_; }
@@ -125,7 +127,8 @@ private:
 	std::vector<std::unique_ptr<TestInteractable>> testInteractables_;
 	Interactable* shownTarget_ = nullptr;
 	TargetHud targetHud_ = TargetHud(defaultApproaches());
-	InteractionInput interaction_{ targetHud_, dpad_ };
+	ContextPanel contextPanel_;
+	InteractionInput interaction_{ targetHud_, dpad_, contextPanel_ };
 };
 
 #endif

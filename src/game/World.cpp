@@ -179,6 +179,7 @@ void World::detect()
 		detector_.update(player_->getPosition(), camera_->getTarget() - camera_->getPosition(), camera_->getPosition());
 	shownTarget_ = dead() ? nullptr : detector_.getTarget();
 	targetHud_.update(shownTarget_, detector_.getInRange().size(), dpad_);
+	interaction_.update();
 }
 
 bool World::targetMarker(position2d<s32>& at) const

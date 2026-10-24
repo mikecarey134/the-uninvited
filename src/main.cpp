@@ -264,7 +264,7 @@ namespace
 					lootScreen.close();
 				}
 				bool paused = console.isVisible() || notebook.isOpen() || inventoryScreen.isOpen() || lootScreen.isOpen();
-				capture.setCaptured(!paused);
+				capture.setCaptured(!paused && !world->contextPanelOpen());
 				capture.beginFrame();
 				world->look(capture.delta().X * 0.25f);
 				world->update(paused ? 0.0f : seconds);
