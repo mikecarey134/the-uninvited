@@ -23,22 +23,34 @@ bool InteractionInput::onEvent(const SEvent& event)
 	switch (event.KeyInput.Key)
 	{
 	case KEY_UP:
+		if (padPart() != PadPart::DPAD)
+			return false;
 		if (targets_.select(DpadDirection::UP, hud_))
 			play(Cue::Select);
 		return true;
 	case KEY_RIGHT:
+		if (padPart() != PadPart::DPAD)
+			return false;
 		if (targets_.select(DpadDirection::RIGHT, hud_))
 			play(Cue::Select);
 		return true;
 	case KEY_DOWN:
+		if (padPart() != PadPart::DPAD)
+			return false;
 		if (targets_.select(DpadDirection::DOWN, hud_))
 			play(Cue::Select);
 		return true;
 	case KEY_LEFT:
+		if (padPart() != PadPart::DPAD)
+			return false;
 		if (targets_.select(DpadDirection::LEFT, hud_))
 			play(Cue::Select);
 		return true;
 	case KEY_KEY_R:
+		if (padPart() != PadPart::BUTTON)
+			return false;
+		runCurrent();
+		return true;
 	case KEY_KEY_E:
 		runCurrent();
 		return true;

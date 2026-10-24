@@ -73,8 +73,14 @@ public:
 	const std::string& interactionFeedback() const { return interaction_.feedback(); }
 	// The interact prompt by the target: which key, and what it does now (empty with no target).
 	std::string promptAction() const { return targetHud_.promptAction(); }
-	const std::string& promptKey() const { return promptKey_; }
-	void setPromptKey(const std::string& key) { promptKey_ = key; }
+	// The interact key as the player's last-used device names it: E on keyboard, X on a pad (glyphs are a TODO in InteractPrompt.h).
+	std::string promptKey() const { return source_ && source_->mode() == InputMode::GAMEPAD ? "X" : "E"; }
+	// Tells interaction input which presses came from the pad; without one, every key counts as the keyboard.
+	void setInputSource(const InputSource* source)
+	{
+		source_ = source;
+		interaction_.setSource(source);
+	}
 	bool interactionSucceeded() const { return interaction_.feedbackSucceeded(); }
 	void arm(const HudWeapon& weapon) { weapon_ = weapon; }
 	irr::f32 speed() const { return speed_; }
@@ -160,7 +166,7 @@ private:
 	std::vector<irr::scene::ISceneNode*> props_;
 	loot::Container* pendingLoot_ = nullptr; // a smashed container whose loot opens once the break has been seen
 	irr::f32 pendingLootIn_ = 0.0f;
-	std::string promptKey_ = "E";
+	const InputSource* source_ = nullptr;
 	Interactable* shownTarget_ = nullptr;
 	TargetHud targetHud_ = TargetHud(defaultApproaches());
 	ContextPanel contextPanel_;

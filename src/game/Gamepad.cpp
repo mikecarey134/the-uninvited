@@ -64,7 +64,7 @@ std::function<void(s16&, s16&)> linuxHat()
 #endif
 }
 
-GamepadLayer::GamepadLayer(std::function<void(EKEY_CODE)> press, std::function<void(s16&, s16&)> hat) : press_(press), hat_(hat)
+GamepadLayer::GamepadLayer(std::function<void(EKEY_CODE, PadPart)> press, std::function<void(s16&, s16&)> hat) : press_(press), hat_(hat)
 {
 }
 
@@ -85,10 +85,11 @@ bool GamepadLayer::onEvent(const SEvent& event)
 	const struct { u32 button; EKEY_CODE key; } buttons[] = { { 0, KEY_RETURN }, { 1, KEY_ESCAPE }, { 2, KEY_KEY_R }, { 7, KEY_KEY_I }, { 6, KEY_KEY_C } };
 	for (const auto& entry : buttons)
 		if (pad.IsButtonPressed(entry.button) && !(buttons_ & (1u << entry.button)))
-			press_(entry.key);
+			press_(entry.key, PadPart::BUTTON);
 	buttons_ = pad.ButtonStates;
 
 	EKEY_CODE direction = KEY_KEY_CODES_COUNT;
+	PadPart part = PadPart::DPAD;
 	if (pad.POV != 65535)
 	{
 		const EKEY_CODE quarters[4] = { KEY_UP, KEY_RIGHT, KEY_DOWN, KEY_LEFT };
@@ -102,9 +103,12 @@ bool GamepadLayer::onEvent(const SEvent& event)
 		direction = pointing(x, y);
 	}
 	if (direction == KEY_KEY_CODES_COUNT)
+	{
 		direction = pointing(pad.Axis[0], pad.Axis[1]);
+		part = PadPart::STICK;
+	}
 	if (direction != direction_ && direction != KEY_KEY_CODES_COUNT)
-		press_(direction);
+		press_(direction, part);
 	direction_ = direction;
 	return true;
 }

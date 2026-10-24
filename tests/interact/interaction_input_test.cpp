@@ -55,6 +55,7 @@ namespace
 		DpadHud hud;
 		ContextPanel panel;
 		InteractionInput input{ targets, hud, panel };
+		InputSource source;
 		std::vector<std::string> log;
 		Thing door{ "Test Door", "locked_door" };
 		Thing crate{ "Test Crate", "supply_crate" };
@@ -65,10 +66,19 @@ namespace
 		Rig()
 		{
 			input.setPlayer(&sheet);
+			input.setSource(&source);
 			input.setLog([this](const std::string& line) { log.push_back(line); });
 		}
 
 		bool press(EKEY_CODE code) { return input.onEvent(key(code)); }
+		// A press the gamepad layer made up: arrows from its D-pad, R from its X button.
+		bool pad(EKEY_CODE code, PadPart part = PadPart::NONE)
+		{
+			source.beginPad(part != PadPart::NONE ? part : (code == KEY_KEY_R ? PadPart::BUTTON : PadPart::DPAD));
+			bool taken = input.onEvent(key(code));
+			source.endPad();
+			return taken;
+		}
 
 		bool says(const std::wstring& text)
 		{
@@ -87,7 +97,10 @@ TEST_CASE("with nothing targeted the D-pad and X pass through untouched")
 {
 	Rig rig;
 	for (EKEY_CODE code : { KEY_UP, KEY_RIGHT, KEY_DOWN, KEY_LEFT, KEY_KEY_R })
+	{
 		CHECK_FALSE(rig.press(code));
+		CHECK_FALSE(rig.pad(code));
+	}
 	CHECK(rig.log.empty());
 }
 
@@ -97,20 +110,20 @@ TEST_CASE("a newly targeted door has nothing picked and no prompt, and X runs No
 	rig.targets.update(&rig.door, 1, rig.hud);
 	CHECK(rig.targets.selected() == nullptr);
 	CHECK_FALSE(rig.says(L"X: Try Handle"));
-	CHECK(rig.press(KEY_KEY_R));
+	CHECK(rig.pad(KEY_KEY_R));
 	CHECK(rig.log == std::vector<std::string>{ "OK: Normal on Test Door" });
-	CHECK(rig.press(KEY_LEFT));
+	CHECK(rig.pad(KEY_LEFT));
 	REQUIRE(rig.targets.selected() != nullptr);
 	CHECK(rig.targets.selected()->type == Approach::FORCE);
 	CHECK(rig.targets.promptAction() == "Open");
 	CHECK_FALSE(rig.says(L"X: Kick Down"));
-	rig.press(KEY_KEY_R);
-	rig.press(KEY_UP);
-	rig.press(KEY_KEY_R);
-	rig.press(KEY_DOWN);
-	rig.press(KEY_KEY_R);
-	rig.press(KEY_RIGHT);
-	rig.press(KEY_KEY_R);
+	rig.pad(KEY_KEY_R);
+	rig.pad(KEY_UP);
+	rig.pad(KEY_KEY_R);
+	rig.pad(KEY_DOWN);
+	rig.pad(KEY_KEY_R);
+	rig.pad(KEY_RIGHT);
+	rig.pad(KEY_KEY_R);
 	CHECK(rig.log == std::vector<std::string>{ "OK: Normal on Test Door", "OK: Force on Test Door", "OK: Skill(lockpicking) on Test Door",
 		"OK: Skill(electronics) on Test Door", "OK: Guile on Test Door" });
 }
@@ -119,12 +132,12 @@ TEST_CASE("pressing the picked direction again unpicks it, so X goes back to Nor
 {
 	Rig rig;
 	rig.targets.update(&rig.door, 1, rig.hud);
-	rig.press(KEY_UP);
+	rig.pad(KEY_UP);
 	REQUIRE(rig.targets.selected() != nullptr);
-	CHECK(rig.press(KEY_UP));
+	CHECK(rig.pad(KEY_UP));
 	CHECK(rig.targets.selected() == nullptr);
 	CHECK_FALSE(rig.says(L"X: Try Handle"));
-	rig.press(KEY_KEY_R);
+	rig.pad(KEY_KEY_R);
 	CHECK(rig.log == std::vector<std::string>{ "OK: Normal on Test Door" });
 }
 
@@ -133,14 +146,14 @@ TEST_CASE("an empty slot is taken but changes nothing: the crate has only Force,
 	Rig rig;
 	rig.targets.update(&rig.crate, 1, rig.hud);
 	for (EKEY_CODE code : { KEY_UP, KEY_RIGHT, KEY_DOWN })
-		CHECK(rig.press(code));
+		CHECK(rig.pad(code));
 	CHECK(rig.targets.selected() == nullptr);
-	CHECK(rig.press(KEY_LEFT));
+	CHECK(rig.pad(KEY_LEFT));
 	REQUIRE(rig.targets.selected() != nullptr);
 	CHECK(rig.targets.selected()->type == Approach::FORCE);
-	rig.press(KEY_DOWN);
+	rig.pad(KEY_DOWN);
 	CHECK(rig.targets.selected()->type == Approach::FORCE);
-	rig.press(KEY_KEY_R);
+	rig.pad(KEY_KEY_R);
 	CHECK(rig.log == std::vector<std::string>{ "OK: Force on Test Crate" });
 }
 
@@ -152,7 +165,7 @@ TEST_CASE("a target with only Normal shows no slots and no prompt, and X runs it
 	for (DpadDirection slot : { DpadDirection::UP, DpadDirection::RIGHT, DpadDirection::DOWN, DpadDirection::LEFT })
 		CHECK(rig.targets.optionAt(slot) == nullptr);
 	CHECK_FALSE(rig.says(L"X: Open Door"));
-	rig.press(KEY_KEY_R);
+	rig.pad(KEY_KEY_R);
 	CHECK(rig.log == std::vector<std::string>{ "OK: Normal on Open Door" });
 }
 
@@ -160,7 +173,7 @@ TEST_CASE("the pick holds while the target does, and a different target starts f
 {
 	Rig rig;
 	rig.targets.update(&rig.door, 1, rig.hud);
-	rig.press(KEY_LEFT);
+	rig.pad(KEY_LEFT);
 	rig.targets.update(&rig.door, 2, rig.hud);
 	rig.targets.update(&rig.door, 1, rig.hud);
 	REQUIRE(rig.targets.selected() != nullptr);
@@ -179,11 +192,11 @@ TEST_CASE("losing the target clears the selection and lets the keys through agai
 {
 	Rig rig;
 	rig.targets.update(&rig.door, 1, rig.hud);
-	rig.press(KEY_RIGHT);
+	rig.pad(KEY_RIGHT);
 	rig.targets.update(nullptr, 0, rig.hud);
 	CHECK(rig.targets.selected() == nullptr);
-	CHECK_FALSE(rig.press(KEY_KEY_R));
-	CHECK_FALSE(rig.press(KEY_RIGHT));
+	CHECK_FALSE(rig.pad(KEY_KEY_R));
+	CHECK_FALSE(rig.pad(KEY_RIGHT));
 	CHECK(rig.log.empty());
 }
 
@@ -335,8 +348,10 @@ TEST_CASE("while the console or a screen is open every key and click passes thro
 	bool console = true;
 	rig.input.setBlocked([&console] { return console; });
 	rig.targets.update(&rig.door, 1, rig.hud);
-	for (EKEY_CODE code : { KEY_KEY_3, KEY_KEY_2, KEY_KEY_E, KEY_KEY_Q, KEY_TAB, KEY_RIGHT, KEY_KEY_R })
+	for (EKEY_CODE code : { KEY_KEY_3, KEY_KEY_2, KEY_KEY_E, KEY_KEY_Q, KEY_TAB })
 		CHECK_FALSE(rig.press(code));
+	for (EKEY_CODE code : { KEY_RIGHT, KEY_KEY_R })
+		CHECK_FALSE(rig.pad(code));
 	CHECK_FALSE(rig.input.onEvent(mouse(EMIE_LMOUSE_PRESSED_DOWN)));
 	CHECK(rig.log.empty());
 	CHECK_FALSE(rig.panel.isOpen());
@@ -349,10 +364,40 @@ TEST_CASE("E and left-click do what the prompt says: the picked slot if there is
 {
 	Rig rig;
 	rig.targets.update(&rig.door, 1, rig.hud);
-	rig.press(KEY_LEFT);
+	rig.pad(KEY_LEFT);
 	CHECK(rig.press(KEY_KEY_E));
 	CHECK(rig.input.onEvent(mouse(EMIE_LMOUSE_PRESSED_DOWN)));
-	rig.press(KEY_LEFT);
+	rig.pad(KEY_LEFT);
 	rig.press(KEY_KEY_E);
 	CHECK(rig.log == std::vector<std::string>{ "OK: Force on Test Door", "OK: Force on Test Door", "OK: Normal on Test Door" });
+}
+
+TEST_CASE("keyboard arrow keys and R pick and run nothing, and pass through; so do arrows from the pad's left stick")
+{
+	Rig rig;
+	rig.targets.update(&rig.door, 1, rig.hud);
+	for (EKEY_CODE code : { KEY_UP, KEY_RIGHT, KEY_DOWN, KEY_LEFT })
+	{
+		CHECK_FALSE(rig.press(code));
+		CHECK_FALSE(rig.pad(code, PadPart::STICK));
+	}
+	CHECK(rig.targets.selected() == nullptr);
+	CHECK_FALSE(rig.press(KEY_KEY_R));
+	CHECK(rig.log.empty());
+	CHECK(rig.pad(KEY_LEFT));
+	CHECK(rig.targets.selected() != nullptr);
+	CHECK(rig.pad(KEY_KEY_R));
+	CHECK(rig.log == std::vector<std::string>{ "OK: Force on Test Door" });
+}
+
+TEST_CASE("with no input source at all every key counts as the keyboard: arrows and R do nothing")
+{
+	Rig rig;
+	rig.input.setSource(nullptr);
+	rig.targets.update(&rig.door, 1, rig.hud);
+	CHECK_FALSE(rig.press(KEY_LEFT));
+	CHECK_FALSE(rig.press(KEY_KEY_R));
+	CHECK(rig.targets.selected() == nullptr);
+	CHECK(rig.press(KEY_KEY_1));
+	CHECK(rig.log == std::vector<std::string>{ "OK: Force on Test Door" });
 }

@@ -8,7 +8,7 @@ namespace
 {
 	struct Pad
 	{
-		Pad() : layer([this](EKEY_CODE key) { keys.push_back(key); }, [this](s16& x, s16& y) { x = hatX; y = hatY; }) {}
+		Pad() : layer([this](EKEY_CODE key, PadPart part) { keys.push_back(key); parts.push_back(part); }, [this](s16& x, s16& y) { x = hatX; y = hatY; }) {}
 
 		bool send(u32 buttons, s16 x = 0, s16 y = 0, u16 pov = 65535)
 		{
@@ -27,6 +27,7 @@ namespace
 		s16 hatX = 0;
 		s16 hatY = 0;
 		std::vector<EKEY_CODE> keys;
+		std::vector<PadPart> parts;
 		GamepadLayer layer;
 	};
 }
@@ -150,4 +151,20 @@ TEST_CASE("the right stick reads -1 to 1 each way from axes 3 and 4, with a dead
 	CHECK(pad.layer.rightX() > 0.4f);
 	CHECK(pad.layer.rightX() < 0.6f);
 	CHECK(pad.keys.empty());
+}
+
+TEST_CASE("each made-up key says which part of the pad made it: face buttons, the D-pad (POV or hat), or the left stick")
+{
+	Pad pad;
+	pad.send(1u << 2);
+	pad.send(0);
+	pad.send(0, 0, 0, 9000);
+	pad.send(0);
+	pad.hatY = -32767;
+	pad.send(0);
+	pad.hatY = 0;
+	pad.send(0);
+	pad.send(0, 30000, 0);
+	CHECK(pad.keys == std::vector<EKEY_CODE>{ KEY_KEY_R, KEY_RIGHT, KEY_UP, KEY_RIGHT });
+	CHECK(pad.parts == std::vector<PadPart>{ PadPart::BUTTON, PadPart::DPAD, PadPart::DPAD, PadPart::STICK });
 }

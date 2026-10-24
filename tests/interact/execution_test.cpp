@@ -43,17 +43,26 @@ namespace
 		DpadHud hud;
 		ContextPanel panel;
 		InteractionInput input{ targets, hud, panel };
+		InputSource source;
 		character::CharacterSheet sheet;
 		std::vector<std::string> log;
 
 		explicit Rig(const character::CharacterSheet& sheet) : sheet(sheet)
 		{
 			input.setPlayer(&this->sheet);
+			input.setSource(&source);
 			input.setLog([this](const std::string& line) { log.push_back(line); });
 		}
 
 		void aim(Interactable& target) { targets.update(&target, 1, hud); }
 		void press(EKEY_CODE code) { input.onEvent(key(code)); }
+		// A press the gamepad layer made up: arrows from its D-pad, R from its X button.
+		void pad(EKEY_CODE code)
+		{
+			source.beginPad(code == KEY_KEY_R ? PadPart::BUTTON : PadPart::DPAD);
+			input.onEvent(key(code));
+			source.endPad();
+		}
 	};
 
 	template <typename T> T made(const char* name, const char* type)
@@ -99,8 +108,8 @@ TEST_CASE("the test door's first skill checks Lockpicking and its second Electro
 	thief.aim(door);
 	CHECK(thief.input.execute(Approach::SKILL));
 	CHECK(thief.input.feedback() == "You pick the lock.");
-	thief.press(KEY_DOWN);
-	thief.press(KEY_KEY_R);
+	thief.pad(KEY_DOWN);
+	thief.pad(KEY_KEY_R);
 	CHECK(thief.input.feedback() == "Keypad is too advanced.");
 
 	Rig hacker(player(10, 0, TestDoor::ELECTRONICS_TO_HACK));
@@ -119,8 +128,8 @@ TEST_CASE("the test terminal opens for anyone and its security falls to enough E
 	novice.aim(terminal);
 	CHECK(novice.input.execute(Approach::NORMAL));
 	CHECK(novice.input.feedback() == "You access the terminal.");
-	novice.press(KEY_UP);
-	novice.press(KEY_KEY_R);
+	novice.pad(KEY_UP);
+	novice.pad(KEY_KEY_R);
 	CHECK(novice.input.feedback() == "Too advanced.");
 	CHECK_FALSE(novice.input.feedbackSucceeded());
 
@@ -144,7 +153,7 @@ TEST_CASE("a container is a supply_crate whose Normal (X with nothing picked) an
 
 	Rig rig(player(10));
 	rig.aim(crate);
-	rig.press(KEY_KEY_R);
+	rig.pad(KEY_KEY_R);
 	CHECK(opened == std::vector<loot::Container*>{ &chest });
 	CHECK(rig.input.feedback().empty());
 	rig.press(KEY_KEY_1);
@@ -230,15 +239,15 @@ TEST_CASE("picking a filled slot ticks, unpicking it ticks, and a direction with
 	Heard heard;
 	heard.attach(rig.input);
 	rig.aim(door);
-	rig.press(KEY_LEFT);
-	rig.press(KEY_LEFT);
+	rig.pad(KEY_LEFT);
+	rig.pad(KEY_LEFT);
 	CHECK(heard.cues == std::vector<Cue>{ Cue::Select, Cue::Select });
 	ContainerInteractable crate(*new loot::Container{ "Crate", 0.0f, 0.0f, 4, {} }, nullptr);
 	rig.aim(crate);
 	heard.cues.clear();
-	rig.press(KEY_UP);
-	rig.press(KEY_RIGHT);
-	rig.press(KEY_DOWN);
+	rig.pad(KEY_UP);
+	rig.pad(KEY_RIGHT);
+	rig.pad(KEY_DOWN);
 	CHECK(heard.cues.empty());
 	delete &crate.container();
 }

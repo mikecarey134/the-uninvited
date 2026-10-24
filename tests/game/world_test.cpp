@@ -24,11 +24,13 @@ namespace
 			: device(createDevice(video::EDT_NULL, dimension2d<u32>(1280, 720))), left(0),
 			  world(new World(device, model, skin, [this] { ++left; }))
 		{
+			world->setInputSource(&source);
 		}
 		explicit Fixture(const character::CharacterSheet& sheet)
 			: device(createDevice(video::EDT_NULL, dimension2d<u32>(1280, 720))), left(0),
 			  world(new World(device, mike, greenKnit, [this] { ++left; }, sheet))
 		{
+			world->setInputSource(&source);
 		}
 		~Fixture()
 		{
@@ -55,9 +57,19 @@ namespace
 			key(code, false);
 		}
 
+		// A press the gamepad layer made up: arrows from its D-pad, R from its X button.
+		void pad(EKEY_CODE code)
+		{
+			source.beginPad(code == KEY_KEY_R ? PadPart::BUTTON : PadPart::DPAD);
+			key(code, true);
+			key(code, false);
+			source.endPad();
+		}
+
 		IrrlichtDevice* device;
 		int left;
 		World* world;
+		InputSource source;
 	};
 
 	bool endsWith(const std::string& text, const std::string& tail)
@@ -783,11 +795,15 @@ TEST_CASE("at the test terminal D-pad up picks its skill and X (posted as R) run
 	r.KeyInput.Char = 0;
 	r.KeyInput.Shift = false;
 	r.KeyInput.Control = false;
+	fixture.source.beginPad(PadPart::BUTTON);
 	CHECK_FALSE(fixture.world->onEvent(r));
+	fixture.source.endPad();
 	fixture.world->teleport(-8.0f, 0.0f, -1.5f);
 	fixture.world->update(0.0f);
-	fixture.key(KEY_UP, true);
+	fixture.pad(KEY_UP);
+	fixture.source.beginPad(PadPart::BUTTON);
 	CHECK(fixture.world->onEvent(r));
+	fixture.source.endPad();
 	CHECK(log == std::vector<std::string>{ "FAILED: Too advanced." });
 }
 
@@ -802,7 +818,7 @@ TEST_CASE("beside a world container X with nothing picked runs Normal and opens 
 	REQUIRE(fixture.world->detector().hasTarget());
 	CHECK(fixture.world->detector().getTarget()->getInfo().name == crate.kind);
 	CHECK(fixture.world->detector().getTarget()->getObjectType() == "supply_crate");
-	fixture.key(KEY_KEY_R, true);
+	fixture.pad(KEY_KEY_R);
 	CHECK(opened == std::vector<loot::Container*>{ &crate });
 	CHECK(fixture.world->interactionFeedback().empty());
 }
@@ -817,7 +833,7 @@ TEST_CASE("at the test door with Force picked the prompt still says Open, and E 
 	REQUIRE(fixture.world->detector().hasTarget());
 	REQUIRE(fixture.world->detector().getTarget()->getInfo().name == "Test Door");
 	CHECK(fixture.world->promptAction() == "Open");
-	fixture.key(KEY_LEFT, true);
+	fixture.pad(KEY_LEFT);
 	CHECK(fixture.world->promptAction() == "Open");
 	fixture.key(KEY_KEY_E, true);
 	// The fixture's character is rolled at random, so the kick's outcome follows its Strength; either way it is Force, not the handle.
@@ -968,7 +984,7 @@ TEST_CASE("kicking the test door three times cracks it, splinters it, then burst
 	fixture.world->update(0.0f);
 	REQUIRE(fixture.world->detector().getTarget()->getInfo().name == "Test Door");
 	const Interactable* target = fixture.world->detector().getTarget();
-	fixture.key(KEY_LEFT, true);
+	fixture.pad(KEY_LEFT);
 	const char* lines[3] = { "The door cracks.", "The door splinters.", "You break through the door!" };
 	for (int hit = 0; hit < 3; ++hit)
 	{
@@ -1005,7 +1021,7 @@ namespace
 	{
 		fixture.world->teleport(-3.2f, 0.0f, 2.3f);
 		fixture.world->update(0.0f);
-		fixture.key(KEY_LEFT, true);
+		fixture.pad(KEY_LEFT);
 		for (int hit = 0; hit < 3; ++hit)
 			fixture.key(KEY_KEY_E, true);
 	}
@@ -1126,7 +1142,7 @@ TEST_CASE("a weak kick does no damage: no cracks and the door still blocks")
 	fixture.world->teleport(-3.2f, 0.0f, 2.3f);
 	fixture.world->update(0.0f);
 	const Interactable* target = fixture.world->detector().getTarget();
-	fixture.key(KEY_LEFT, true);
+	fixture.pad(KEY_LEFT);
 	fixture.key(KEY_KEY_E, true);
 	CHECK(fixture.world->interactionFeedback() == "Not strong enough.");
 	CHECK(fixture.world->forceBreak().hits(target) == 0);
@@ -1145,7 +1161,7 @@ TEST_CASE("one Force hit smashes a world crate's prop to debris, opens its loot,
 	fixture.world->teleport(crate.x, 0.0f, crate.z - 1.5f);
 	fixture.world->update(0.0f);
 	REQUIRE(fixture.world->detector().getTarget()->getObjectType() == "supply_crate");
-	fixture.key(KEY_LEFT, true);
+	fixture.pad(KEY_LEFT);
 	fixture.key(KEY_KEY_E, true);
 	CHECK_FALSE(prop->isVisible());
 	CHECK(particleSystems(fixture.world) == 1);

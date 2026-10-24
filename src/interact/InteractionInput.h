@@ -3,14 +3,16 @@
 
 #include "ContextPanel.h"
 #include "InteractionSounds.h"
+#include "InputMode.h"
 #include "TargetHud.h"
 #include <functional>
 #include <irrlicht.h>
 #include <string>
 
 // Routes player input to the targeted interactable. With nothing targeted every event passes through untouched.
-// Controller: the gamepad layer posts the D-pad as the arrow keys and X as R, so arrows pick a slot (Skill up, Guile right, second
-// Skill down, Force left) and R runs the picked one, or Normal when none is picked.
+// Controller: the gamepad layer posts the D-pad as the arrow keys and X as R; only those count, so arrows from the pad's D-pad pick
+// a slot (Skill up, Guile right, second Skill down, Force left) and R from its X button runs the picked one, or Normal when none is
+// picked. Arrow keys and R on the keyboard, and the left stick, pass through and pick nothing.
 // PC: E or left-click do the same as X (the picked slot, else Normal), matching the prompt; 1-4 run Force, Skill, second Skill,
 // Guile directly; right-click, Q or Tab toggle the context panel, which lists those same four, and its rows run on a click.
 class InteractionInput
@@ -26,6 +28,7 @@ public:
 	void setPlayer(const character::CharacterSheet* player) { player_ = player; }
 	// While this returns true (the console or a screen is open) every event passes through.
 	void setBlocked(std::function<bool()> blocked) { blocked_ = blocked; }
+	void setSource(const InputSource* source) { source_ = source; }
 	bool onEvent(const irr::SEvent& event);
 	// Call every frame after the target updates: the panel closes when its target goes, and feedback runs down.
 	void update(irr::f32 seconds);
@@ -53,6 +56,8 @@ private:
 	const Interactable* panelTarget_ = nullptr;
 	std::function<void(const std::string&)> log_;
 	std::function<bool()> blocked_;
+	const InputSource* source_ = nullptr;
+	PadPart padPart() const { return source_ ? source_->pad() : PadPart::NONE; }
 	std::function<void(Cue)> cue_;
 	const Interactable* heard_ = nullptr;
 	void play(Cue cue) const

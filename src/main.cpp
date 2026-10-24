@@ -99,18 +99,21 @@ namespace
 		MenuScene backdrop(device);
 		MenuScreens screens(device, canvas, flow, sound, status, &backdrop);
 		InputRouter router;
-		GamepadLayer gamepad([device](EKEY_CODE key) {
+		InputSource source;
+		GamepadLayer gamepad([device, &source](EKEY_CODE key, PadPart part) {
 			SEvent event;
 			event.EventType = EET_KEY_INPUT_EVENT;
 			event.KeyInput.Key = key;
 			event.KeyInput.Char = 0;
 			event.KeyInput.Shift = false;
 			event.KeyInput.Control = false;
+			source.beginPad(part);
 			for (bool down : { true, false })
 			{
 				event.KeyInput.PressedDown = down;
 				device->postEventFromUser(event);
 			}
+			source.endPad();
 		});
 		router.push(&gamepad);
 		core::array<SJoystickInfo> joysticks;
@@ -140,7 +143,19 @@ namespace
 		actions.bind("console", KEY_OEM_3);
 		ConsoleLayer consoleLayer(console, actions, [&flow] { return flow.screen() == menu::Screen::Playing; });
 		router.push(&consoleLayer);
-		device->setEventReceiver(&router);
+		// Every event passes the source tracker on its way to the router.
+		struct Tracked : public IEventReceiver
+		{
+			InputSource& source;
+			InputRouter& router;
+			Tracked(InputSource& source, InputRouter& router) : source(source), router(router) {}
+			bool OnEvent(const SEvent& event) override
+			{
+				source.observe(event);
+				return router.OnEvent(event);
+			}
+		} tracked(source, router);
+		device->setEventReceiver(&tracked);
 
 		MouseCapture capture(device->getCursorControl());
 		inventory::Catalog itemCatalog;
@@ -207,8 +222,7 @@ namespace
 						console.logMessage_ANSI(ELL_INFORMATION, line.c_str());
 						std::cout << line << std::endl;
 					});
-					// Keyboard first; [X] is the generic pad fallback when a gamepad was found at startup (see InteractPrompt.h TODO).
-					world->setPromptKey(joysticks.size() > 0 ? "X" : "E");
+					world->setInputSource(&source);
 					world->setOpenLoot([&lootScreen](loot::Container& container) { lootScreen.open(&container); });
 					world->setInteractionCue([&sound, &flow](Cue cue) {
 						CueSound cued = cueSound(cue);
