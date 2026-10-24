@@ -22,6 +22,7 @@ namespace
 			return info;
 		}
 		vector3df getPosition() const override { return at; }
+		std::string getObjectType() const override { return "locked_door"; }
 	};
 
 	// The camera sits 4.5 behind the player along the facing, as World::follow places it.

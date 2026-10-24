@@ -10,6 +10,7 @@
 #include "DpadHud.h"
 #include "Hud.h"
 #include "InteractionDetector.h"
+#include "TargetHud.h"
 #include "InputRouter.h"
 #include "net/Interpolator.h"
 #include "Loot.h"
@@ -123,6 +124,7 @@ private:
 	InteractionDetector detector_;
 	std::vector<std::unique_ptr<TestInteractable>> testInteractables_;
 	Interactable* shownTarget_ = nullptr;
+	TargetHud targetHud_ = TargetHud(defaultApproaches());
 };
 
 #endif

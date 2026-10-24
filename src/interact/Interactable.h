@@ -9,6 +9,7 @@ struct InteractableInfo
 	std::string name;     // "Locked Door", "Supply Crate", etc.
 	std::string iconPath; // path relative to assets/ui/icons/
 	float interactionRange = 2.5f; // how close the player needs to be, in world units
+	// approach availability comes from the ApproachRegistry, keyed by the object type
 };
 
 // Anything in the world the player can act on through the D-pad.
@@ -18,6 +19,7 @@ public:
 	virtual ~Interactable() {}
 	virtual InteractableInfo getInfo() const = 0;
 	virtual irr::core::vector3df getPosition() const = 0;
+	virtual std::string getObjectType() const = 0; // the ApproachRegistry key: "locked_door", "supply_crate", ...
 };
 
 #endif
