@@ -16,8 +16,8 @@ add_library(uninvited_menu STATIC src/menu/CharacterStore.cpp src/menu/MenuFlow.
 target_include_directories(uninvited_menu PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/menu")
 target_link_libraries(uninvited_menu PUBLIC uninvited_character)
 
-add_executable(game src/main.cpp src/menu/MenuScreens.cpp src/menu/Focus.cpp src/game/Gamepad.cpp src/menu/MenuSkin.cpp src/menu/MenuScene.cpp src/game/World.cpp src/game/Hud.cpp src/game/Notebook.cpp src/game/Multiplayer.cpp src/game/Sky.cpp src/game/DebugCommands.cpp src/game/Backpack.cpp src/game/InventoryScreen.cpp src/game/BackpackView.cpp src/game/Loot.cpp src/game/LootScreen.cpp)
-target_include_directories(game PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include/game")
+add_executable(game src/main.cpp src/menu/MenuScreens.cpp src/menu/Focus.cpp src/game/Gamepad.cpp src/menu/MenuSkin.cpp src/menu/MenuScene.cpp src/game/World.cpp src/game/Hud.cpp src/game/Notebook.cpp src/game/Multiplayer.cpp src/game/Sky.cpp src/game/DebugCommands.cpp src/game/Backpack.cpp src/game/InventoryScreen.cpp src/game/BackpackView.cpp src/game/Loot.cpp src/game/LootScreen.cpp src/ui/DpadHud.cpp)
+target_include_directories(game PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include/game" "${CMAKE_CURRENT_SOURCE_DIR}/src/ui")
 target_link_libraries(game PRIVATE uninvited_menu gamecore_engine game_net_session gamecore_inventory)
 
 enable_testing()
@@ -36,9 +36,9 @@ target_link_libraries(menu_tests PRIVATE uninvited_menu game_net_session)
 add_test(NAME menu_tests COMMAND menu_tests)
 
 add_executable(ui_tests tests/menu/main.cpp tests/menu/focus_test.cpp src/menu/Focus.cpp tests/game/gamepad_test.cpp src/game/Gamepad.cpp tests/menu/ui_test.cpp tests/menu/scene_test.cpp tests/menu/screens_test.cpp
-  tests/game/world_test.cpp tests/game/hud_test.cpp tests/game/notebook_test.cpp tests/game/multiplayer_test.cpp tests/game/sky_test.cpp tests/game/commands_test.cpp tests/game/backpack_test.cpp tests/game/inventory_screen_test.cpp tests/game/loot_test.cpp tests/game/loot_screen_test.cpp src/menu/MenuSkin.cpp src/menu/MenuScene.cpp src/menu/MenuScreens.cpp src/game/World.cpp
-  src/game/Hud.cpp src/game/Notebook.cpp src/game/Multiplayer.cpp src/game/Sky.cpp src/game/DebugCommands.cpp src/game/Backpack.cpp src/game/InventoryScreen.cpp src/game/BackpackView.cpp src/game/Loot.cpp src/game/LootScreen.cpp engine/gamecorev0.1.1/gamecorev0.1.1/engine/RecordingCanvas.cpp)
-target_include_directories(ui_tests PRIVATE "${DOCTEST_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/include/menu" "${CMAKE_CURRENT_SOURCE_DIR}/include/game")
+  tests/game/world_test.cpp tests/game/hud_test.cpp tests/game/notebook_test.cpp tests/game/multiplayer_test.cpp tests/game/sky_test.cpp tests/game/commands_test.cpp tests/game/backpack_test.cpp tests/game/inventory_screen_test.cpp tests/game/loot_test.cpp tests/game/loot_screen_test.cpp tests/ui/dpad_hud_test.cpp src/menu/MenuSkin.cpp src/menu/MenuScene.cpp src/menu/MenuScreens.cpp src/game/World.cpp
+  src/game/Hud.cpp src/game/Notebook.cpp src/game/Multiplayer.cpp src/game/Sky.cpp src/game/DebugCommands.cpp src/game/Backpack.cpp src/game/InventoryScreen.cpp src/game/BackpackView.cpp src/game/Loot.cpp src/game/LootScreen.cpp src/ui/DpadHud.cpp engine/gamecorev0.1.1/gamecorev0.1.1/engine/RecordingCanvas.cpp)
+target_include_directories(ui_tests PRIVATE "${DOCTEST_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/include/menu" "${CMAKE_CURRENT_SOURCE_DIR}/include/game" "${CMAKE_CURRENT_SOURCE_DIR}/src/ui")
 target_compile_definitions(ui_tests PRIVATE ASSETS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets")
 target_link_libraries(ui_tests PRIVATE uninvited_menu gamecore_engine game_net_session gamecore_inventory)
 add_test(NAME ui_tests COMMAND ui_tests WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")

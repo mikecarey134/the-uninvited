@@ -6,6 +6,7 @@
 #include <vector>
 #include <irrlicht.h>
 #include "CharacterSheet.h"
+#include "DpadHud.h"
 #include "Hud.h"
 #include "InputRouter.h"
 #include "net/Interpolator.h"
@@ -45,6 +46,7 @@ public:
 	void teleport(irr::f32 x, irr::f32 y, irr::f32 z);
 	void wield(const char* model);
 	const HudWeapon& weapon() const { return weapon_; }
+	DpadHud& dpad() { return dpad_; }
 	void arm(const HudWeapon& weapon) { weapon_ = weapon; }
 	irr::f32 speed() const { return speed_; }
 	void setSpeed(irr::f32 speed) { speed_ = speed; }
@@ -64,6 +66,7 @@ public:
 	irr::scene::IAnimatedMeshSceneNode* remote(uint16_t id) const;
 
 private:
+	void cycleDpadDemo();
 	void addGround();
 	void addPlayer(const char* model, const char* skin);
 	void addLights();
@@ -102,6 +105,8 @@ private:
 	irr::f32 speed_;
 	std::vector<loot::Container> containers_;
 	bool debugShown_;
+	DpadHud dpad_;
+	int dpadDemo_ = 0;
 	irr::scene::ILightSceneNode* sun_;
 	irr::video::SColor zenith_;
 	irr::video::SColor horizon_;
