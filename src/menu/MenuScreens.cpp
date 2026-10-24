@@ -615,6 +615,14 @@ void MenuScreens::draw()
 	{
 		drawVitals(canvas_, world_->sheet(), world_->weapon());
 		world_->dpad().render(canvas_);
+		position2d<s32> marker;
+		if (world_->targetMarker(marker))
+		{
+			canvas_.drawImage(canvas_.loadTexture("assets/ui/icons/rings/gold.png"), rect<s32>(marker.X - 14, marker.Y - 14, marker.X + 14, marker.Y + 14));
+			std::string icon = world_->detector().getTarget() ? world_->detector().getTarget()->getInfo().iconPath : "";
+			if (!icon.empty())
+				canvas_.drawImage(canvas_.loadTexture(("assets/ui/icons/" + icon).c_str()), rect<s32>(marker.X - 9, marker.Y - 9, marker.X + 9, marker.Y + 9));
+		}
 		if (world_->containerInReach() && !world_->dead())
 			canvas_.drawText(canvas_.loadFont(labelFont), L"Press E to search", rect<s32>(0, (s32)screen.Height - 156, (s32)screen.Width,
 				(s32)screen.Height - 132), SColor(255, 255, 255, 255), true, true, false);

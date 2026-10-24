@@ -3,15 +3,19 @@
 
 #include <functional>
 #include <map>
+#include <memory>
 #include <vector>
 #include <irrlicht.h>
 #include "CharacterSheet.h"
 #include "DpadHud.h"
 #include "Hud.h"
+#include "InteractionDetector.h"
 #include "InputRouter.h"
 #include "net/Interpolator.h"
 #include "Loot.h"
 #include "protocol/GameMessages.h"
+
+struct TestInteractable;
 
 class World : public InputLayer
 {
@@ -47,6 +51,8 @@ public:
 	void wield(const char* model);
 	const HudWeapon& weapon() const { return weapon_; }
 	DpadHud& dpad() { return dpad_; }
+	const InteractionDetector& detector() const { return detector_; }
+	bool targetMarker(irr::core::position2d<irr::s32>& at) const;
 	void arm(const HudWeapon& weapon) { weapon_ = weapon; }
 	irr::f32 speed() const { return speed_; }
 	void setSpeed(irr::f32 speed) { speed_ = speed; }
@@ -67,6 +73,8 @@ public:
 
 private:
 	void cycleDpadDemo();
+	void addTestInteractables();
+	void detect();
 	void addGround();
 	void addPlayer(const char* model, const char* skin);
 	void addLights();
@@ -112,6 +120,9 @@ private:
 	irr::video::SColor horizon_;
 	std::map<uint16_t, Remote> remotes_;
 	irr::f32 clock_;
+	InteractionDetector detector_;
+	std::vector<std::unique_ptr<TestInteractable>> testInteractables_;
+	Interactable* shownTarget_ = nullptr;
 };
 
 #endif

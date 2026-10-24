@@ -61,6 +61,7 @@ World::World(IrrlichtDevice* device, const char* model, const char* skin, std::f
 	camera_->setFOV(55.0f * DEGTORAD);
 	addGround();
 	addProps();
+	addTestInteractables();
 	addPlayer(model, skin);
 	addLights();
 	follow();
@@ -123,6 +124,75 @@ void World::addProp(const char* name, const char* file, f32 x, f32 z, const vect
 		material.FogEnable = true;
 		material.NormalizeNormals = true;
 	}
+}
+
+// TEMPORARY (SCRUM-1001): coloured boxes standing in for real interactables until the object system exists.
+struct TestInteractable : public Interactable
+{
+	InteractableInfo info;
+	vector3df position;
+
+	InteractableInfo getInfo() const override { return info; }
+	vector3df getPosition() const override { return position; }
+};
+
+// TEMPORARY (SCRUM-1001): a door and a crate side by side to try aiming between two, and a lone terminal for auto-targeting.
+void World::addTestInteractables()
+{
+	struct Spec
+	{
+		const char* name;
+		const char* icon;
+		vector3df at;
+		vector3df size;
+		SColor colour;
+	};
+	const Spec specs[] = {
+		{ "Test Door", "interactables/locked-door.png", vector3df(-2.5f, 0.0f, 4.0f), vector3df(1.0f, 2.0f, 0.2f), SColor(255, 110, 72, 40) },
+		{ "Test Crate", "interactables/supply-crate.png", vector3df(-1.0f, 0.0f, 4.0f), vector3df(0.7f, 0.7f, 0.7f), SColor(255, 150, 118, 60) },
+		{ "Test Terminal", "interactables/terminal.png", vector3df(-8.0f, 0.0f, 0.0f), vector3df(0.6f, 1.2f, 0.4f), SColor(255, 60, 90, 110) } };
+	for (const Spec& spec : specs)
+	{
+		std::unique_ptr<TestInteractable> object(new TestInteractable());
+		object->info.name = spec.name;
+		object->info.iconPath = spec.icon;
+		object->position = spec.at + vector3df(0.0f, spec.size.Y / 2.0f, 0.0f);
+		IMesh* mesh = scene_->getGeometryCreator()->createCubeMesh(spec.size);
+		scene_->getMeshManipulator()->setVertexColors(mesh, spec.colour);
+		ISceneNode* node = scene_->addMeshSceneNode(mesh, 0, -1, object->position);
+		mesh->drop();
+		node->setName("test interactable");
+		node->setMaterialFlag(EMF_LIGHTING, false);
+		node->setMaterialFlag(EMF_FOG_ENABLE, true);
+		detector_.addInteractable(object.get());
+		testInteractables_.push_back(std::move(object));
+	}
+}
+
+void World::detect()
+{
+	if (player_)
+		detector_.update(player_->getPosition(), camera_->getTarget() - camera_->getPosition(), camera_->getPosition());
+	Interactable* target = dead() ? nullptr : detector_.getTarget();
+	if (target == shownTarget_)
+		return;
+	shownTarget_ = target;
+	if (target)
+	{
+		InteractableInfo info = target->getInfo();
+		dpad_.setTarget(info.name, info.iconPath);
+		dpad_.setState(DpadState::ACTIVE);
+	}
+	else
+		dpad_.setState(DpadState::IDLE);
+}
+
+bool World::targetMarker(position2d<s32>& at) const
+{
+	if (!shownTarget_)
+		return false;
+	at = scene_->getSceneCollisionManager()->getScreenCoordinatesFrom3DPosition(shownTarget_->getPosition() + vector3df(0.0f, 1.2f, 0.0f), camera_);
+	return at.X != -10000;
 }
 
 bool World::blocked(const vector3df& at) const
@@ -315,6 +385,7 @@ void World::update(f32 seconds)
 	{
 		if (player_)
 			player_->setAnimationSpeed(0.0f);
+		detect();
 		return;
 	}
 	if (player_)
@@ -333,6 +404,7 @@ void World::update(f32 seconds)
 		animate(walking);
 	}
 	follow();
+	detect();
 }
 
 f32 World::cameraDistance() const

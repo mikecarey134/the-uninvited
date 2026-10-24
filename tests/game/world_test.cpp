@@ -736,3 +736,34 @@ TEST_CASE("the world's own scene manager loads .fbx models through the engine's 
 	CHECK(mesh->getMeshBufferCount() > 0);
 	CHECK(mesh->getFrameCount() > 1);
 }
+
+TEST_CASE("walking up to the lone test terminal targets it and lights the D-pad; walking away puts the D-pad back to idle")
+{
+	Fixture fixture;
+	CHECK(fixture.world->dpad().state() == DpadState::IDLE);
+	fixture.world->teleport(-8.0f, 0.0f, -1.5f);
+	fixture.world->update(0.0f);
+	REQUIRE(fixture.world->detector().hasTarget());
+	CHECK(fixture.world->detector().getTarget()->getInfo().name == "Test Terminal");
+	CHECK(fixture.world->dpad().state() == DpadState::ACTIVE);
+	fixture.world->teleport(0.0f, 0.0f, -20.0f);
+	fixture.world->update(0.0f);
+	CHECK_FALSE(fixture.world->detector().hasTarget());
+	CHECK(fixture.world->dpad().state() == DpadState::IDLE);
+}
+
+TEST_CASE("standing between the test door and crate targets whichever the camera faces")
+{
+	Fixture fixture;
+	fixture.world->teleport(-1.75f, 0.0f, 2.3f);
+	fixture.world->update(0.0f);
+	CHECK(fixture.world->detector().getInRange().size() == 2);
+	fixture.world->look(-11.0f);
+	fixture.world->update(0.0f);
+	REQUIRE(fixture.world->detector().hasTarget());
+	CHECK(fixture.world->detector().getTarget()->getInfo().name == "Test Door");
+	fixture.world->look(22.0f);
+	fixture.world->update(0.0f);
+	REQUIRE(fixture.world->detector().hasTarget());
+	CHECK(fixture.world->detector().getTarget()->getInfo().name == "Test Crate");
+}
