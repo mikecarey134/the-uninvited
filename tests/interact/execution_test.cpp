@@ -185,3 +185,116 @@ TEST_CASE("an approach the target lacks runs no handler and changes no feedback"
 	CHECK(rig.input.feedback().empty());
 	CHECK(rig.log.empty());
 }
+
+#include <fstream>
+
+namespace
+{
+	struct Heard
+	{
+		std::vector<Cue> cues;
+		void attach(InteractionInput& input)
+		{
+			input.setCue([this](Cue cue) { cues.push_back(cue); });
+		}
+	};
+
+	// A WAV's length from its header: data bytes over bytes per second.
+	float seconds(const std::string& path)
+	{
+		std::ifstream in(path, std::ios::binary);
+		std::vector<char> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+		if (bytes.size() < 44 || std::string(bytes.begin(), bytes.begin() + 4) != "RIFF")
+			return -1.0f;
+		auto u32 = [&bytes](size_t at) { return (uint32_t)(unsigned char)bytes[at] | (uint32_t)(unsigned char)bytes[at + 1] << 8 |
+			(uint32_t)(unsigned char)bytes[at + 2] << 16 | (uint32_t)(unsigned char)bytes[at + 3] << 24; };
+		uint32_t rate = 0;
+		for (size_t at = 12; at + 8 <= bytes.size();)
+		{
+			std::string id(bytes.begin() + at, bytes.begin() + at + 4);
+			uint32_t size = u32(at + 4);
+			if (id == "fmt ")
+				rate = u32(at + 16);
+			if (id == "data")
+				return rate ? (float)size / rate : -1.0f;
+			at += 8 + size + (size & 1);
+		}
+		return -1.0f;
+	}
+}
+
+TEST_CASE("picking a filled slot ticks, unpicking it ticks, and a direction with nothing in it is silent")
+{
+	TestDoor door = made<TestDoor>("Test Door", "locked_door");
+	Rig rig(player(10));
+	Heard heard;
+	heard.attach(rig.input);
+	rig.aim(door);
+	rig.press(KEY_LEFT);
+	rig.press(KEY_LEFT);
+	CHECK(heard.cues == std::vector<Cue>{ Cue::Select, Cue::Select });
+	ContainerInteractable crate(*new loot::Container{ "Crate", 0.0f, 0.0f, 4, {} }, nullptr);
+	rig.aim(crate);
+	heard.cues.clear();
+	rig.press(KEY_UP);
+	rig.press(KEY_RIGHT);
+	rig.press(KEY_DOWN);
+	CHECK(heard.cues.empty());
+	delete &crate.container();
+}
+
+TEST_CASE("running an approach sounds its outcome: success, failure, or the rattle for Normal on a locked door")
+{
+	TestDoor door = made<TestDoor>("Test Door", "locked_door");
+	TestTerminal terminal = made<TestTerminal>("Test Terminal", "terminal");
+	Rig rig(player(TestDoor::STRENGTH_TO_KICK - 1));
+	Heard heard;
+	heard.attach(rig.input);
+	rig.aim(door);
+	rig.press(KEY_KEY_E);
+	rig.press(KEY_KEY_1);
+	rig.press(KEY_KEY_4);
+	rig.aim(terminal);
+	rig.press(KEY_KEY_E);
+	rig.press(KEY_KEY_2);
+	CHECK(heard.cues == std::vector<Cue>{ Cue::Locked, Cue::Failure, Cue::Success, Cue::Success, Cue::Failure });
+}
+
+TEST_CASE("the target ping sounds once when a target appears from nothing, not while it stays or when aim moves to another")
+{
+	TestDoor door = made<TestDoor>("Test Door", "locked_door");
+	TestTerminal terminal = made<TestTerminal>("Test Terminal", "terminal");
+	Rig rig(player(10));
+	Heard heard;
+	heard.attach(rig.input);
+	rig.input.update(0.1f);
+	CHECK(heard.cues.empty());
+	rig.aim(door);
+	for (int i = 0; i < 5; ++i)
+		rig.input.update(0.1f);
+	CHECK(heard.cues == std::vector<Cue>{ Cue::Target });
+	rig.aim(terminal);
+	rig.input.update(0.1f);
+	CHECK(heard.cues.size() == 1);
+	rig.targets.update(nullptr, 0, rig.hud);
+	rig.input.update(0.1f);
+	rig.aim(door);
+	rig.input.update(0.1f);
+	CHECK(heard.cues == std::vector<Cue>{ Cue::Target, Cue::Target });
+}
+
+TEST_CASE("every cue's sound file is in the assets and short, the ping and tick quietest by design")
+{
+	for (Cue cue : { Cue::Select, Cue::Success, Cue::Failure, Cue::Locked, Cue::Target })
+	{
+		CueSound sound = cueSound(cue);
+		std::string path = std::string(ASSETS_DIR) + std::string(sound.file).substr(std::string("assets").size());
+		CAPTURE(path);
+		float length = seconds(path);
+		CHECK(length > 0.05f);
+		CHECK(length <= 0.25f);
+		CHECK(sound.gain > 0.0f);
+		CHECK(sound.gain <= 1.0f);
+	}
+	CHECK(cueSound(Cue::Select).gain < cueSound(Cue::Success).gain);
+}

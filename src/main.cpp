@@ -210,6 +210,16 @@ namespace
 					// Keyboard first; [X] is the generic pad fallback when a gamepad was found at startup (see InteractPrompt.h TODO).
 					world->setPromptKey(joysticks.size() > 0 ? "X" : "E");
 					world->setOpenLoot([&lootScreen](loot::Container& container) { lootScreen.open(&container); });
+					world->setInteractionCue([&sound, &flow](Cue cue) {
+						CueSound cued = cueSound(cue);
+						if (!sound)
+							return;
+						if (gamecore::Sound* played = sound->play2D(cued.file, false, false, true))
+						{
+							played->setVolume(cued.gain * flow.preferences().sfxVolume / 100.0f);
+							played->drop();
+						}
+					});
 					world->setInteractionBlocked([&console, &notebook, &inventoryScreen, &lootScreen] {
 						return console.isVisible() || notebook.isOpen() || inventoryScreen.isOpen() || lootScreen.isOpen();
 					});

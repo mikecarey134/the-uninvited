@@ -63,6 +63,7 @@ public:
 	bool contextPanelOpen() const { return contextPanel_.isOpen(); }
 	void setInteractionLog(std::function<void(const std::string&)> log) { interaction_.setLog(log); }
 	void setInteractionBlocked(std::function<bool()> blocked) { interaction_.setBlocked(blocked); }
+	void setInteractionCue(std::function<void(Cue)> cue) { interaction_.setCue(cue); }
 	// How the containers' approaches open the loot screen on one container.
 	void setOpenLoot(std::function<void(loot::Container&)> open) { openLoot_ = open; }
 	const std::string& interactionFeedback() const { return interaction_.feedback(); }

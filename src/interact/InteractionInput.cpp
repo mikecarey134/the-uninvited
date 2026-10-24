@@ -23,16 +23,20 @@ bool InteractionInput::onEvent(const SEvent& event)
 	switch (event.KeyInput.Key)
 	{
 	case KEY_UP:
-		targets_.select(DpadDirection::UP, hud_);
+		if (targets_.select(DpadDirection::UP, hud_))
+			play(Cue::Select);
 		return true;
 	case KEY_RIGHT:
-		targets_.select(DpadDirection::RIGHT, hud_);
+		if (targets_.select(DpadDirection::RIGHT, hud_))
+			play(Cue::Select);
 		return true;
 	case KEY_DOWN:
-		targets_.select(DpadDirection::DOWN, hud_);
+		if (targets_.select(DpadDirection::DOWN, hud_))
+			play(Cue::Select);
 		return true;
 	case KEY_LEFT:
-		targets_.select(DpadDirection::LEFT, hud_);
+		if (targets_.select(DpadDirection::LEFT, hud_))
+			play(Cue::Select);
 		return true;
 	case KEY_KEY_R:
 	case KEY_KEY_E:
@@ -97,6 +101,10 @@ void InteractionInput::togglePanel()
 
 void InteractionInput::update(f32 seconds)
 {
+	// The ping is for a target appearing from nothing, not for aim moving from one target to the next.
+	if (targets_.target() && !heard_)
+		play(Cue::Target);
+	heard_ = targets_.target();
 	if (panel_.isOpen() && targets_.target() != panelTarget_)
 		panel_.close();
 	if (feedbackLeft_ > 0.0f)
@@ -141,6 +149,10 @@ bool InteractionInput::run(const ApproachOption* option)
 		break;
 	}
 	succeeded_ = done;
+	if (done)
+		play(Cue::Success);
+	else
+		play(option->type == Approach::NORMAL && target->getObjectType() == "locked_door" ? Cue::Locked : Cue::Failure);
 	std::string said = !actor.message.empty() ? actor.message : (done ? "" : "Can't do that.");
 	// A handler that opened a screen has shown its result; only the console hears about it.
 	feedback_ = actor.openedScreen ? "" : said;

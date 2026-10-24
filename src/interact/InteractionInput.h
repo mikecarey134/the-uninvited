@@ -2,6 +2,7 @@
 #define INTERACTION_INPUT_H
 
 #include "ContextPanel.h"
+#include "InteractionSounds.h"
 #include "TargetHud.h"
 #include <functional>
 #include <irrlicht.h>
@@ -18,6 +19,9 @@ public:
 	InteractionInput(TargetHud& targets, DpadHud& hud, ContextPanel& panel) : targets_(targets), hud_(hud), panel_(panel) {}
 
 	void setLog(std::function<void(const std::string&)> log) { log_ = log; }
+	// Hears the sound cues: a tick on picking a slot, success or failure (or a locked-door rattle) on running an approach, and a
+	// faint ping when a target appears out of nothing.
+	void setCue(std::function<void(Cue)> cue) { cue_ = cue; }
 	// The stats approach handlers check.
 	void setPlayer(const character::CharacterSheet* player) { player_ = player; }
 	// While this returns true (the console or a screen is open) every event passes through.
@@ -49,6 +53,13 @@ private:
 	const Interactable* panelTarget_ = nullptr;
 	std::function<void(const std::string&)> log_;
 	std::function<bool()> blocked_;
+	std::function<void(Cue)> cue_;
+	const Interactable* heard_ = nullptr;
+	void play(Cue cue) const
+	{
+		if (cue_)
+			cue_(cue);
+	}
 	const character::CharacterSheet* player_ = nullptr;
 	std::string feedback_;
 	bool succeeded_ = false;
