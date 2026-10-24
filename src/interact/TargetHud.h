@@ -7,7 +7,8 @@
 #include <cstddef>
 
 // The glue between detection, the approach registry and the D-pad: when the target changes, the D-pad shows that target's name,
-// icon and approaches (Normal up, Force right, Skill down, Guile left); when the target is lost it goes idle.
+// icon and approaches (Normal up, Force right, Skill down, Guile left) with nothing selected, unless the target has only one
+// approach, which starts selected. The selection holds while the target does. When the target is lost the D-pad goes idle.
 class TargetHud
 {
 public:
@@ -15,12 +16,21 @@ public:
 
 	void update(const Interactable* target, std::size_t inRange, DpadHud& hud);
 
+	const Interactable* target() const { return shown_; }
+	const ApproachSet* approaches() const;
+	const ApproachOption* option(Approach approach) const;
+	const ApproachOption* selected() const { return selected_; }
+	// Selects an approach the target offers and returns true; anything else changes nothing and returns false.
+	bool select(Approach approach, DpadHud& hud);
+
 	static DpadDirection slotFor(Approach approach);
+	static const char* nameOf(Approach approach);
 
 private:
 	ApproachRegistry registry_;
 	const Interactable* shown_ = nullptr;
 	bool multiple_ = false;
+	const ApproachOption* selected_ = nullptr;
 };
 
 #endif

@@ -767,3 +767,23 @@ TEST_CASE("standing between the test door and crate targets whichever the camera
 	REQUIRE(fixture.world->detector().hasTarget());
 	CHECK(fixture.world->detector().getTarget()->getInfo().name == "Test Crate");
 }
+
+TEST_CASE("at the test terminal the D-pad picks an approach and X (posted as R) runs it; away from it both pass through")
+{
+	Fixture fixture;
+	std::vector<std::string> log;
+	fixture.world->setInteractionLog([&log](const std::string& line) { log.push_back(line); });
+	SEvent r;
+	r.EventType = EET_KEY_INPUT_EVENT;
+	r.KeyInput.Key = KEY_KEY_R;
+	r.KeyInput.PressedDown = true;
+	r.KeyInput.Char = 0;
+	r.KeyInput.Shift = false;
+	r.KeyInput.Control = false;
+	CHECK_FALSE(fixture.world->onEvent(r));
+	fixture.world->teleport(-8.0f, 0.0f, -1.5f);
+	fixture.world->update(0.0f);
+	fixture.key(KEY_DOWN, true);
+	CHECK(fixture.world->onEvent(r));
+	CHECK(log == std::vector<std::string>{ "INTERACT: Skill on Test Terminal" });
+}

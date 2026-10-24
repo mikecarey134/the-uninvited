@@ -203,6 +203,10 @@ namespace
 				{
 					world.reset(new World(device, menu::characterModel(chosen->gender()),
 						menu::outfitSkin(chosen->gender(), chosen->outfit()).c_str(), [&flow] { flow.returnToTitle(); }, *chosen));
+					world->setInteractionLog([&console](const std::string& line) {
+						console.logMessage_ANSI(ELL_INFORMATION, line.c_str());
+						std::cout << line << std::endl;
+					});
 					if (hosting)
 						world->setTimeCompression(flow.timeScale());
 					screens.setWorld(world.get());

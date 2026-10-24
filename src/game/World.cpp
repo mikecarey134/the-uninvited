@@ -305,17 +305,13 @@ void World::advanceClock(f32 seconds)
 
 bool World::onEvent(const SEvent& event)
 {
+	if (!dead() && interaction_.onEvent(event))
+		return true;
 	if (event.EventType != EET_KEY_INPUT_EVENT)
 		return false;
 	if (event.KeyInput.Key == KEY_F3 && event.KeyInput.PressedDown)
 	{
 		debugShown_ = !debugShown_;
-		return true;
-	}
-	// TEMPORARY (SCRUM-1000): F9 cycles the D-pad HUD through its states with dummy data until detection (SCRUM-1001) drives it.
-	if (event.KeyInput.Key == KEY_F9 && event.KeyInput.PressedDown)
-	{
-		cycleDpadDemo();
 		return true;
 	}
 	if (dead())
@@ -329,36 +325,6 @@ bool World::onEvent(const SEvent& event)
 		if (event.KeyInput.Key == moveKeys[i])
 			held_[i] = event.KeyInput.PressedDown;
 	return false;
-}
-
-// TEMPORARY (SCRUM-1000): dummy data for the F9 D-pad demo; remove once SCRUM-1001 and SCRUM-1003 drive the widget.
-void World::cycleDpadDemo()
-{
-	dpadDemo_ = (dpadDemo_ + 1) % 4;
-	dpad_.clearSelection();
-	dpad_.setActionPrompt("");
-	if (dpadDemo_ == 0)
-	{
-		dpad_.setState(DpadState::IDLE);
-		return;
-	}
-	dpad_.setTarget("Locked Door", "interactables/locked-door.png");
-	dpad_.setSlot(DpadDirection::UP, "Pick", "skills/lockpicking.png");
-	dpad_.setSlot(DpadDirection::RIGHT, "Force", "approach/force.png");
-	dpad_.setSlot(DpadDirection::DOWN, "Talk", "skills/speech.png");
-	dpad_.setSlot(DpadDirection::LEFT, "Guile", "modes/guile.png");
-	dpad_.setState(DpadState::ACTIVE);
-	if (dpadDemo_ == 2)
-	{
-		dpad_.clearSlot(DpadDirection::DOWN);
-		dpad_.setSelectedDirection(DpadDirection::UP);
-		dpad_.setActionPrompt("Pick Lock");
-	}
-	if (dpadDemo_ == 3)
-	{
-		dpad_.setTarget("Supply Crate", "interactables/supply-crate.png");
-		dpad_.setState(DpadState::MULTI_OBJECT);
-	}
 }
 
 void World::look(f32 degrees)

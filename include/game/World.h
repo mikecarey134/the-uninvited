@@ -10,6 +10,7 @@
 #include "DpadHud.h"
 #include "Hud.h"
 #include "InteractionDetector.h"
+#include "InteractionInput.h"
 #include "TargetHud.h"
 #include "InputRouter.h"
 #include "net/Interpolator.h"
@@ -54,6 +55,7 @@ public:
 	DpadHud& dpad() { return dpad_; }
 	const InteractionDetector& detector() const { return detector_; }
 	bool targetMarker(irr::core::position2d<irr::s32>& at) const;
+	void setInteractionLog(std::function<void(const std::string&)> log) { interaction_.setLog(log); }
 	void arm(const HudWeapon& weapon) { weapon_ = weapon; }
 	irr::f32 speed() const { return speed_; }
 	void setSpeed(irr::f32 speed) { speed_ = speed; }
@@ -73,7 +75,6 @@ public:
 	irr::scene::IAnimatedMeshSceneNode* remote(uint16_t id) const;
 
 private:
-	void cycleDpadDemo();
 	void addTestInteractables();
 	void detect();
 	void addGround();
@@ -115,7 +116,6 @@ private:
 	std::vector<loot::Container> containers_;
 	bool debugShown_;
 	DpadHud dpad_;
-	int dpadDemo_ = 0;
 	irr::scene::ILightSceneNode* sun_;
 	irr::video::SColor zenith_;
 	irr::video::SColor horizon_;
@@ -125,6 +125,7 @@ private:
 	std::vector<std::unique_ptr<TestInteractable>> testInteractables_;
 	Interactable* shownTarget_ = nullptr;
 	TargetHud targetHud_ = TargetHud(defaultApproaches());
+	InteractionInput interaction_{ targetHud_, dpad_ };
 };
 
 #endif
