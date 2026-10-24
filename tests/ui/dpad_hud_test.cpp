@@ -42,7 +42,7 @@ namespace
 	}
 }
 
-TEST_CASE("an idle D-pad draws only ghosted wedges at 20% opacity: no text and no icons")
+TEST_CASE("a fresh D-pad is idle and still draws its ghosted wedges at 35% opacity, with no text and no icons")
 {
 	DpadHud dpad;
 	stock(dpad);
@@ -52,7 +52,9 @@ TEST_CASE("an idle D-pad draws only ghosted wedges at 20% opacity: no text and n
 	CHECK(count(canvas, RecordingCanvas::TEXT) == 0);
 	CHECK(count(canvas, RecordingCanvas::IMAGE) == 0);
 	CHECK(count(canvas, RecordingCanvas::RECT) == 5);
-	CHECK(dpad.opacity() == doctest::Approx(0.2f));
+	CHECK(dpad.state() == DpadState::IDLE);
+	CHECK(dpad.opacity() == doctest::Approx(0.35f));
+	CHECK(count(canvas, RecordingCanvas::LINE) == 8);
 }
 
 TEST_CASE("the D-pad sits in the bottom-left corner and is about 120px square at 1080p")
@@ -82,7 +84,7 @@ TEST_CASE("an active D-pad fades in over about a quarter second and shows labels
 	stock(dpad);
 	dpad.setState(DpadState::ACTIVE);
 	dpad.update(0.1f);
-	CHECK(dpad.opacity() > 0.2f);
+	CHECK(dpad.opacity() > 0.35f);
 	CHECK(dpad.opacity() < 1.0f);
 	dpad.update(0.15f);
 	CHECK(dpad.opacity() == doctest::Approx(1.0f));

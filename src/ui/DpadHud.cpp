@@ -8,7 +8,7 @@ using namespace video;
 
 namespace
 {
-	const f32 idleOpacity = 0.2f;
+	const f32 idleOpacity = 0.35f;
 	const f32 fadeSeconds = 0.225f;
 	const f32 pulseSeconds = 0.5f;
 	const s32 margin = 12;

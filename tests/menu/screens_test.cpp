@@ -732,6 +732,16 @@ TEST_CASE("the vitals HUD shows only in the world, replacing the big name headin
 		screens.draw();
 		CHECK(hud());
 		CHECK_FALSE(heading(L"Rook"));
+		world.update(0.0f);
+		REQUIRE_FALSE(world.detector().hasTarget());
+		REQUIRE(world.detector().getInRange().empty());
+		canvas.calls.clear();
+		screens.draw();
+		int ghostArrows = 0;
+		for (const RecordingCanvas::Call& call : canvas.calls)
+			if (call.kind == RecordingCanvas::LINE && call.from.X < 300 && call.from.Y > (s32)canvas.screenDimension.Height - 250 && call.colour.getAlpha() > 0)
+				++ghostArrows;
+		CHECK(ghostArrows == 8);
 		auto drawn = [&canvas](const std::string& file) {
 			for (const RecordingCanvas::Call& call : canvas.calls)
 				if (call.kind == RecordingCanvas::IMAGE && canvas.pathOf(call.texture) == file)
