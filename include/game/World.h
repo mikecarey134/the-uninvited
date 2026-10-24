@@ -60,6 +60,7 @@ public:
 	DpadHud& dpad() { return dpad_; }
 	const InteractionDetector& detector() const { return detector_; }
 	const ForceBreak& forceBreak() const { return *forceBreak_; }
+	static const irr::f32 SMASH_LOOT_DELAY;
 	bool targetMarker(irr::core::position2d<irr::s32>& at) const;
 	ContextPanel& contextPanel() { return contextPanel_; }
 	bool contextPanelOpen() const { return contextPanel_.isOpen(); }
@@ -151,6 +152,8 @@ private:
 	std::function<void(loot::Container&)> openLoot_;
 	std::unique_ptr<ForceBreak> forceBreak_;
 	std::vector<irr::scene::ISceneNode*> props_;
+	loot::Container* pendingLoot_ = nullptr; // a smashed container whose loot opens once the break has been seen
+	irr::f32 pendingLootIn_ = 0.0f;
 	std::string promptKey_ = "E";
 	Interactable* shownTarget_ = nullptr;
 	TargetHud targetHud_ = TargetHud(defaultApproaches());

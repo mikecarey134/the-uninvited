@@ -24,9 +24,12 @@ bool ContainerInteractable::onForce(Actor& player)
 {
 	if (!open_)
 		return false;
-	if (breaker_)
-		breaker_->applyDamage(this); // a crate takes one hit; once smashed, Force just reaches in
-	open_(container_);
+	// A crate takes one hit; once smashed, Force just reaches in.
+	bool smashed = breaker_ && breaker_->applyDamage(this) == BreakResult::Broken;
+	if (smashed && smashedOpen_)
+		smashedOpen_(container_);
+	else
+		open_(container_);
 	player.openedScreen = true;
 	player.message = "You smash the " + container_.kind + " open.";
 	return true;

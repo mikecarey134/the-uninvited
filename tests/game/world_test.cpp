@@ -999,22 +999,119 @@ TEST_CASE("kicking the test door three times cracks it, splinters it, then burst
 	CHECK(fixture.world->player()->getPosition().Z > 4.5f);
 }
 
-TEST_CASE("the debris burst is a short puff in the door's colour that falls and fades within a second")
+namespace
+{
+	void breakDoor(Fixture& fixture)
+	{
+		fixture.world->teleport(-3.2f, 0.0f, 2.3f);
+		fixture.world->update(0.0f);
+		fixture.key(KEY_LEFT, true);
+		for (int hit = 0; hit < 3; ++hit)
+			fixture.key(KEY_KEY_E, true);
+	}
+}
+
+TEST_CASE("the door breaks into 4-6 wooden planks in its colour, kicked away from the player, that tumble, land flat on the ground and settle")
 {
 	Fixture fixture(strongSheet());
-	fixture.world->teleport(-3.2f, 0.0f, 2.3f);
-	fixture.world->update(0.0f);
-	fixture.key(KEY_LEFT, true);
-	for (int hit = 0; hit < 3; ++hit)
-		fixture.key(KEY_KEY_E, true);
+	breakDoor(fixture);
+	std::vector<ISceneNode*> pieces = fixture.world->forceBreak().debris();
+	REQUIRE(pieces.size() >= 4);
+	REQUIRE(pieces.size() <= 6);
+	vector3df door(-2.5f, 1.0f, 4.0f);
+	vector3df away = door - vector3df(-3.2f, 0.0f, 2.3f);
+	away.Y = 0.0f;
+	away.normalize();
+	for (ISceneNode* piece : pieces)
+	{
+		CHECK(piece->getType() == ESNT_MESH);
+		vector3df size = piece->getScale();
+		CHECK(size.X > 3.0f * size.Z); // a plank: long and narrow
+		CHECK(size.Z > size.Y);        // and thin
+		CHECK(std::string(piece->getMaterial(0).getTexture(0)->getName().getPath().c_str()).find("plank.png") != std::string::npos);
+		CHECK(piece->getMaterial(0).Lighting);
+		CHECK(piece->getMaterial(0).ColorMaterial == video::ECM_DIFFUSE_AND_AMBIENT);
+	}
+	f32 lowest = 100.0f;
+	for (int frame = 0; frame < 150; ++frame)
+	{
+		fixture.world->update(1.0f / 60.0f);
+		for (ISceneNode* piece : pieces)
+		{
+			piece->updateAbsolutePosition();
+			lowest = std::min(lowest, piece->getTransformedBoundingBox().MinEdge.Y);
+		}
+	}
+	CHECK(lowest >= -0.02f);
+	int forward = 0;
+	for (ISceneNode* piece : pieces)
+	{
+		CHECK(fixture.world->forceBreak().settled(piece));
+		CHECK(piece->getRotation().X == doctest::Approx(0.0f));
+		CHECK(piece->getRotation().Z == doctest::Approx(0.0f));
+		CHECK(piece->getPosition().Y == doctest::Approx(piece->getScale().Y / 2.0f));
+		vector3df moved = piece->getPosition() - door;
+		moved.Y = 0.0f;
+		forward += moved.dotProduct(away) > 0.3f;
+	}
+	CHECK(forward * 2 > (int)pieces.size());
+}
+
+TEST_CASE("a settled plank lies for about four seconds, then shrinks away and is removed; in time every piece is gone")
+{
+	Fixture fixture(strongSheet());
+	breakDoor(fixture);
+	std::vector<ISceneNode*> pieces = fixture.world->forceBreak().debris();
+	REQUIRE_FALSE(pieces.empty());
+	ISceneNode* piece = pieces[0];
+	auto present = [&fixture, piece]() {
+		std::vector<ISceneNode*> now = fixture.world->forceBreak().debris();
+		return std::find(now.begin(), now.end(), piece) != now.end();
+	};
+	int frames = 0;
+	while (!fixture.world->forceBreak().settled(piece) && frames++ < 600)
+		fixture.world->update(1.0f / 60.0f);
+	REQUIRE(fixture.world->forceBreak().settled(piece));
+	f32 length = piece->getScale().X;
+	for (int i = 0; i < 35; ++i)
+		fixture.world->update(0.1f);
+	REQUIRE(present());
+	CHECK(piece->getScale().X == doctest::Approx(length));
+	for (int i = 0; i < 8; ++i)
+		fixture.world->update(0.1f);
+	REQUIRE(present());
+	CHECK(piece->getScale().X < length * 0.7f);
+	for (int i = 0; i < 6; ++i)
+		fixture.world->update(0.1f);
+	CHECK_FALSE(present());
+	for (int i = 0; i < 100; ++i)
+		fixture.world->update(0.1f);
+	CHECK(fixture.world->forceBreak().debris().empty());
+	int left = 0;
+	for (ISceneNode* node : fixture.world->scene()->getRootSceneNode()->getChildren())
+		left += std::string(node->getName()) == "force break piece";
+	CHECK(left == 0);
+}
+
+TEST_CASE("the dust is a short puff of about 25 big soft blobs, paler than the door, that swell and fade within a second")
+{
+	Fixture fixture(strongSheet());
+	breakDoor(fixture);
 	array<ISceneNode*> nodes;
 	fixture.world->scene()->getSceneNodesFromType(ESNT_PARTICLE_SYSTEM, nodes);
 	REQUIRE(nodes.size() == 1);
 	IParticleSystemSceneNode* ps = static_cast<IParticleSystemSceneNode*>(nodes[0]);
 	REQUIRE(ps->getEmitter() != nullptr);
-	CHECK(ps->getEmitter()->getMaxStartColor() == video::SColor(255, 110, 72, 40));
-	CHECK(ps->getEmitter()->getMaxLifeTime() <= 1000);
-	CHECK(ps->getEmitter()->getMinLifeTime() >= 500);
+	IParticleEmitter* emitter = ps->getEmitter();
+	f32 puffs = (emitter->getMinParticlesPerSecond() + emitter->getMaxParticlesPerSecond()) / 2.0f * ForceBreak::PUFF_SECONDS;
+	CHECK(puffs >= 20.0f);
+	CHECK(puffs <= 30.0f);
+	CHECK(emitter->getMinStartSize().Width >= 0.4f);
+	CHECK(emitter->getMaxLifeTime() <= 1000);
+	video::SColor colour = emitter->getMaxStartColor();
+	CHECK(colour.getRed() > 110);
+	CHECK(colour.getAlpha() < 255);
+	CHECK(std::string(ps->getMaterial(0).getTexture(0)->getName().getPath().c_str()).find("dust.png") != std::string::npos);
 	CHECK(ps->getPosition().getDistanceFrom(vector3df(-2.5f, 1.0f, 4.0f)) < 0.01f);
 	fixture.world->update(ForceBreak::PUFF_SECONDS + 0.01f);
 	CHECK(ps->getEmitter() == nullptr);
@@ -1050,9 +1147,17 @@ TEST_CASE("one Force hit smashes a world crate's prop to debris, opens its loot,
 	REQUIRE(fixture.world->detector().getTarget()->getObjectType() == "supply_crate");
 	fixture.key(KEY_LEFT, true);
 	fixture.key(KEY_KEY_E, true);
-	CHECK(opened == std::vector<loot::Container*>{ &crate });
 	CHECK_FALSE(prop->isVisible());
 	CHECK(particleSystems(fixture.world) == 1);
+	CHECK(fixture.world->forceBreak().debris().size() >= 4);
+	// The loot screen waits a moment so the smash can be seen.
+	CHECK(opened.empty());
+	fixture.world->update(World::SMASH_LOOT_DELAY - 0.1f);
+	CHECK(opened.empty());
+	fixture.world->update(0.2f);
+	CHECK(opened == std::vector<loot::Container*>{ &crate });
+	fixture.key(KEY_KEY_E, true);
+	CHECK(opened.size() == 2); // searching it afterwards opens at once
 	fixture.world->update(0.0f);
 	REQUIRE(fixture.world->detector().hasTarget());
 	CHECK(fixture.world->detector().getTarget()->getInfo().name == crate.kind);

@@ -21,6 +21,8 @@ public:
 	bool onForce(Actor& player) override;
 	// When set, Force smashes the container's prop to pieces (once) before the loot screen opens.
 	void setBreaker(ForceBreak* breaker) { breaker_ = breaker; }
+	// How the loot opens after the Force hit that smashed it, so the break can be seen first; without it, at once.
+	void setSmashedOpen(std::function<void(loot::Container&)> open) { smashedOpen_ = open; }
 
 	loot::Container& container() const { return container_; }
 
@@ -28,6 +30,7 @@ private:
 	loot::Container& container_;
 	std::function<void(loot::Container&)> open_;
 	ForceBreak* breaker_ = nullptr;
+	std::function<void(loot::Container&)> smashedOpen_;
 };
 
 #endif

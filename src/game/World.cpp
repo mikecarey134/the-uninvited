@@ -54,6 +54,7 @@ namespace
 
 const uint8_t World::IDLE_STATE;
 const uint8_t World::WALKING_STATE;
+const f32 World::SMASH_LOOT_DELAY = 0.6f; // long enough to see the planks fly before the loot screen covers them
 
 World::World(IrrlichtDevice* device, const char* model, const char* skin, std::function<void()> leave,
 	const character::CharacterSheet& sheet)
@@ -207,6 +208,10 @@ void World::addContainerInteractables()
 				SColor wood = container.kind == "Chest" ? SColor(255, 112, 74, 42) : SColor(255, 150, 112, 64);
 				forceBreak_->add(object.get(), prop, 1, wood, [this, prop] { unblock(prop); });
 				object->setBreaker(forceBreak_.get());
+				object->setSmashedOpen([this](loot::Container& chosen) {
+					pendingLoot_ = &chosen;
+					pendingLootIn_ = SMASH_LOOT_DELAY;
+				});
 				break;
 			}
 		detector_.addInteractable(object.get());
@@ -429,7 +434,20 @@ void World::settle(f32 seconds)
 void World::update(f32 seconds)
 {
 	dpad_.update(seconds);
+	if (player_)
+		forceBreak_->setKicker(player_->getPosition());
 	forceBreak_->update(seconds);
+	if (pendingLoot_)
+	{
+		pendingLootIn_ -= seconds;
+		if (pendingLootIn_ <= 0.0f)
+		{
+			loot::Container* smashed = pendingLoot_;
+			pendingLoot_ = nullptr;
+			if (openLoot_)
+				openLoot_(*smashed);
+		}
+	}
 	unticked_ += seconds * compression_;
 	while (unticked_ >= 1.0f && !dead())
 	{

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""PLACEHOLDER Force-break textures: crack overlays (white cracks on transparent, 256x256) and a debris chip for particles.
+"""PLACEHOLDER Force-break textures: crack overlays (white cracks on transparent, 256x256), a pale wood grain for the debris
+planks (tinted per object in code), and a soft dust blob for the dust cloud.
 
-Writes assets/textures/damage/crack_stage1-3.png and debris.png. Run from the repo root: python3 tools/make_damage_textures.py
+Writes assets/textures/damage/crack_stage1-3.png, plank.png and dust.png. Run from the repo root: python3 tools/make_damage_textures.py
 """
 import math
 import random
@@ -44,8 +45,26 @@ stage("assets/textures/damage/crack_stage1.png", 1, 4, 85, 5.5, 1)
 stage("assets/textures/damage/crack_stage2.png", 1, 6, 115, 6.5, 2)
 stage("assets/textures/damage/crack_stage3.png", 1, 10, 145, 7.5, 3)
 
-# Debris: a soft-edged white chip; the particle colour tints it to the object's material.
-chip = Image.new("RGBA", (32, 32), (255, 255, 255, 0))
-d = ImageDraw.Draw(chip)
-d.polygon([(6, 10), (16, 4), (27, 9), (25, 24), (12, 28), (5, 20)], fill=(255, 255, 255, 255))
-chip.filter(ImageFilter.GaussianBlur(0.8)).save("assets/textures/damage/debris.png")
+# Planks: pale, near-white wood grain (long streaks along X with a few knots), so the vertex tint gives each object its colour.
+rng = random.Random(7)
+plank = Image.new("RGB", (256, 64), (235, 228, 214))
+d = ImageDraw.Draw(plank)
+for row in range(0, 64, 2):
+    shade = rng.randint(185, 240)
+    wobble = rng.uniform(0, 6.28)
+    for x in range(0, 256, 4):
+        y = row + 1.5 * math.sin(x / 37.0 + wobble)
+        d.line([(x, y), (x + 4, y)], fill=(shade, shade - 8, shade - 20), width=1)
+for _ in range(3):
+    cx, cy = rng.randint(20, 236), rng.randint(10, 54)
+    d.ellipse([cx - 5, cy - 3, cx + 5, cy + 3], outline=(150, 140, 125), width=2)
+plank.filter(ImageFilter.GaussianBlur(0.6)).save("assets/textures/damage/plank.png")
+
+# Dust: a soft white blob, densest in the middle and gone by the edge, for a cloud rather than squares.
+dust = Image.new("RGBA", (64, 64), (255, 255, 255, 0))
+for y in range(64):
+    for x in range(64):
+        r = math.hypot(x - 31.5, y - 31.5) / 32.0
+        a = max(0.0, 1.0 - r) ** 1.8
+        dust.putpixel((x, y), (255, 255, 255, int(200 * a)))
+dust.save("assets/textures/damage/dust.png")
