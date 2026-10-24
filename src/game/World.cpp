@@ -36,6 +36,12 @@ namespace
 	const f32 followRange = std::sqrt(followDistance * followDistance + (eyeHeight - lookHeight) * (eyeHeight - lookHeight));
 	const f32 restingPitch = -std::atan2(eyeHeight - lookHeight, followDistance) * RADTODEG; // the old fixed camera, about 15 degrees down
 	const f32 lowestCamera = 0.2f;  // looking up, the camera slides along the ground rather than under it
+	// Backed against a wall the head is only the player's radius (0.35) from it, so the arm may shorten to 0.25: tilted 15 degrees
+	// that sits the camera about 0.11 off the wall, just beyond the camera's 0.1 near plane, so the wall never slices the view.
+	const f32 shortestArm = 0.25f;
+	const f32 cameraPadding = 0.15f; // the camera stays this far off any surface it is pushed against
+	const f32 hideBelowArm = 0.8f;  // closer than this the player's own head fills the view, so the model is hidden (as most games do)
+	const f32 armEaseSeconds = 0.08f; // time constant of the ease back out: about 95% of the way in a quarter second
 
 	void loop(IAnimatedMeshSceneNode* node, bool walking)
 	{
@@ -477,7 +483,7 @@ void World::update(f32 seconds)
 		settle(seconds);
 		animate(walking);
 	}
-	follow();
+	follow(seconds);
 	detect(seconds);
 }
 
@@ -491,7 +497,9 @@ f32 World::playerRadius() const
 	return radius;
 }
 
-void World::follow()
+// A spring arm: the camera sits back along the view from a point above the player's head, but never behind an obstacle. When
+// something comes between them it jumps in at once, and when it clears it eases back out over about a quarter second.
+void World::follow(f32 seconds)
 {
 	vector3df at = player_ ? player_->getPosition() - vector3df(0.0f, feet_, 0.0f) : vector3df();
 	// The camera orbits the point it looks at, set back along the view: yaw turns it round the player, pitch raises or lowers it.
@@ -499,10 +507,55 @@ void World::follow()
 	f32 pitch = pitch_ * DEGTORAD;
 	vector3df view(std::sin(yaw) * std::cos(pitch), std::sin(pitch), std::cos(yaw) * std::cos(pitch));
 	vector3df target = at + vector3df(0.0f, lookHeight, 0.0f);
-	vector3df eye = target - view * followRange;
+	f32 room = std::max(armRoom(target, target - view * followRange), shortestArm);
+	if (arm_ < 0.0f || seconds <= 0.0f || room < arm_)
+		arm_ = room;
+	else
+		arm_ += (room - arm_) * (1.0f - std::exp(-seconds / armEaseSeconds));
+	vector3df eye = target - view * arm_;
 	eye.Y = std::max(eye.Y, at.Y + lowestCamera);
+	if (player_)
+		player_->setVisible(arm_ >= hideBelowArm);
 	camera_->setPosition(eye);
 	camera_->setTarget(target);
+}
+
+f32 World::armRoom(const vector3df& from, const vector3df& to) const
+{
+	vector3df along = to - from;
+	f32 length = along.getLength();
+	if (length <= 0.0f)
+		return 0.0f;
+	vector3df direction = along / length;
+	f32 nearest = length;
+	for (const aabbox3df& raw : obstacles_)
+	{
+		aabbox3df box(raw.MinEdge - vector3df(cameraPadding), raw.MaxEdge + vector3df(cameraPadding));
+		if (box.isPointInside(from))
+			continue; // standing in a box's padding (the player beside or on it): it is not between them
+		// Slab test: where the line enters the box on each axis, and where it leaves.
+		f32 enter = 0.0f, leave = length;
+		bool missed = false;
+		for (int axis = 0; axis < 3 && !missed; ++axis)
+		{
+			f32 start = axis == 0 ? from.X : (axis == 1 ? from.Y : from.Z);
+			f32 step = axis == 0 ? direction.X : (axis == 1 ? direction.Y : direction.Z);
+			f32 low = axis == 0 ? box.MinEdge.X : (axis == 1 ? box.MinEdge.Y : box.MinEdge.Z);
+			f32 high = axis == 0 ? box.MaxEdge.X : (axis == 1 ? box.MaxEdge.Y : box.MaxEdge.Z);
+			if (std::fabs(step) < 1e-6f)
+			{
+				missed = start < low || start > high;
+				continue;
+			}
+			f32 a = (low - start) / step, b = (high - start) / step;
+			enter = std::max(enter, std::min(a, b));
+			leave = std::min(leave, std::max(a, b));
+			missed = enter > leave;
+		}
+		if (!missed)
+			nearest = std::min(nearest, enter); // the padded box's face: already a padding off the real surface
+	}
+	return nearest;
 }
 
 void World::animate(bool walking)

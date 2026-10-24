@@ -1165,3 +1165,91 @@ TEST_CASE("one Force hit smashes a world crate's prop to debris, opens its loot,
 	fixture.walk(KEY_KEY_W, 1.0f);
 	CHECK(fixture.world->player()->getPosition().Z > crate.z + 0.5f);
 }
+
+namespace
+{
+	// The test door spans x -3..-2, z 3.9..4.1, 2 tall. Facing -Z with the door behind, the camera wants to be through it.
+	const aabbox3df testDoor(-3.0f, 0.0f, 3.9f, -2.0f, 2.0f, 4.1f);
+
+	void backToDoor(Fixture& fixture, f32 z)
+	{
+		fixture.world->teleport(-2.5f, 0.0f, z);
+		fixture.world->look(180.0f);
+		fixture.world->update(0.0f);
+	}
+
+	// Nothing of the door lies between the player's head and the camera, and the camera is not touching it.
+	bool clearOfDoor(World* world)
+	{
+		vector3df from = world->camera()->getTarget(), to = world->camera()->getPosition();
+		for (int i = 0; i <= 100; ++i)
+			if (testDoor.isPointInside(from + (to - from) * (i / 100.0f)))
+				return false;
+		// At least the camera's near-plane distance off it, so the wall never cuts into the view.
+		aabbox3df near(testDoor.MinEdge - vector3df(0.1f), testDoor.MaxEdge + vector3df(0.1f));
+		return !near.isPointInside(to);
+	}
+}
+
+TEST_CASE("in open ground the camera arm is its full length")
+{
+	Fixture fixture;
+	fixture.world->teleport(30.0f, 0.0f, 30.0f);
+	fixture.world->update(0.1f);
+	vector3df target = fixture.world->camera()->getTarget();
+	CHECK(fixture.world->camera()->getPosition().getDistanceFrom(target) == doctest::Approx(std::sqrt(4.5f * 4.5f + 1.2f * 1.2f)).epsilon(0.01));
+}
+
+TEST_CASE("with a wall behind the player the camera comes in front of it instead of through it")
+{
+	Fixture fixture;
+	backToDoor(fixture, 2.5f);
+	CHECK(clearOfDoor(fixture.world));
+	CHECK(fixture.world->armLength() < 2.5f);
+	CHECK(fixture.world->armLength() > 0.25f);
+}
+
+TEST_CASE("pressed right against the wall the arm stops at its 25 cm minimum, still clear of the wall")
+{
+	Fixture fixture;
+	backToDoor(fixture, 3.9f - fixture.world->playerRadius());
+	CHECK(fixture.world->armLength() == doctest::Approx(0.25f));
+	CHECK(clearOfDoor(fixture.world));
+	// The head would fill the view this close, so the player's model is hidden, and shown again once the arm is long.
+	CHECK_FALSE(fixture.world->player()->isVisible());
+	fixture.world->teleport(30.0f, 0.0f, 30.0f);
+	fixture.world->update(0.0f);
+	CHECK(fixture.world->player()->isVisible());
+}
+
+TEST_CASE("backing into the wall the camera never passes through it, frame by frame")
+{
+	Fixture fixture;
+	backToDoor(fixture, 0.0f);
+	fixture.key(KEY_KEY_S, true);
+	for (int frame = 0; frame < 120; ++frame)
+	{
+		fixture.world->update(1.0f / 60.0f);
+		CHECK(clearOfDoor(fixture.world));
+	}
+	fixture.key(KEY_KEY_S, false);
+	CHECK(fixture.world->armLength() < 1.5f);
+}
+
+TEST_CASE("when the wall clears the arm eases back out over about a quarter second rather than snapping")
+{
+	Fixture fixture;
+	backToDoor(fixture, 2.5f);
+	f32 full = std::sqrt(4.5f * 4.5f + 1.2f * 1.2f);
+	f32 start = fixture.world->armLength();
+	REQUIRE(start < full - 1.0f);
+	fixture.world->look(180.0f); // turn round: the door is ahead now and the arm is clear
+	fixture.world->update(0.05f);
+	f32 after50 = fixture.world->armLength();
+	CHECK(after50 > start);
+	CHECK(after50 < full - 0.5f);
+	for (int i = 0; i < 5; ++i)
+		fixture.world->update(0.05f);
+	CHECK(fixture.world->armLength() > full - (full - start) * 0.1f);
+	CHECK(fixture.world->armLength() <= full + 0.001f);
+}

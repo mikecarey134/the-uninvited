@@ -38,6 +38,7 @@ public:
 	// Tilts the camera up (positive) or down, held within 80 degrees either way.
 	void tilt(irr::f32 degrees);
 	irr::f32 pitch() const { return pitch_; }
+	irr::f32 armLength() const { return arm_; }
 	void update(irr::f32 seconds);
 	void draw();
 
@@ -107,7 +108,11 @@ private:
 	irr::f32 groundBelow(const irr::core::vector3df& at) const;
 	void settle(irr::f32 seconds);
 	void move(const irr::core::vector3df& step);
-	void follow();
+	// Places the camera; seconds lets the arm ease back out after an obstruction (0 snaps it).
+	void follow(irr::f32 seconds = 0.0f);
+	// How far along the arm from the look point the camera can go before it comes within a padding of an obstacle, using the same
+	// boxes the player collides with; the arm's full length when nothing is in the way.
+	irr::f32 armRoom(const irr::core::vector3df& from, const irr::core::vector3df& to) const;
 	void animate(bool walking);
 	irr::scene::IAnimatedMeshSceneNode* addCharacter(const char* model, const char* skin, irr::f32& feet);
 
@@ -131,6 +136,7 @@ private:
 	irr::f32 yaw_;
 	irr::f32 pitch_; // camera tilt in degrees: negative looks down
 	irr::f32 fall_ = 0.0f; // vertical speed, negative while falling
+	irr::f32 arm_ = -1.0f; // the camera arm's current length; below zero until first placed
 	irr::f32 feet_;
 	std::vector<irr::core::aabbox3df> obstacles_;
 	character::CharacterSheet sheet_;
