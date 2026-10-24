@@ -22,6 +22,7 @@ struct Actor
 {
 	const character::CharacterSheet& sheet;
 	std::string message;
+	bool openedScreen = false; // the handler opened a screen (loot, dialogue...), which is feedback enough
 };
 
 // Anything in the world the player can act on through the D-pad.

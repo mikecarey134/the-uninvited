@@ -120,7 +120,7 @@ TEST_CASE("the test terminal opens for anyone and its security falls to enough E
 	CHECK(hacker.input.feedbackSucceeded());
 }
 
-TEST_CASE("a container is a supply_crate whose Normal and Force both open the loot screen on that container, with different lines")
+TEST_CASE("a container is a supply_crate whose Normal and Force both open the loot screen on that container; the screen is the feedback, so only the console gets a line")
 {
 	loot::Container chest{ "Chest", 7.0f, -5.0f, 8, {} };
 	std::vector<loot::Container*> opened;
@@ -136,10 +136,10 @@ TEST_CASE("a container is a supply_crate whose Normal and Force both open the lo
 	rig.press(KEY_UP);
 	rig.press(KEY_KEY_R);
 	CHECK(opened == std::vector<loot::Container*>{ &chest });
-	CHECK(rig.input.feedback() == "You open the Chest.");
+	CHECK(rig.input.feedback().empty());
 	rig.press(KEY_KEY_2);
 	CHECK(opened == std::vector<loot::Container*>{ &chest, &chest });
-	CHECK(rig.input.feedback() == "You smash the Chest open.");
+	CHECK(rig.input.feedback().empty());
 
 	Actor actor{ rig.sheet, "" };
 	CHECK_FALSE(crate.onSkill(actor));

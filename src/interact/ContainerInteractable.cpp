@@ -14,6 +14,7 @@ bool ContainerInteractable::onNormal(Actor& player)
 	if (!open_)
 		return false;
 	open_(container_);
+	player.openedScreen = true;
 	player.message = "You open the " + container_.kind + ".";
 	return true;
 }
@@ -23,6 +24,7 @@ bool ContainerInteractable::onForce(Actor& player)
 	if (!open_)
 		return false;
 	open_(container_);
+	player.openedScreen = true;
 	player.message = "You smash the " + container_.kind + " open.";
 	return true;
 }

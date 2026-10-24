@@ -737,11 +737,30 @@ TEST_CASE("the vitals HUD shows only in the world, replacing the big name headin
 		REQUIRE(world.detector().getInRange().empty());
 		canvas.calls.clear();
 		screens.draw();
-		int ghostArrows = 0;
+		int idleLines = 0;
 		for (const RecordingCanvas::Call& call : canvas.calls)
 			if (call.kind == RecordingCanvas::LINE && call.from.X < 300 && call.from.Y > (s32)canvas.screenDimension.Height - 250 && call.colour.getAlpha() > 0)
-				++ghostArrows;
-		CHECK(ghostArrows == 8);
+				++idleLines;
+		CHECK(idleLines == 12 + 32 + 8); // the plus frame's outline, the centre circle and the four arrows
+		world.teleport(-8.0f, 0.0f, -1.5f);
+		world.update(0.0f);
+		REQUIRE(world.detector().hasTarget());
+		canvas.calls.clear();
+		screens.draw();
+		const RecordingCanvas::Call* marker = nullptr;
+		for (const RecordingCanvas::Call& call : canvas.calls)
+			if (call.kind == RecordingCanvas::IMAGE && canvas.pathOf(call.texture) == "assets/ui/icons/rings/gold.png" && call.area.getCenter().X > 300)
+				marker = &call;
+		REQUIRE(marker != nullptr);
+		CHECK(marker->area.getWidth() >= 48);
+		CHECK(marker->area.getWidth() <= 64);
+		int rim = 0;
+		for (const RecordingCanvas::Call& call : canvas.calls)
+			if (call.kind == RecordingCanvas::LINE && marker->area.isPointInside(call.from) && call.colour.getRed() == 255 && call.colour.getBlue() < 100)
+				++rim;
+		CHECK(rim >= 3 * 40);
+		world.teleport(0.0f, 0.0f, -20.0f);
+		world.update(0.0f);
 		auto drawn = [&canvas](const std::string& file) {
 			for (const RecordingCanvas::Call& call : canvas.calls)
 				if (call.kind == RecordingCanvas::IMAGE && canvas.pathOf(call.texture) == file)

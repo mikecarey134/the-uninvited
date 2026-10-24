@@ -44,6 +44,7 @@ private:
 	std::string prompt_;
 	irr::f32 opacity_ = 0.35f; // the idle opacity, so the D-pad shows faded from the first frame
 	irr::f32 pulseClock_ = 0.0f;
+	TextureHandle ringTextures_[4] = {};
 };
 
 #endif

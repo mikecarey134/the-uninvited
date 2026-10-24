@@ -18,20 +18,30 @@ namespace
 		return total;
 	}
 
-	bool says(const RecordingCanvas& canvas, const std::wstring& text)
+	const RecordingCanvas::Call* text(const RecordingCanvas& canvas, const std::wstring& line)
 	{
 		for (const RecordingCanvas::Call& call : canvas.calls)
-			if (call.kind == RecordingCanvas::TEXT && call.text == text)
-				return true;
-		return false;
+			if (call.kind == RecordingCanvas::TEXT && call.text == line)
+				return &call;
+		return nullptr;
+	}
+
+	bool says(const RecordingCanvas& canvas, const std::wstring& line)
+	{
+		return text(canvas, line) != nullptr;
+	}
+
+	const RecordingCanvas::Call* image(const RecordingCanvas& canvas, const std::string& path)
+	{
+		for (const RecordingCanvas::Call& call : canvas.calls)
+			if (call.kind == RecordingCanvas::IMAGE && canvas.pathOf(call.texture) == path)
+				return &call;
+		return nullptr;
 	}
 
 	bool drew(const RecordingCanvas& canvas, const std::string& path)
 	{
-		for (const RecordingCanvas::Call& call : canvas.calls)
-			if (call.kind == RecordingCanvas::IMAGE && canvas.pathOf(call.texture) == path)
-				return true;
-		return false;
+		return image(canvas, path) != nullptr;
 	}
 
 	void stock(DpadHud& dpad)
@@ -40,24 +50,43 @@ namespace
 		dpad.setSlot(DpadDirection::UP, "Pick", "skills/lockpicking.png");
 		dpad.setSlot(DpadDirection::RIGHT, "Force", "approach/force.png");
 	}
+
+	DpadHud active()
+	{
+		DpadHud dpad;
+		stock(dpad);
+		dpad.setState(DpadState::ACTIVE);
+		dpad.update(1.0f);
+		return dpad;
+	}
+
+	// The slot squares are the plus frame's left and right arms; the LEFT one is the leftmost backing rect.
+	rect<s32> leftArm(const RecordingCanvas& canvas)
+	{
+		rect<s32> arm(10000, 0, 10000, 0);
+		for (const RecordingCanvas::Call& call : canvas.calls)
+			if (call.kind == RecordingCanvas::RECT && call.area.getWidth() == call.area.getHeight() && call.area.UpperLeftCorner.X < arm.UpperLeftCorner.X)
+				arm = call.area;
+		return arm;
+	}
 }
 
-TEST_CASE("a fresh D-pad is idle and still draws its ghosted wedges at 35% opacity, with no text and no icons")
+TEST_CASE("a fresh D-pad is idle and still draws its plus frame, centre circle and arrows at 35% opacity, with no rings, text or icons")
 {
 	DpadHud dpad;
 	stock(dpad);
 	RecordingCanvas canvas;
 	canvas.screenDimension = dimension2d<u32>(1920, 1080);
 	dpad.render(canvas);
-	CHECK(count(canvas, RecordingCanvas::TEXT) == 0);
-	CHECK(count(canvas, RecordingCanvas::IMAGE) == 0);
-	CHECK(count(canvas, RecordingCanvas::RECT) == 5);
 	CHECK(dpad.state() == DpadState::IDLE);
 	CHECK(dpad.opacity() == doctest::Approx(0.35f));
-	CHECK(count(canvas, RecordingCanvas::LINE) == 8);
+	CHECK(count(canvas, RecordingCanvas::TEXT) == 0);
+	CHECK(count(canvas, RecordingCanvas::IMAGE) == 0);
+	CHECK(count(canvas, RecordingCanvas::RECT) == 3);
+	CHECK(count(canvas, RecordingCanvas::LINE) == 12 + 32 + 8);
 }
 
-TEST_CASE("the D-pad sits in the bottom-left corner and is about 120px square at 1080p")
+TEST_CASE("the D-pad sits bottom-left, about 126px square at 1080p, with room on its left for the LEFT label")
 {
 	DpadHud dpad;
 	RecordingCanvas canvas;
@@ -72,13 +101,14 @@ TEST_CASE("the D-pad sits in the bottom-left corner and is about 120px square at
 			right = std::max(right, call.area.LowerRightCorner.X);
 			bottom = std::max(bottom, call.area.LowerRightCorner.Y);
 		}
-	CHECK(right - left == 120);
-	CHECK(bottom - top == 120);
-	CHECK(left < 200);
+	CHECK(right - left == 126);
+	CHECK(bottom - top == 126);
+	CHECK(left >= 150);
+	CHECK(left < 250);
 	CHECK(bottom > 1080 - 60);
 }
 
-TEST_CASE("an active D-pad fades in over about a quarter second and shows labels, slot icons and the target")
+TEST_CASE("an active D-pad fades in and frames each available icon in its own coloured ring; empty slots get no ring")
 {
 	DpadHud dpad;
 	stock(dpad);
@@ -93,54 +123,119 @@ TEST_CASE("an active D-pad fades in over about a quarter second and shows labels
 	CHECK(says(canvas, L"Pick"));
 	CHECK(says(canvas, L"Force"));
 	CHECK(says(canvas, L"Locked Door"));
-	CHECK(drew(canvas, "assets/ui/icons/skills/lockpicking.png"));
-	CHECK(drew(canvas, "assets/ui/icons/approach/force.png"));
 	CHECK(drew(canvas, "assets/ui/icons/interactables/locked-door.png"));
+	const RecordingCanvas::Call* gold = image(canvas, "assets/ui/icons/rings/gold.png");
+	const RecordingCanvas::Call* pick = image(canvas, "assets/ui/icons/skills/lockpicking.png");
+	REQUIRE(gold != nullptr);
+	REQUIRE(pick != nullptr);
+	CHECK(gold->area.getCenter() == pick->area.getCenter());
+	CHECK(gold->area.getWidth() > pick->area.getWidth());
+	CHECK(gold < pick);
+	CHECK(drew(canvas, "assets/ui/icons/rings/red.png"));
+	CHECK_FALSE(drew(canvas, "assets/ui/icons/rings/cyan.png"));
+	CHECK_FALSE(drew(canvas, "assets/ui/icons/rings/green.png"));
 	CHECK_FALSE(says(canvas, L"X: Pick Lock"));
 }
 
-TEST_CASE("selecting an available slot shows the X prompt and outlines that wedge; a cleared slot shows nothing")
+TEST_CASE("every line of D-pad text sits on a dark see-through pill drawn just before it")
 {
-	DpadHud dpad;
-	stock(dpad);
-	dpad.setState(DpadState::ACTIVE);
-	dpad.update(1.0f);
+	DpadHud dpad = active();
 	dpad.setSelectedDirection(DpadDirection::UP);
 	dpad.setActionPrompt("Pick Lock");
 	RecordingCanvas canvas;
 	dpad.render(canvas);
-	CHECK(says(canvas, L"X: Pick Lock"));
-	CHECK(count(canvas, RecordingCanvas::RECT_OUTLINE) == 1);
-
-	dpad.clearSlot(DpadDirection::UP);
-	RecordingCanvas cleared;
-	dpad.render(cleared);
-	CHECK_FALSE(says(cleared, L"Pick"));
-	CHECK_FALSE(says(cleared, L"X: Pick Lock"));
-	CHECK_FALSE(drew(cleared, "assets/ui/icons/skills/lockpicking.png"));
+	int lines = 0;
+	for (size_t i = 0; i < canvas.calls.size(); ++i)
+	{
+		const RecordingCanvas::Call& call = canvas.calls[i];
+		if (call.kind != RecordingCanvas::TEXT)
+			continue;
+		++lines;
+		REQUIRE(i >= 3);
+		const RecordingCanvas::Call& middle = canvas.calls[i - 3];
+		CHECK(middle.kind == RecordingCanvas::RECT);
+		CHECK(middle.colour.getRed() == 0);
+		CHECK(middle.colour.getAlpha() > 140);
+		CHECK(middle.colour.getAlpha() < 200);
+		CHECK(middle.area.UpperLeftCorner.X <= call.area.UpperLeftCorner.X);
+		CHECK(middle.area.LowerRightCorner.X >= call.area.LowerRightCorner.X);
+		CHECK(middle.area.UpperLeftCorner.Y < call.area.UpperLeftCorner.Y);
+		CHECK(middle.area.LowerRightCorner.Y > call.area.LowerRightCorner.Y);
+	}
+	CHECK(lines == 4);
 }
 
-TEST_CASE("the selected slot pulses between 80% and 100% brightness")
+TEST_CASE("a long LEFT label fits on screen outward; one that cannot flips to the inward side of its slot")
 {
-	DpadHud dpad;
-	stock(dpad);
-	dpad.setState(DpadState::ACTIVE);
-	dpad.update(1.0f);
+	DpadHud dpad = active();
+	dpad.setSlot(DpadDirection::LEFT, "Send Companion", "approach/companion-delegate.png");
+	RecordingCanvas canvas;
+	canvas.screenDimension = dimension2d<u32>(1920, 1080);
+	canvas.textDimension = dimension2d<u32>(125, 16);
+	dpad.render(canvas);
+	rect<s32> arm = leftArm(canvas);
+	const RecordingCanvas::Call* label = text(canvas, L"Send Companion");
+	REQUIRE(label != nullptr);
+	CHECK(label->area.UpperLeftCorner.X >= 5);
+	CHECK(label->area.LowerRightCorner.X <= arm.UpperLeftCorner.X);
+
+	canvas.calls.clear();
+	canvas.textDimension = dimension2d<u32>(400, 16);
+	dpad.render(canvas);
+	label = text(canvas, L"Send Companion");
+	REQUIRE(label != nullptr);
+	CHECK(label->area.UpperLeftCorner.X >= leftArm(canvas).LowerRightCorner.X);
+}
+
+TEST_CASE("selecting an available slot shows the X prompt and rims its ring in glowing circles; a cleared slot shows nothing")
+{
+	DpadHud dpad = active();
+	RecordingCanvas canvas;
+	dpad.render(canvas);
+	int unselected = count(canvas, RecordingCanvas::LINE);
+	REQUIRE(drew(canvas, "assets/ui/icons/rings/gold.png"));
+	dpad.setSelectedDirection(DpadDirection::UP);
+	dpad.setActionPrompt("Pick Lock");
+	canvas.calls.clear();
+	dpad.render(canvas);
+	CHECK(says(canvas, L"X: Pick Lock"));
+	CHECK(count(canvas, RecordingCanvas::LINE) == unselected + 3 * 32);
+
+	dpad.clearSlot(DpadDirection::UP);
+	canvas.calls.clear();
+	dpad.render(canvas);
+	CHECK_FALSE(says(canvas, L"Pick"));
+	CHECK_FALSE(says(canvas, L"X: Pick Lock"));
+	CHECK_FALSE(drew(canvas, "assets/ui/icons/skills/lockpicking.png"));
+	CHECK_FALSE(drew(canvas, "assets/ui/icons/rings/gold.png"));
+	CHECK(drew(canvas, "assets/ui/icons/rings/red.png"));
+}
+
+TEST_CASE("the selected slot pulses: its label between 80% and 100% brightness, its ring swelling a little")
+{
+	DpadHud dpad = active();
 	dpad.setSelectedDirection(DpadDirection::UP);
 	u32 lowest = 255, highest = 0;
+	s32 smallest = 1000, largest = 0;
+	// One canvas for every frame, as in the game: the D-pad keeps the textures it loaded from it.
+	RecordingCanvas canvas;
 	for (int frame = 0; frame < 30; ++frame)
 	{
-		RecordingCanvas canvas;
+		canvas.calls.clear();
 		dpad.render(canvas);
-		for (const RecordingCanvas::Call& call : canvas.calls)
-			if (call.kind == RecordingCanvas::RECT_OUTLINE)
-			{
-				lowest = std::min(lowest, call.colour.getRed());
-				highest = std::max(highest, call.colour.getRed());
-			}
+		const RecordingCanvas::Call* label = text(canvas, L"Pick");
+		const RecordingCanvas::Call* ring = image(canvas, "assets/ui/icons/rings/gold.png");
+		REQUIRE(label != nullptr);
+		REQUIRE(ring != nullptr);
+		lowest = std::min(lowest, label->colour.getRed());
+		highest = std::max(highest, label->colour.getRed());
+		smallest = std::min(smallest, ring->area.getWidth());
+		largest = std::max(largest, ring->area.getWidth());
 		dpad.update(0.5f / 30);
 	}
-	CHECK(lowest >= 255 * 8 / 10 - 1);
-	CHECK(lowest <= 255 * 82 / 100);
-	CHECK(highest >= 253);
+	CHECK(lowest >= 0xd4 * 8 / 10 - 1);
+	CHECK(lowest <= 0xd4 * 82 / 100);
+	CHECK(highest >= 0xd4 - 2);
+	CHECK(largest > smallest);
+	CHECK(largest <= smallest * 110 / 100);
 }

@@ -133,9 +133,11 @@ bool InteractionInput::execute(Approach approach)
 		break;
 	}
 	succeeded_ = done;
-	feedback_ = !actor.message.empty() ? actor.message : (done ? "" : "Can't do that.");
+	std::string said = !actor.message.empty() ? actor.message : (done ? "" : "Can't do that.");
+	// A handler that opened a screen has shown its result; only the console hears about it.
+	feedback_ = actor.openedScreen ? "" : said;
 	feedbackLeft_ = feedback_.empty() ? 0.0f : FEEDBACK_SECONDS;
-	if (log_ && !feedback_.empty())
-		log_(std::string(done ? "OK: " : "FAILED: ") + feedback_);
+	if (log_ && !said.empty())
+		log_(std::string(done ? "OK: " : "FAILED: ") + said);
 	return done;
 }

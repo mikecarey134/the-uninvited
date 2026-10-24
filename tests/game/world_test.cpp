@@ -802,5 +802,5 @@ TEST_CASE("beside a world container the D-pad offers Normal and Force, and UP th
 	fixture.key(KEY_UP, true);
 	fixture.key(KEY_KEY_R, true);
 	CHECK(opened == std::vector<loot::Container*>{ &crate });
-	CHECK(fixture.world->interactionFeedback() == "You open the " + crate.kind + ".");
+	CHECK(fixture.world->interactionFeedback().empty());
 }

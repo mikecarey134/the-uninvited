@@ -9,6 +9,7 @@
 #include "Theme.h"
 #include "UiAnchor.h"
 #include <algorithm>
+#include <cmath>
 
 using namespace irr;
 using namespace core;
@@ -618,15 +619,29 @@ void MenuScreens::draw()
 		position2d<s32> marker;
 		if (world_->targetMarker(marker))
 		{
-			canvas_.drawImage(canvas_.loadTexture("assets/ui/icons/rings/gold.png"), rect<s32>(marker.X - 14, marker.Y - 14, marker.X + 14, marker.Y + 14));
+			// A 56px gold ring with a thick bright rim, so the target reads from across the room.
+			const s32 radius = 28;
+			canvas_.drawImage(canvas_.loadTexture("assets/ui/icons/rings/gold.png"), rect<s32>(marker.X - radius, marker.Y - radius, marker.X + radius,
+				marker.Y + radius));
+			for (s32 r = radius - 3; r <= radius; ++r)
+				for (int i = 0; i < 40; ++i)
+				{
+					f32 a = i * 2.0f * PI / 40;
+					f32 b = (i + 1) * 2.0f * PI / 40;
+					canvas_.drawLine(position2d<s32>(marker.X + (s32)(std::cos(a) * r), marker.Y + (s32)(std::sin(a) * r)),
+						position2d<s32>(marker.X + (s32)(std::cos(b) * r), marker.Y + (s32)(std::sin(b) * r)), SColor(255, 255, 204, 72));
+				}
 			std::string icon = world_->detector().getTarget() ? world_->detector().getTarget()->getInfo().iconPath : "";
 			if (!icon.empty())
-				canvas_.drawImage(canvas_.loadTexture(("assets/ui/icons/" + icon).c_str()), rect<s32>(marker.X - 9, marker.Y - 9, marker.X + 9, marker.Y + 9));
+				canvas_.drawImage(canvas_.loadTexture(("assets/ui/icons/" + icon).c_str()), rect<s32>(marker.X - 15, marker.Y - 15, marker.X + 15, marker.Y + 15));
 		}
 		world_->contextPanel().render(canvas_);
 		if (!world_->interactionFeedback().empty())
 		{
 			std::wstring said(world_->interactionFeedback().begin(), world_->interactionFeedback().end());
+			s32 width = (s32)canvas_.textSize(canvas_.loadFont(labelFont), said.c_str()).Width;
+			canvas_.drawRect(rect<s32>((s32)screen.Width / 2 - width / 2 - 8, (s32)screen.Height / 2 + 63, (s32)screen.Width / 2 + width / 2 + 8,
+				(s32)screen.Height / 2 + 87), SColor(165, 0, 0, 0));
 			canvas_.drawText(canvas_.loadFont(labelFont), said.c_str(), rect<s32>(0, (s32)screen.Height / 2 + 60, (s32)screen.Width,
 				(s32)screen.Height / 2 + 90), world_->interactionSucceeded() ? SColor(255, 235, 230, 220) : theme::accent, true, true, false);
 		}
