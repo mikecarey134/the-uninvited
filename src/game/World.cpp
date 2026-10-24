@@ -442,6 +442,7 @@ void World::update(f32 seconds)
 	dpad_.update(seconds);
 	if (player_)
 		forceBreak_->setKicker(player_->getPosition());
+	dpad_.setGlyphFamily(source_ ? glyphFamily(source_->mode(), source_->padFamily()) : GlyphFamily::KEYBOARD_MOUSE);
 	forceBreak_->update(seconds);
 	if (pendingLoot_)
 	{

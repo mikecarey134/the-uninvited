@@ -431,3 +431,72 @@ TEST_CASE("a target with a single slot gives it one gentle glow just after it po
 	pairBase = count(canvas, RecordingCanvas::LINE);
 	CHECK(pairMost < pairBase + 3 * 32);
 }
+
+namespace
+{
+	std::vector<std::string> glyphs(const RecordingCanvas& canvas)
+	{
+		std::vector<std::string> found;
+		for (const RecordingCanvas::Call& call : canvas.calls)
+			if (call.kind == RecordingCanvas::IMAGE && canvas.pathOf(call.texture).find("textures/glyphs/") != std::string::npos)
+				found.push_back(canvas.pathOf(call.texture));
+		return found;
+	}
+}
+
+TEST_CASE("each filled slot carries a small glyph for its button on the ring's lower right; empty slots and an idle D-pad carry none")
+{
+	DpadHud dpad;
+	stock(dpad); // UP and RIGHT filled
+	RecordingCanvas canvas;
+	canvas.screenDimension = dimension2d<u32>(1920, 1080);
+	dpad.render(canvas);
+	CHECK(glyphs(canvas).empty());
+	dpad.setState(DpadState::ACTIVE);
+	dpad.update(1.0f);
+	canvas.calls.clear();
+	dpad.render(canvas);
+	CHECK(glyphs(canvas) == std::vector<std::string>{ "assets/textures/glyphs/kb/key_2.png", "assets/textures/glyphs/kb/key_4.png" });
+	const RecordingCanvas::Call* ring = image(canvas, "assets/ui/icons/rings/cyan.png");
+	const RecordingCanvas::Call* key = image(canvas, "assets/textures/glyphs/kb/key_2.png");
+	REQUIRE(ring != nullptr);
+	REQUIRE(key != nullptr);
+	CHECK(key->area.getWidth() >= 16);
+	CHECK(key->area.getWidth() <= 20);
+	CHECK(key->area.getCenter().X > ring->area.getCenter().X);
+	CHECK(key->area.getCenter().Y > ring->area.getCenter().Y);
+	CHECK(key > ring); // drawn over the ring
+}
+
+TEST_CASE("the slot glyphs follow the device: number keys on the keyboard, D-pad arms on a pad")
+{
+	DpadHud dpad;
+	stockAll(dpad);
+	dpad.setState(DpadState::ACTIVE);
+	dpad.update(1.0f);
+	RecordingCanvas canvas;
+	dpad.render(canvas);
+	CHECK(glyphs(canvas) == std::vector<std::string>{ "assets/textures/glyphs/kb/key_2.png", "assets/textures/glyphs/kb/key_4.png",
+		"assets/textures/glyphs/kb/key_3.png", "assets/textures/glyphs/kb/key_1.png" });
+	dpad.setGlyphFamily(GlyphFamily::PLAYSTATION);
+	canvas.calls.clear();
+	dpad.render(canvas);
+	CHECK(glyphs(canvas) == std::vector<std::string>{ "assets/textures/glyphs/ps/dpad_up.png", "assets/textures/glyphs/ps/dpad_right.png",
+		"assets/textures/glyphs/ps/dpad_down.png", "assets/textures/glyphs/ps/dpad_left.png" });
+}
+
+TEST_CASE("a slot's glyph fades in and out with its slot")
+{
+	DpadHud dpad;
+	stockAll(dpad);
+	dpad.setState(DpadState::ACTIVE);
+	dpad.update(0.06f);
+	RecordingCanvas canvas;
+	dpad.render(canvas);
+	const RecordingCanvas::Call* key = image(canvas, "assets/textures/glyphs/kb/key_2.png");
+	const RecordingCanvas::Call* icon = image(canvas, "assets/ui/icons/skills/lockpicking.png");
+	REQUIRE(key != nullptr);
+	REQUIRE(icon != nullptr);
+	CHECK(key->colour.getAlpha() < 255);
+	CHECK(key->colour.getAlpha() == icon->colour.getAlpha());
+}

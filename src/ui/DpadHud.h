@@ -1,6 +1,7 @@
 #ifndef DPAD_HUD_H
 #define DPAD_HUD_H
 
+#include "ButtonGlyphs.h"
 #include "Canvas.h"
 #include <string>
 
@@ -21,6 +22,8 @@ public:
 	void update(irr::f32 deltaTime);
 	void render(Canvas& canvas);
 
+	// Which device's glyphs mark the slots: the number key on keyboard, the D-pad arm on a pad.
+	void setGlyphFamily(GlyphFamily family) { glyphFamily_ = family; }
 	DpadState state() const { return state_; }
 	irr::f32 opacity() const { return opacity_; }
 
@@ -62,6 +65,7 @@ private:
 	irr::f32 opacity_ = 0.35f; // the idle opacity, so the D-pad shows faded from the first frame
 	irr::f32 pulseClock_ = 0.0f;
 	TextureHandle ringTextures_[4] = {};
+	GlyphFamily glyphFamily_ = GlyphFamily::KEYBOARD_MOUSE;
 	// Animation: the entrance timeline (0 idle .. full), the pick pop, the target-switch crossfade and the lone-slot glow.
 	irr::f32 timeline_ = 0.0f;
 	irr::f32 popClock_ = 1.0f;

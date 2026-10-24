@@ -3,6 +3,7 @@
 #include "TestInteractables.h"
 #include "Sky.h"
 #include "Loot.h"
+#include "RecordingCanvas.h"
 #include <cmath>
 #include <algorithm>
 #include <string>
@@ -1289,4 +1290,26 @@ TEST_CASE("the prompt glyph is the E key until the pad is used, then the pad's i
 	key.KeyInput.Control = false;
 	fixture.source.observe(key);
 	CHECK(fixture.world->promptGlyph() == "assets/textures/glyphs/kb/key_e.png");
+}
+
+TEST_CASE("the D-pad's slot glyphs follow the player's last-used device frame by frame")
+{
+	Fixture fixture;
+	fixture.world->teleport(-3.2f, 0.0f, 2.3f);
+	fixture.world->update(0.0f); // the door becomes the target
+	fixture.world->update(1.0f); // and the D-pad shows it
+	auto slotGlyph = [&fixture]() {
+		RecordingCanvas canvas;
+		fixture.world->dpad().render(canvas);
+		for (const RecordingCanvas::Call& call : canvas.calls)
+			if (call.kind == RecordingCanvas::IMAGE && canvas.pathOf(call.texture).find("glyphs/") != std::string::npos)
+				return canvas.pathOf(call.texture);
+		return std::string();
+	};
+	CHECK(slotGlyph() == "assets/textures/glyphs/kb/key_2.png");
+	fixture.source.beginPad(PadPart::BUTTON);
+	fixture.source.observe(SEvent());
+	fixture.source.endPad();
+	fixture.world->update(0.0f);
+	CHECK(slotGlyph() == "assets/textures/glyphs/xbox/dpad_up.png");
 }

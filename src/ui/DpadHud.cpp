@@ -291,6 +291,17 @@ void DpadHud::drawContent(Canvas& canvas, const Layout& at, Slot (&slots)[4], co
 				circle(canvas, middle, size / 2.0f + 1.0f + rim, shade(slotColours[i], alpha * glow * (1.0f - rim * 0.3f), 1.3f));
 		if (TextureHandle art = texture(canvas, slot.iconPath, slots[i].icon))
 			canvas.drawImage(art, artRect(slot.iconPath, middle, (s32)(at.iconSize * grow + 0.5f)), shade(white, alpha));
+		// The button that runs this slot, small, sitting on the ring's lower-right edge: a hint, not the focus.
+		static const GlyphAction arms[4] = { GlyphAction::DPAD_UP, GlyphAction::DPAD_RIGHT, GlyphAction::DPAD_DOWN, GlyphAction::DPAD_LEFT };
+		const char* glyph = glyphPath(arms[i], glyphFamily_);
+		if (*glyph)
+		{
+			s32 hint = (s32)(at.cell * 0.43f * grow + 0.5f);
+			s32 offset = (s32)(size * 0.36f);
+			position2d<s32> corner(middle.X + offset, middle.Y + offset);
+			canvas.drawImage(canvas.loadTexture(glyph), rect<s32>(corner.X - hint / 2, corner.Y - hint / 2, corner.X - hint / 2 + hint, corner.Y - hint / 2 + hint),
+				shade(white, alpha));
+		}
 		if (slot.label.empty())
 			continue;
 		const rect<s32>& w = at.wedges[i];
@@ -323,7 +334,6 @@ void DpadHud::drawContent(Canvas& canvas, const Layout& at, Slot (&slots)[4], co
 			anchor.X = w.UpperLeftCorner.X - 8;
 			align = -1;
 		}
-		// TODO: a small ButtonGlyphs glyph by each slot (the D-pad arm on a pad, the number key on keyboard).
 		pillText(canvas, at.font, label, anchor, align, at.line, shade(slotColours[i], alpha, chosen ? pulse : 1.0f), alpha);
 	}
 
