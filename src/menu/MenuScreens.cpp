@@ -647,9 +647,6 @@ void MenuScreens::draw()
 			canvas_.drawText(canvas_.loadFont(labelFont), said.c_str(), rect<s32>(0, (s32)screen.Height / 2 + 60, (s32)screen.Width,
 				(s32)screen.Height / 2 + 90), world_->interactionSucceeded() ? SColor(255, 235, 230, 220) : theme::accent, true, true, false);
 		}
-		if (world_->containerInReach() && !world_->dead())
-			canvas_.drawText(canvas_.loadFont(labelFont), L"Press E to search", rect<s32>(0, (s32)screen.Height - 156, (s32)screen.Width,
-				(s32)screen.Height - 132), SColor(255, 255, 255, 255), true, true, false);
 		if (world_->debugShown())
 			DebugOverlay(device_, canvas_, nullptr).draw(world_->player() ? world_->player()->getPosition() : vector3df());
 		if (world_->dead())

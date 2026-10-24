@@ -803,3 +803,19 @@ TEST_CASE("beside a world container X with nothing picked runs Normal and opens 
 	CHECK(opened == std::vector<loot::Container*>{ &crate });
 	CHECK(fixture.world->interactionFeedback().empty());
 }
+
+TEST_CASE("at the test door with Force picked the prompt still says Open, and E kicks rather than tries the handle")
+{
+	Fixture fixture;
+	std::vector<std::string> log;
+	fixture.world->setInteractionLog([&log](const std::string& line) { log.push_back(line); });
+	fixture.world->teleport(-3.2f, 0.0f, 2.3f);
+	fixture.world->update(0.0f);
+	REQUIRE(fixture.world->detector().hasTarget());
+	REQUIRE(fixture.world->detector().getTarget()->getInfo().name == "Test Door");
+	CHECK(fixture.world->promptAction() == "Open");
+	fixture.key(KEY_LEFT, true);
+	CHECK(fixture.world->promptAction() == "Open");
+	fixture.key(KEY_KEY_E, true);
+	CHECK(log == std::vector<std::string>{ "FAILED: Not strong enough." });
+}

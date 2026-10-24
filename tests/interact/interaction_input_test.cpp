@@ -101,7 +101,7 @@ TEST_CASE("a newly targeted door has nothing picked and no prompt, and X runs No
 	CHECK(rig.press(KEY_LEFT));
 	REQUIRE(rig.targets.selected() != nullptr);
 	CHECK(rig.targets.selected()->type == Approach::FORCE);
-	CHECK(rig.targets.promptAction() == "Kick Down");
+	CHECK(rig.targets.promptAction() == "Open");
 	CHECK_FALSE(rig.says(L"X: Kick Down"));
 	rig.press(KEY_KEY_R);
 	rig.press(KEY_UP);
@@ -164,7 +164,7 @@ TEST_CASE("the pick holds while the target does, and a different target starts f
 	rig.targets.update(&rig.door, 1, rig.hud);
 	REQUIRE(rig.targets.selected() != nullptr);
 	CHECK(rig.targets.selected()->type == Approach::FORCE);
-	CHECK(rig.targets.promptAction() == "Kick Down");
+	CHECK(rig.targets.promptAction() == "Open");
 	CHECK_FALSE(rig.says(L"X: Kick Down"));
 	rig.targets.update(&rig.crate, 2, rig.hud);
 	CHECK(rig.targets.selected() == nullptr);

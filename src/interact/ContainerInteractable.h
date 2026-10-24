@@ -5,7 +5,7 @@
 #include "Loot.h"
 #include <functional>
 
-// A loot container seen as a supply_crate: Normal opens the loot screen like "Press E to search", Force smashes it open.
+// A loot container seen as a supply_crate: Normal opens the loot screen (the "E Search" prompt), Force smashes it open.
 // It points into the world's container list, which is filled once and never resized.
 class ContainerInteractable : public Interactable
 {

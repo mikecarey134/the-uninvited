@@ -171,7 +171,7 @@ TEST_CASE("a target whose type is not registered shows its name with every slot 
 	CHECK_FALSE(says(hud, L"Kick Down"));
 }
 
-TEST_CASE("the prompt names the target's Normal verb, switches to a picked slot's action, and goes back when unpicked or lost")
+TEST_CASE("the prompt always names the target's Normal verb, whatever D-pad slot is picked, and goes when the target is lost")
 {
 	TargetHud glue(defaultApproaches());
 	DpadHud hud;
@@ -182,9 +182,9 @@ TEST_CASE("the prompt names the target's Normal verb, switches to a picked slot'
 	glue.update(&door, 1, hud);
 	CHECK(glue.promptAction() == "Open");
 	glue.select(DpadDirection::LEFT, hud);
-	CHECK(glue.promptAction() == "Kick Down");
+	CHECK(glue.promptAction() == "Open");
 	glue.select(DpadDirection::UP, hud);
-	CHECK(glue.promptAction() == "Pick Lock");
+	CHECK(glue.promptAction() == "Open");
 	glue.select(DpadDirection::UP, hud);
 	CHECK(glue.promptAction() == "Open");
 	glue.select(DpadDirection::DOWN, hud);

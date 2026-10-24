@@ -925,7 +925,7 @@ TEST_CASE("with F3 on, Mike's debug panel is drawn over the game with the frame 
 	device->drop();
 }
 
-TEST_CASE("standing beside a container shows Press E to search at the bottom middle in the HUD's small white text, and walking away hides it")
+TEST_CASE("standing beside a container the only search prompt is E Search under its marker; the old Press E to search line is gone, and walking away hides it")
 {
 	IrrlichtDevice* device = createDevice(video::EDT_NULL, core::dimension2d<u32>(1280, 720));
 	RecordingCanvas canvas;
@@ -946,12 +946,13 @@ TEST_CASE("standing beside a container shows Press E to search at the bottom mid
 		flow.startServer();
 		World world(device, menu::characterModel(character::Gender::Male), menu::outfitSkin(character::Gender::Male, 0).c_str(), [] {});
 		screens.setWorld(&world);
-		auto prompt = [&canvas]() -> const RecordingCanvas::Call* {
+		auto says = [&canvas](const std::wstring& line) -> const RecordingCanvas::Call* {
 			for (const RecordingCanvas::Call& call : canvas.calls)
-				if (call.kind == RecordingCanvas::TEXT && call.text == L"Press E to search")
+				if (call.kind == RecordingCanvas::TEXT && call.text == line)
 					return &call;
 			return nullptr;
 		};
+		auto prompt = [&says]() { return says(L"Search"); };
 		canvas.calls.clear();
 		screens.draw();
 		CHECK(prompt() == nullptr);
@@ -959,15 +960,14 @@ TEST_CASE("standing beside a container shows Press E to search at the bottom mid
 		world.teleport(chest.x + 1.5f, 0.0f, chest.z);
 		canvas.calls.clear();
 		screens.draw();
-		const RecordingCanvas::Call* shown = prompt();
-		REQUIRE(shown != nullptr);
-		CHECK(shown->hcenter);
-		CHECK((shown->area.UpperLeftCorner.X + shown->area.LowerRightCorner.X) / 2 == 640);
-		CHECK(shown->area.UpperLeftCorner.Y > 520);
-		CHECK(shown->area.LowerRightCorner.Y <= 720);
-		CHECK(shown->colour == video::SColor(255, 255, 255, 255));
-		CHECK(canvas.pathOf(shown->font).find("label") != std::string::npos);
+		world.update(0.0f);
+		canvas.calls.clear();
+		screens.draw();
+		REQUIRE(prompt() != nullptr);
+		CHECK(says(L"E") != nullptr);
+		CHECK(says(L"Press E to search") == nullptr);
 		world.teleport(chest.x + 4.0f, 0.0f, chest.z);
+		world.update(0.0f);
 		canvas.calls.clear();
 		screens.draw();
 		CHECK(prompt() == nullptr);

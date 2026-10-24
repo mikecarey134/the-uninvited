@@ -138,14 +138,13 @@ bool LootScreen::onEvent(const SEvent& event)
 	EKEY_CODE key = event.KeyInput.Key;
 	switch (key)
 	{
+	// E closes an open loot screen. Opening is the interaction system's: E on a targeted container runs its Normal (or a picked
+	// D-pad slot, such as Force), which opens this screen on that container.
 	case KEY_KEY_E:
-		if (open_)
-		{
-			close();
-			return true;
-		}
-		open();
-		return open_;
+		if (!open_)
+			return false;
+		close();
+		return true;
 	case KEY_ESCAPE:
 		if (!open_)
 			return false;

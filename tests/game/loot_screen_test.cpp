@@ -74,24 +74,28 @@ namespace
 	};
 }
 
-TEST_CASE("E opens the loot screen only beside a container, marks it searched, and E or Escape closes it")
+TEST_CASE("E no longer opens the loot screen (the interaction system does); opening needs a nearby container, marks it searched, and E or Escape closes it")
 {
 	Search search;
+	search.near = true;
 	CHECK_FALSE(search.key(KEY_KEY_E));
+	CHECK_FALSE(search.screen.isOpen());
+	search.near = false;
+	search.screen.open();
 	CHECK_FALSE(search.screen.isOpen());
 	search.near = true;
-	search.console = true;
-	CHECK_FALSE(search.key(KEY_KEY_E));
-	CHECK_FALSE(search.screen.isOpen());
-	search.console = false;
-	CHECK(search.key(KEY_KEY_E));
+	search.screen.open();
 	CHECK(search.screen.isOpen());
 	CHECK(search.screen.container() == &search.chest);
 	CHECK(search.chest.searched);
 	CHECK(search.opened == 1);
+	search.console = true;
+	CHECK_FALSE(search.key(KEY_KEY_E));
+	CHECK(search.screen.isOpen());
+	search.console = false;
 	CHECK(search.key(KEY_KEY_E));
 	CHECK_FALSE(search.screen.isOpen());
-	search.key(KEY_KEY_E);
+	search.screen.open();
 	CHECK(search.key(KEY_ESCAPE));
 	CHECK_FALSE(search.screen.isOpen());
 	CHECK_FALSE(search.key(KEY_ESCAPE));
@@ -102,7 +106,7 @@ TEST_CASE("the open loot screen swallows movement and the mouse but lets I, C an
 {
 	Search search;
 	search.near = true;
-	search.key(KEY_KEY_E);
+	search.screen.open();
 	CHECK(search.key(KEY_KEY_W));
 	CHECK_FALSE(search.key(KEY_KEY_W, false));
 	CHECK_FALSE(search.key(KEY_KEY_I));
@@ -144,7 +148,7 @@ TEST_CASE("two floating panels sit over a dimmed world, the container's icon gri
 {
 	Search search;
 	search.near = true;
-	search.key(KEY_KEY_E);
+	search.screen.open();
 	search.draw();
 	const RecordingCanvas::Call& dim = search.canvas.calls.front();
 	CHECK(dim.area == rect<s32>(0, 0, 1280, 720));
@@ -232,7 +236,7 @@ TEST_CASE("the container grid is as wide as its capacity up to four columns, wit
 		INFO(size.capacity);
 		search.chest.capacity = size.capacity;
 		search.screen.close();
-		search.key(KEY_KEY_E);
+		search.screen.open();
 		search.draw();
 		CHECK(search.screen.containerColumns() == size.columns);
 		CHECK(search.screen.containerRows() == size.rows);
@@ -246,7 +250,7 @@ TEST_CASE("clicking a container icon takes it into the grid, clicking a grid ite
 {
 	Search search;
 	search.near = true;
-	search.key(KEY_KEY_E);
+	search.screen.open();
 	search.draw();
 	search.mouse(EMIE_LMOUSE_PRESSED_DOWN, search.screen.containerCell(1).getCenter());
 	REQUIRE(search.chest.items.size() == 2);
@@ -291,7 +295,7 @@ TEST_CASE("with the keyboard alone the two grids take turns with Tab or across t
 {
 	Search search;
 	search.near = true;
-	search.key(KEY_KEY_E);
+	search.screen.open();
 	search.draw();
 	CHECK(ringed(search.canvas, search.screen.containerCell(0)));
 	CHECK(search.key(KEY_RIGHT));
@@ -353,7 +357,7 @@ TEST_CASE("with the keyboard alone the two grids take turns with Tab or across t
 	search.draw();
 	CHECK_FALSE(ringed(search.canvas, search.screen.containerCell(3)));
 	search.key(KEY_KEY_E);
-	search.key(KEY_KEY_E);
+	search.screen.open();
 	search.draw();
 	CHECK(ringed(search.canvas, search.screen.containerCell(0)));
 }

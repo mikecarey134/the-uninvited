@@ -55,8 +55,6 @@ const ApproachOption* TargetHud::optionAt(DpadDirection slot) const
 
 std::string TargetHud::promptAction() const
 {
-	if (selected_)
-		return selected_->label;
 	const ApproachSet* set = approaches();
 	const ApproachOption* normal = option(Approach::NORMAL);
 	if (!set || !normal)
