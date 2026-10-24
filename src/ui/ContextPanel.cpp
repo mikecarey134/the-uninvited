@@ -1,4 +1,5 @@
 #include "ContextPanel.h"
+#include "IconArt.h"
 
 using namespace irr;
 using namespace core;
@@ -11,6 +12,7 @@ namespace
 	const s32 padding = 8;
 	const s32 belowCrosshair = 32;
 	const s32 iconSize = 28;
+	const s32 iconArt = 24; // the visible mode glyph, whatever padding its PNG has
 	const char* const labelFont = "assets/fonts/label.png";
 	const SColor backing(190, 12, 11, 9);
 	const SColor highlight(110, 0xd4, 0xa8, 0x43);
@@ -78,7 +80,7 @@ void ContextPanel::render(Canvas& canvas)
 		s32 iconLeft = area.UpperLeftCorner.X + 6;
 		if (!row.iconPath.empty())
 			canvas.drawImage(canvas.loadTexture(("assets/ui/icons/" + row.iconPath).c_str()),
-				rect<s32>(iconLeft, centre.Y - iconSize / 2, iconLeft + iconSize, centre.Y + iconSize / 2));
+				artRect(row.iconPath, position2d<s32>(iconLeft + iconSize / 2, centre.Y), iconArt));
 		s32 labelLeft = iconLeft + iconSize + 10;
 		canvas.drawText(font, wide(row.label).c_str(), rect<s32>(labelLeft, area.UpperLeftCorner.Y, area.LowerRightCorner.X - 36, area.LowerRightCorner.Y),
 			text, false, true, false);

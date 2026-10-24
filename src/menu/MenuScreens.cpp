@@ -10,6 +10,7 @@
 #include "UiAnchor.h"
 #include <algorithm>
 #include <cmath>
+#include "IconArt.h"
 
 using namespace irr;
 using namespace core;
@@ -621,8 +622,7 @@ void MenuScreens::draw()
 		{
 			// A 56px gold ring with a thick bright rim, so the target reads from across the room.
 			const s32 radius = 28;
-			canvas_.drawImage(canvas_.loadTexture("assets/ui/icons/rings/gold.png"), rect<s32>(marker.X - radius, marker.Y - radius, marker.X + radius,
-				marker.Y + radius));
+			canvas_.drawImage(canvas_.loadTexture("assets/ui/icons/rings/gold.png"), artRect("rings/gold.png", marker, radius * 2));
 			for (s32 r = radius - 3; r <= radius; ++r)
 				for (int i = 0; i < 40; ++i)
 				{
@@ -633,7 +633,7 @@ void MenuScreens::draw()
 				}
 			std::string icon = world_->detector().getTarget() ? world_->detector().getTarget()->getInfo().iconPath : "";
 			if (!icon.empty())
-				canvas_.drawImage(canvas_.loadTexture(("assets/ui/icons/" + icon).c_str()), rect<s32>(marker.X - 15, marker.Y - 15, marker.X + 15, marker.Y + 15));
+				canvas_.drawImage(canvas_.loadTexture(("assets/ui/icons/" + icon).c_str()), artRect(icon, marker, 34));
 		}
 		world_->contextPanel().render(canvas_);
 		if (!world_->interactionFeedback().empty())

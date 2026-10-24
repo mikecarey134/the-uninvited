@@ -1,4 +1,5 @@
 #include "DpadHud.h"
+#include "IconArt.h"
 #include <algorithm>
 #include <cmath>
 
@@ -35,11 +36,6 @@ namespace
 	std::wstring wide(const std::string& text)
 	{
 		return std::wstring(text.begin(), text.end());
-	}
-
-	rect<s32> square(position2d<s32> centre, s32 side)
-	{
-		return rect<s32>(centre.X - side / 2, centre.Y - side / 2, centre.X - side / 2 + side, centre.Y - side / 2 + side);
 	}
 
 	void chevron(Canvas& canvas, const rect<s32>& wedge, int direction, SColor colour)
@@ -169,8 +165,9 @@ void DpadHud::render(Canvas& canvas)
 	bool live = state_ != DpadState::IDLE;
 	f32 wave = std::sin(pulseClock_ / pulseSeconds * 6.2831853f);
 	f32 pulse = 0.9f + 0.1f * wave;
-	s32 ringSize = cell * 11 / 10;
-	s32 iconSize = cell * 2 / 3;
+	// Sizes are of the visible art, not the padded PNG canvas: the ring as seen, and the icon filling about 70% of it.
+	s32 ringSize = cell * 21 / 20;
+	s32 iconSize = ringSize * 68 / 100;
 
 	// The plus-shaped frame: a dark see-through cross with a thin outline.
 	SColor back = shade(backing, opacity_ * 0.45f);
@@ -186,7 +183,7 @@ void DpadHud::render(Canvas& canvas)
 		position2d<s32>(origin.X, origin.Y + cell), position2d<s32>(origin.X + cell, origin.Y + cell) };
 	for (int i = 0; i < 12; ++i)
 		canvas.drawLine(outline[i], outline[(i + 1) % 12], edge);
-	circle(canvas, centre.getCenter(), cell * 0.45f, shade(neutral, opacity_ * (live ? 0.9f : 0.5f)));
+	circle(canvas, centre.getCenter(), cell * 0.42f, shade(neutral, opacity_ * (live ? 0.9f : 0.5f)));
 
 	for (int i = 0; i < 4; ++i)
 	{
@@ -202,13 +199,13 @@ void DpadHud::render(Canvas& canvas)
 		}
 		f32 swell = (wave + 1.0f) / 2.0f;
 		s32 size = chosen ? ringSize + (s32)(ringSize * 0.08f * swell) : ringSize;
-		canvas.drawImage(texture(canvas, rings[i], ringTextures_[i]), square(middle, size), shade(white, opacity_));
+		canvas.drawImage(texture(canvas, rings[i], ringTextures_[i]), artRect(rings[i], middle, size), shade(white, opacity_));
 		// The selected ring glows: bright rims in its colour that pulse just outside it.
 		if (chosen)
 			for (int rim = 0; rim < 3; ++rim)
 				circle(canvas, middle, size / 2.0f + 1.0f + rim, shade(slotColours[i], opacity_ * (0.5f + 0.5f * swell) * (1.0f - rim * 0.3f), 1.3f));
 		if (TextureHandle icon = texture(canvas, slot.iconPath, slots_[i].icon))
-			canvas.drawImage(icon, square(middle, iconSize), shade(white, opacity_));
+			canvas.drawImage(icon, artRect(slot.iconPath, middle, iconSize), shade(white, opacity_));
 		if (slot.label.empty())
 			continue;
 		const rect<s32>& w = wedges[i];
@@ -247,7 +244,7 @@ void DpadHud::render(Canvas& canvas)
 		return;
 
 	if (TextureHandle icon = texture(canvas, targetIconPath_, targetIcon_))
-		canvas.drawImage(icon, square(centre.getCenter(), (s32)(24.0f * scale + 0.5f)), shade(white, opacity_));
+		canvas.drawImage(icon, artRect(targetIconPath_, centre.getCenter(), (s32)(cell * 0.58f)), shade(white, opacity_));
 	s32 above = wedges[0].UpperLeftCorner.Y - line - 10;
 	if (!targetName_.empty())
 	{

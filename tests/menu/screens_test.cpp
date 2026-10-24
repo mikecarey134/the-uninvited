@@ -1,4 +1,5 @@
 #include "doctest.h"
+#include "IconArt.h"
 #include "CharacterStore.h"
 #include "IrrlichtCanvas.h"
 #include "MenuFlow.h"
@@ -752,8 +753,9 @@ TEST_CASE("the vitals HUD shows only in the world, replacing the big name headin
 			if (call.kind == RecordingCanvas::IMAGE && canvas.pathOf(call.texture) == "assets/ui/icons/rings/gold.png" && call.area.getCenter().X > 300)
 				marker = &call;
 		REQUIRE(marker != nullptr);
-		CHECK(marker->area.getWidth() >= 48);
-		CHECK(marker->area.getWidth() <= 64);
+		f32 seen = marker->area.getWidth() * artBox("rings/gold.png").fill;
+		CHECK(seen >= 48.0f);
+		CHECK(seen <= 64.0f);
 		int rim = 0;
 		for (const RecordingCanvas::Call& call : canvas.calls)
 			if (call.kind == RecordingCanvas::LINE && marker->area.isPointInside(call.from) && call.colour.getRed() == 255 && call.colour.getBlue() < 100)

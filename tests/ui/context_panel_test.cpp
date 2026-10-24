@@ -1,5 +1,6 @@
 #include "doctest.h"
 #include "ContextPanel.h"
+#include "IconArt.h"
 #include "RecordingCanvas.h"
 #include <string>
 
@@ -89,4 +90,23 @@ TEST_CASE("the row under the cursor is found and highlighted; off the rows nothi
 	CHECK(panel.hovered() == -1);
 	panel.close();
 	CHECK(panel.rowAt(second) == -1);
+}
+
+TEST_CASE("each row's mode glyph is drawn about 24px across as seen, whatever padding its PNG carries")
+{
+	ContextPanel panel;
+	panel.open(doorRows);
+	RecordingCanvas canvas;
+	canvas.screenDimension = dimension2d<u32>(1920, 1080);
+	panel.render(canvas);
+	int glyphs = 0;
+	for (const RecordingCanvas::Call& call : canvas.calls)
+		if (call.kind == RecordingCanvas::IMAGE)
+		{
+			std::string path = canvas.pathOf(call.texture).substr(std::string("assets/ui/icons/").size());
+			CAPTURE(path);
+			CHECK(call.area.getWidth() * artBox(path).fill == doctest::Approx(24.0f).epsilon(0.08));
+			++glyphs;
+		}
+	CHECK(glyphs == 4);
 }

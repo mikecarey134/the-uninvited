@@ -1,7 +1,9 @@
 #include "doctest.h"
 #include "DpadHud.h"
+#include "IconArt.h"
 #include "RecordingCanvas.h"
 #include <algorithm>
+#include <cstdlib>
 #include <string>
 
 using namespace irr;
@@ -128,8 +130,13 @@ TEST_CASE("an active D-pad fades in and frames each available icon in its own co
 	const RecordingCanvas::Call* pick = image(canvas, "assets/ui/icons/skills/lockpicking.png");
 	REQUIRE(gold != nullptr);
 	REQUIRE(pick != nullptr);
-	CHECK(gold->area.getCenter() == pick->area.getCenter());
-	CHECK(gold->area.getWidth() > pick->area.getWidth());
+	CHECK(std::abs(gold->area.getCenter().X - pick->area.getCenter().X) <= 1);
+	CHECK(std::abs(gold->area.getCenter().Y - pick->area.getCenter().Y) <= 1);
+	// Visible art, not PNG canvas: the icon fills about 70% of the ring as seen.
+	f32 ringSeen = gold->area.getWidth() * artBox("rings/gold.png").fill;
+	f32 iconSeen = pick->area.getWidth() * artBox("skills/lockpicking.png").fill;
+	CHECK(iconSeen / ringSeen > 0.6f);
+	CHECK(iconSeen / ringSeen < 0.8f);
 	CHECK(gold < pick);
 	CHECK(drew(canvas, "assets/ui/icons/rings/red.png"));
 	CHECK_FALSE(drew(canvas, "assets/ui/icons/rings/cyan.png"));
