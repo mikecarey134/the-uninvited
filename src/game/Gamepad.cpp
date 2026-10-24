@@ -1,4 +1,6 @@
 #include "Gamepad.h"
+#include <algorithm>
+#include <cmath>
 #include <memory>
 #ifdef __linux__
 #include <fcntl.h>
@@ -71,6 +73,15 @@ bool GamepadLayer::onEvent(const SEvent& event)
 	if (event.EventType != EET_JOYSTICK_INPUT_EVENT)
 		return false;
 	const SEvent::SJoystickEvent& pad = event.JoystickEvent;
+	auto stick = [](s16 value) {
+		const f32 deadZone = 8000.0f;
+		f32 v = (f32)value;
+		if (std::fabs(v) < deadZone)
+			return 0.0f;
+		return std::min(std::max((v - (v > 0 ? deadZone : -deadZone)) / (32767.0f - deadZone), -1.0f), 1.0f);
+	};
+	rightX_ = stick(pad.Axis[3]);
+	rightY_ = stick(pad.Axis[4]);
 	const struct { u32 button; EKEY_CODE key; } buttons[] = { { 0, KEY_RETURN }, { 1, KEY_ESCAPE }, { 2, KEY_KEY_R }, { 7, KEY_KEY_I }, { 6, KEY_KEY_C } };
 	for (const auto& entry : buttons)
 		if (pad.IsButtonPressed(entry.button) && !(buttons_ & (1u << entry.button)))

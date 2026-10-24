@@ -822,3 +822,102 @@ TEST_CASE("at the test door with Force picked the prompt still says Open, and E 
 	bool strong = fixture.world->sheet().getStrength() >= TestDoor::STRENGTH_TO_KICK;
 	CHECK(log == std::vector<std::string>{ strong ? "OK: You kick the door open!" : "FAILED: Not strong enough." });
 }
+
+namespace
+{
+	f32 feetOf(Fixture& fixture)
+	{
+		return fixture.world->localState().pos[1];
+	}
+}
+
+TEST_CASE("teleported 20 up the player falls under gravity, lands on the ground about two seconds later, and stays there without bouncing")
+{
+	Fixture fixture;
+	fixture.world->teleport(30.0f, 20.0f, 30.0f);
+	fixture.world->update(0.0f);
+	CHECK(feetOf(fixture) == doctest::Approx(20.0f));
+	f32 previous = 20.0f;
+	f32 time = 0.0f;
+	while (feetOf(fixture) > 0.0f && time < 5.0f)
+	{
+		fixture.world->update(0.02f);
+		time += 0.02f;
+		CHECK(feetOf(fixture) <= previous);
+		previous = feetOf(fixture);
+		if (std::fabs(time - 1.0f) < 0.011f)
+			CHECK(feetOf(fixture) == doctest::Approx(20.0f - 0.5f * 9.8f * 1.0f).epsilon(0.03)); // s = ut + at^2/2
+	}
+	CHECK(time == doctest::Approx(std::sqrt(2.0f * 20.0f / 9.8f)).epsilon(0.03));
+	for (int i = 0; i < 50; ++i)
+	{
+		fixture.world->update(0.02f);
+		CHECK(feetOf(fixture) == doctest::Approx(0.0f));
+	}
+}
+
+TEST_CASE("the ground is a floor: feet put below it come back up to it, and walking keeps them on it")
+{
+	Fixture fixture;
+	fixture.world->teleport(30.0f, -5.0f, 30.0f);
+	fixture.world->update(0.02f);
+	CHECK(feetOf(fixture) == doctest::Approx(0.0f));
+	fixture.walk(KEY_KEY_W, 2.0f);
+	CHECK(feetOf(fixture) == doctest::Approx(0.0f));
+}
+
+TEST_CASE("dropped onto the barrel the player stands on its top, can walk across it, and falls to the ground walking off")
+{
+	Fixture fixture;
+	std::vector<aabbox3df> boxes = props(fixture.world);
+	ISceneNode* barrel = fixture.world->scene()->getSceneNodeFromName("prop barrel");
+	REQUIRE(barrel != nullptr);
+	barrel->updateAbsolutePosition();
+	aabbox3df box = barrel->getTransformedBoundingBox();
+	vector3df top = box.getCenter();
+	fixture.world->teleport(top.X, 5.0f, top.Z);
+	for (int i = 0; i < 150; ++i)
+		fixture.world->update(0.02f);
+	CHECK(feetOf(fixture) == doctest::Approx(box.MaxEdge.Y).epsilon(0.01));
+	fixture.world->look(90.0f);
+	fixture.walk(KEY_KEY_W, 1.0f);
+	for (int i = 0; i < 100; ++i)
+		fixture.world->update(0.02f);
+	CHECK(feetOf(fixture) == doctest::Approx(0.0f));
+	CHECK(fixture.world->player()->getPosition().X > box.MaxEdge.X);
+	(void)boxes;
+}
+
+TEST_CASE("the camera tilts up and down around the player, stops at 80 degrees either way, starts at the old angle, and never goes under the ground")
+{
+	Fixture fixture;
+	fixture.world->teleport(30.0f, 0.0f, 30.0f);
+	ICameraSceneNode* camera = fixture.world->camera();
+	CHECK(fixture.world->pitch() == doctest::Approx(-std::atan2(1.2f, 4.5f) * RADTODEG).epsilon(0.01));
+	CHECK(camera->getPosition().Y > camera->getTarget().Y);
+	fixture.world->tilt(40.0f);
+	fixture.world->update(0.0f);
+	CHECK(camera->getTarget().Y > camera->getPosition().Y);
+	fixture.world->tilt(1000.0f);
+	CHECK(fixture.world->pitch() == doctest::Approx(80.0f));
+	fixture.world->update(0.0f);
+	CHECK(camera->getPosition().Y >= 0.2f - 0.001f);
+	fixture.world->tilt(-1000.0f);
+	CHECK(fixture.world->pitch() == doctest::Approx(-80.0f));
+	fixture.world->update(0.0f);
+	vector3df view = camera->getTarget() - camera->getPosition();
+	CHECK(std::atan2(-view.Y, std::sqrt(view.X * view.X + view.Z * view.Z)) * RADTODEG == doctest::Approx(80.0f).epsilon(0.01));
+}
+
+TEST_CASE("with the camera tilted right up or down the lone test terminal is still targeted")
+{
+	Fixture fixture;
+	fixture.world->teleport(-8.0f, 0.0f, -1.5f);
+	for (f32 tilt : { 60.0f, -150.0f })
+	{
+		fixture.world->tilt(tilt);
+		fixture.world->update(0.0f);
+		REQUIRE(fixture.world->detector().hasTarget());
+		CHECK(fixture.world->detector().getTarget()->getInfo().name == "Test Terminal");
+	}
+}

@@ -30,6 +30,12 @@ namespace
 	const s32 walkStart = 301;
 	const s32 walkEnd = 316;
 	const EKEY_CODE moveKeys[4] = { KEY_KEY_W, KEY_KEY_S, KEY_KEY_A, KEY_KEY_D };
+	const f32 gravity = 9.8f;       // world units are metres: the character is 1.75 tall
+	const f32 stepHeight = 0.35f;   // a ledge this low is stepped onto, anything taller blocks
+	const f32 pitchLimit = 80.0f;   // the camera tilts this far up or down, never over the top
+	const f32 followRange = std::sqrt(followDistance * followDistance + (eyeHeight - lookHeight) * (eyeHeight - lookHeight));
+	const f32 restingPitch = -std::atan2(eyeHeight - lookHeight, followDistance) * RADTODEG; // the old fixed camera, about 15 degrees down
+	const f32 lowestCamera = 0.2f;  // looking up, the camera slides along the ground rather than under it
 
 	void loop(IAnimatedMeshSceneNode* node, bool walking)
 	{
@@ -52,7 +58,7 @@ const uint8_t World::WALKING_STATE;
 World::World(IrrlichtDevice* device, const char* model, const char* skin, std::function<void()> leave,
 	const character::CharacterSheet& sheet)
 	: device_(device), scene_(device->getSceneManager()->createNewSceneManager(false)), camera_(0), player_(0), leave_(leave),
-	walking_(false), yaw_(0.0f), feet_(0.0f), sheet_(sheet), unticked_(0.0f), compression_(1.0f), timeOfDay_(START_HOUR), speed_(3.5f), containers_(loot::flatWorldContainers()), debugShown_(false), sun_(0), clock_(0.0f)
+	walking_(false), yaw_(0.0f), pitch_(restingPitch), feet_(0.0f), sheet_(sheet), unticked_(0.0f), compression_(1.0f), timeOfDay_(START_HOUR), speed_(3.5f), containers_(loot::flatWorldContainers()), debugShown_(false), sun_(0), clock_(0.0f)
 {
 	addAssimpMeshLoader(scene_);
 	for (bool& held : held_)
@@ -196,10 +202,26 @@ bool World::targetMarker(position2d<s32>& at) const
 	return at.X != -10000;
 }
 
+// The floor under a point: the ground plane, or the top of an obstacle whose footprint it is over and that is no higher than a
+// step above the feet. Only obstacles reachable from where the feet are count, so a car overhead is not a floor.
+f32 World::groundBelow(const vector3df& at) const
+{
+	f32 feetY = at.Y - feet_;
+	f32 ground = 0.0f;
+	for (const aabbox3df& box : obstacles_)
+		if (at.X >= box.MinEdge.X && at.X <= box.MaxEdge.X && at.Z >= box.MinEdge.Z && at.Z <= box.MaxEdge.Z && box.MaxEdge.Y <= feetY + stepHeight)
+			ground = std::max(ground, box.MaxEdge.Y);
+	return ground;
+}
+
 bool World::blocked(const vector3df& at) const
 {
+	f32 feetY = at.Y - feet_;
 	for (const aabbox3df& box : obstacles_)
 	{
+		// Something whose top is within a step of the feet does not block: it is stepped onto, or already underfoot.
+		if (box.MaxEdge.Y <= feetY + stepHeight)
+			continue;
 		f32 dx = std::max(std::max(box.MinEdge.X - at.X, 0.0f), at.X - box.MaxEdge.X);
 		f32 dz = std::max(std::max(box.MinEdge.Z - at.Z, 0.0f), at.Z - box.MaxEdge.Z);
 		if (dx * dx + dz * dz < radius * radius)
@@ -302,6 +324,7 @@ void World::teleport(f32 x, f32 y, f32 z)
 {
 	if (player_)
 		player_->setPosition(vector3df(x, y + feet_, z));
+	fall_ = 0.0f;
 	follow();
 }
 
@@ -339,6 +362,31 @@ void World::look(f32 degrees)
 	yaw_ += degrees;
 }
 
+void World::tilt(f32 degrees)
+{
+	pitch_ = std::min(std::max(pitch_ + degrees, -pitchLimit), pitchLimit);
+}
+
+// Gravity: unsupported feet fall, faster each moment, until they reach the floor under them, where they stop dead (no bounce).
+// Feet found below the floor (a teleport underground, or stepping up onto a low ledge) are put back on it.
+void World::settle(f32 seconds)
+{
+	vector3df at = player_->getPosition();
+	f32 feetY = at.Y - feet_;
+	f32 ground = groundBelow(at);
+	if (feetY > ground)
+	{
+		fall_ -= gravity * seconds;
+		feetY = std::max(feetY + fall_ * seconds, ground);
+	}
+	if (feetY <= ground)
+	{
+		feetY = ground;
+		fall_ = 0.0f;
+	}
+	player_->setPosition(vector3df(at.X, feetY + feet_, at.Z));
+}
+
 void World::update(f32 seconds)
 {
 	dpad_.update(seconds);
@@ -368,6 +416,7 @@ void World::update(f32 seconds)
 			move(step * speed_ * seconds);
 			player_->setRotation(vector3df(0.0f, step.getHorizontalAngle().Y, 0.0f));
 		}
+		settle(seconds);
 		animate(walking);
 	}
 	follow();
@@ -387,10 +436,15 @@ f32 World::playerRadius() const
 void World::follow()
 {
 	vector3df at = player_ ? player_->getPosition() - vector3df(0.0f, feet_, 0.0f) : vector3df();
-	f32 radians = yaw_ * DEGTORAD;
-	vector3df forward(std::sin(radians), 0.0f, std::cos(radians));
-	camera_->setPosition(at - forward * followDistance + vector3df(0.0f, eyeHeight, 0.0f));
-	camera_->setTarget(at + vector3df(0.0f, lookHeight, 0.0f));
+	// The camera orbits the point it looks at, set back along the view: yaw turns it round the player, pitch raises or lowers it.
+	f32 yaw = yaw_ * DEGTORAD;
+	f32 pitch = pitch_ * DEGTORAD;
+	vector3df view(std::sin(yaw) * std::cos(pitch), std::sin(pitch), std::cos(yaw) * std::cos(pitch));
+	vector3df target = at + vector3df(0.0f, lookHeight, 0.0f);
+	vector3df eye = target - view * followRange;
+	eye.Y = std::max(eye.Y, at.Y + lowestCamera);
+	camera_->setPosition(eye);
+	camera_->setTarget(target);
 }
 
 void World::animate(bool walking)

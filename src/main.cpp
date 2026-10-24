@@ -273,6 +273,13 @@ namespace
 				capture.setCaptured(!paused && !world->contextPanelOpen());
 				capture.beginFrame();
 				world->look(capture.delta().X * 0.25f);
+				world->tilt(-capture.delta().Y * 0.25f);
+				// Right stick: up to 150 degrees a second of turn and 100 of tilt.
+				if (!paused)
+				{
+					world->look(gamepad.rightX() * 150.0f * seconds);
+					world->tilt(-gamepad.rightY() * 100.0f * seconds);
+				}
 				world->update(paused ? 0.0f : seconds);
 				if (carried)
 				{

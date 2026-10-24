@@ -34,6 +34,9 @@ public:
 
 	bool onEvent(const irr::SEvent& event) override;
 	void look(irr::f32 degrees);
+	// Tilts the camera up (positive) or down, held within 80 degrees either way.
+	void tilt(irr::f32 degrees);
+	irr::f32 pitch() const { return pitch_; }
 	void update(irr::f32 seconds);
 	void draw();
 
@@ -96,6 +99,8 @@ private:
 	void addProps();
 	void addProp(const char* name, const char* file, irr::f32 x, irr::f32 z, const irr::core::vector3df& rotation, irr::f32 length);
 	bool blocked(const irr::core::vector3df& at) const;
+	irr::f32 groundBelow(const irr::core::vector3df& at) const;
+	void settle(irr::f32 seconds);
 	void move(const irr::core::vector3df& step);
 	void follow();
 	void animate(bool walking);
@@ -119,6 +124,8 @@ private:
 	bool held_[4];
 	bool walking_;
 	irr::f32 yaw_;
+	irr::f32 pitch_; // camera tilt in degrees: negative looks down
+	irr::f32 fall_ = 0.0f; // vertical speed, negative while falling
 	irr::f32 feet_;
 	std::vector<irr::core::aabbox3df> obstacles_;
 	character::CharacterSheet sheet_;

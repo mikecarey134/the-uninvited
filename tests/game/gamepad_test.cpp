@@ -124,3 +124,30 @@ TEST_CASE("a Linux joystick record sets the hat from axes 6 and 7, including the
 	CHECK(y == 32767);
 	CHECK(sizeof(JoystickRecord) == 8);
 }
+
+TEST_CASE("the right stick reads -1 to 1 each way from axes 3 and 4, with a dead zone in the middle")
+{
+	Pad pad;
+	SEvent event;
+	event.EventType = EET_JOYSTICK_INPUT_EVENT;
+	event.JoystickEvent.ButtonStates = 0;
+	for (s16& axis : event.JoystickEvent.Axis)
+		axis = 0;
+	event.JoystickEvent.POV = 65535;
+	event.JoystickEvent.Joystick = 0;
+	event.JoystickEvent.Axis[3] = 32767;
+	event.JoystickEvent.Axis[4] = -32767;
+	pad.layer.onEvent(event);
+	CHECK(pad.layer.rightX() == doctest::Approx(1.0f));
+	CHECK(pad.layer.rightY() == doctest::Approx(-1.0f));
+	event.JoystickEvent.Axis[3] = 4000;
+	event.JoystickEvent.Axis[4] = -6000;
+	pad.layer.onEvent(event);
+	CHECK(pad.layer.rightX() == 0.0f);
+	CHECK(pad.layer.rightY() == 0.0f);
+	event.JoystickEvent.Axis[3] = 20000;
+	pad.layer.onEvent(event);
+	CHECK(pad.layer.rightX() > 0.4f);
+	CHECK(pad.layer.rightX() < 0.6f);
+	CHECK(pad.keys.empty());
+}
