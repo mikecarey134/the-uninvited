@@ -822,7 +822,7 @@ TEST_CASE("at the test door with Force picked the prompt still says Open, and E 
 	fixture.key(KEY_KEY_E, true);
 	// The fixture's character is rolled at random, so the kick's outcome follows its Strength; either way it is Force, not the handle.
 	bool strong = fixture.world->sheet().getStrength() >= TestDoor::STRENGTH_TO_KICK;
-	CHECK(log == std::vector<std::string>{ strong ? "OK: You kick the door open!" : "FAILED: Not strong enough." });
+	CHECK(log == std::vector<std::string>{ strong ? "OK: The door cracks." : "FAILED: Not strong enough." });
 }
 
 namespace
