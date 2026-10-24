@@ -63,6 +63,10 @@ public:
 	// How the containers' approaches open the loot screen on one container.
 	void setOpenLoot(std::function<void(loot::Container&)> open) { openLoot_ = open; }
 	const std::string& interactionFeedback() const { return interaction_.feedback(); }
+	// The interact prompt by the target: which key, and what it does now (empty with no target).
+	std::string promptAction() const { return targetHud_.promptAction(); }
+	const std::string& promptKey() const { return promptKey_; }
+	void setPromptKey(const std::string& key) { promptKey_ = key; }
 	bool interactionSucceeded() const { return interaction_.feedbackSucceeded(); }
 	void arm(const HudWeapon& weapon) { weapon_ = weapon; }
 	irr::f32 speed() const { return speed_; }
@@ -134,6 +138,7 @@ private:
 	std::vector<std::unique_ptr<TestObject>> testInteractables_;
 	std::vector<std::unique_ptr<ContainerInteractable>> containerInteractables_;
 	std::function<void(loot::Container&)> openLoot_;
+	std::string promptKey_ = "E";
 	Interactable* shownTarget_ = nullptr;
 	TargetHud targetHud_ = TargetHud(defaultApproaches());
 	ContextPanel contextPanel_;

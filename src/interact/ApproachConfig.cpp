@@ -34,17 +34,17 @@ ApproachRegistry defaultApproaches()
 	registry.registerType("locked_door", { "", { { Approach::NORMAL, "Try Handle", normal, "" }, { Approach::FORCE, "Kick Down", force, "" },
 		{ Approach::SKILL, "Pick Lock", "skills/lockpicking.png", "lockpicking" },
 		{ Approach::SKILL, "Hack Keypad", "skills/electronics.png", "electronics" },
-		{ Approach::GUILE, "Send Companion", "approach/companion-delegate.png", "" } } });
-	registry.registerType("unlocked_door", { "", { { Approach::NORMAL, "Open Door", normal, "" } } });
-	registry.registerType("supply_crate", { "", { { Approach::NORMAL, "Open Crate", normal, "" }, { Approach::FORCE, "Smash Open", force, "" } } });
+		{ Approach::GUILE, "Send Companion", "approach/companion-delegate.png", "" } }, "Open" });
+	registry.registerType("unlocked_door", { "", { { Approach::NORMAL, "Open Door", normal, "" } }, "Open" });
+	registry.registerType("supply_crate", { "", { { Approach::NORMAL, "Open Crate", normal, "" }, { Approach::FORCE, "Smash Open", force, "" } }, "Search" });
 	registry.registerType("terminal", { "", { { Approach::NORMAL, "Use Terminal", normal, "" },
-		{ Approach::SKILL, "Hack Terminal", "skills/electronics.png", "electronics" } } });
+		{ Approach::SKILL, "Hack Terminal", "skills/electronics.png", "electronics" } }, "Use" });
 	registry.registerType("workbench", { "", { { Approach::NORMAL, "Use Workbench", normal, "" },
-		{ Approach::SKILL, "Craft Item", "skills/engineering.png", "engineering" } } });
-	registry.registerType("npc_friendly", { "", { { Approach::NORMAL, "Talk", normal, "" }, { Approach::GUILE, "Trade", "approach/trade.png", "" } } });
+		{ Approach::SKILL, "Craft Item", "skills/engineering.png", "engineering" } }, "Use" });
+	registry.registerType("npc_friendly", { "", { { Approach::NORMAL, "Talk", normal, "" }, { Approach::GUILE, "Trade", "approach/trade.png", "" } }, "Talk" });
 	registry.registerType("barricaded_door", { "", { { Approach::NORMAL, "Examine", normal, "" }, { Approach::FORCE, "Break Through", force, "" },
-		{ Approach::SKILL, "Dismantle", "skills/construction.png", "construction" } } });
+		{ Approach::SKILL, "Dismantle", "skills/construction.png", "construction" } }, "Examine" });
 	registry.registerType("generator", { "", { { Approach::NORMAL, "Turn On", normal, "" },
-		{ Approach::SKILL, "Repair", "skills/engineering.png", "engineering" } } });
+		{ Approach::SKILL, "Repair", "skills/engineering.png", "engineering" } }, "Use" });
 	return registry;
 }

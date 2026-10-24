@@ -761,6 +761,15 @@ TEST_CASE("the vitals HUD shows only in the world, replacing the big name headin
 			if (call.kind == RecordingCanvas::LINE && marker->area.isPointInside(call.from) && call.colour.getRed() == 255 && call.colour.getBlue() < 100)
 				++rim;
 		CHECK(rim >= 3 * 40);
+		bool key = false, verb = false;
+		for (const RecordingCanvas::Call& call : canvas.calls)
+			if (call.kind == RecordingCanvas::TEXT && call.area.UpperLeftCorner.Y > marker->area.getCenter().Y)
+			{
+				key = key || call.text == L"E";
+				verb = verb || call.text == L"Use";
+			}
+		CHECK(key);
+		CHECK(verb);
 		world.teleport(0.0f, 0.0f, -20.0f);
 		world.update(0.0f);
 		auto drawn = [&canvas](const std::string& file) {

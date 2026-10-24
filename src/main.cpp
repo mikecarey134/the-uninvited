@@ -207,6 +207,8 @@ namespace
 						console.logMessage_ANSI(ELL_INFORMATION, line.c_str());
 						std::cout << line << std::endl;
 					});
+					// Keyboard first; [X] is the generic pad fallback when a gamepad was found at startup (see InteractPrompt.h TODO).
+					world->setPromptKey(joysticks.size() > 0 ? "X" : "E");
 					world->setOpenLoot([&lootScreen](loot::Container& container) { lootScreen.open(&container); });
 					world->setInteractionBlocked([&console, &notebook, &inventoryScreen, &lootScreen] {
 						return console.isVisible() || notebook.isOpen() || inventoryScreen.isOpen() || lootScreen.isOpen();

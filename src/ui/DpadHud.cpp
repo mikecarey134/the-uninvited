@@ -251,9 +251,7 @@ void DpadHud::render(Canvas& canvas)
 		above -= line / 2 + 4;
 		pillText(canvas, font, wide(targetName_), position2d<s32>(box.getCenter().X, above), 0, line, shade(white, opacity_), opacity_);
 	}
-	// The prompt names what X does: the picked slot's action, or with nothing picked the target's Normal action.
-	bool picked = selected_ != DpadDirection::NONE;
-	if (!prompt_.empty() && (!picked || slots_[(int)selected_].available))
+	if (selected_ != DpadDirection::NONE && slots_[(int)selected_].available && !prompt_.empty())
 	{
 		above -= line + 8;
 		pillText(canvas, font, wide("X: " + prompt_), position2d<s32>(box.getCenter().X, above), 0, line, shade(white, opacity_), opacity_);

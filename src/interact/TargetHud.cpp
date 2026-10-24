@@ -53,10 +53,15 @@ const ApproachOption* TargetHud::optionAt(DpadDirection slot) const
 	return nullptr;
 }
 
-void TargetHud::promptNormal(DpadHud& hud) const
+std::string TargetHud::promptAction() const
 {
+	if (selected_)
+		return selected_->label;
+	const ApproachSet* set = approaches();
 	const ApproachOption* normal = option(Approach::NORMAL);
-	hud.setActionPrompt(normal ? normal->label : "");
+	if (!set || !normal)
+		return "";
+	return set->prompt.empty() ? normal->label : set->prompt;
 }
 
 bool TargetHud::select(DpadDirection slot, DpadHud& hud)
@@ -68,12 +73,11 @@ bool TargetHud::select(DpadDirection slot, DpadHud& hud)
 	{
 		selected_ = nullptr;
 		hud.clearSelection();
-		promptNormal(hud);
+		hud.setActionPrompt("");
 		return true;
 	}
 	selected_ = chosen;
 	hud.setSelectedDirection(slot);
-	hud.setActionPrompt(chosen->label);
 	return true;
 }
 
@@ -98,6 +102,7 @@ void TargetHud::update(Interactable* target, std::size_t inRange, DpadHud& hud)
 		return;
 	selected_ = nullptr;
 	hud.clearSelection();
+	hud.setActionPrompt("");
 	InteractableInfo info = target->getInfo();
 	hud.setTarget(info.name, info.iconPath);
 	for (DpadDirection slot : { DpadDirection::UP, DpadDirection::RIGHT, DpadDirection::DOWN, DpadDirection::LEFT })
@@ -108,5 +113,4 @@ void TargetHud::update(Interactable* target, std::size_t inRange, DpadHud& hud)
 		else
 			hud.clearSlot(slot);
 	}
-	promptNormal(hud);
 }

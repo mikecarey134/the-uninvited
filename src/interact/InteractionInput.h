@@ -10,8 +10,8 @@
 // Routes player input to the targeted interactable. With nothing targeted every event passes through untouched.
 // Controller: the gamepad layer posts the D-pad as the arrow keys and X as R, so arrows pick a slot (Skill up, Guile right, second
 // Skill down, Force left) and R runs the picked one, or Normal when none is picked.
-// PC: left-click or E runs Normal; 1-4 run Force, Skill, second Skill, Guile; right-click, Q or Tab toggle the context panel, which
-// lists those same four (Normal is the click itself), and its rows run on a click.
+// PC: E or left-click do the same as X (the picked slot, else Normal), matching the prompt; 1-4 run Force, Skill, second Skill,
+// Guile directly; right-click, Q or Tab toggle the context panel, which lists those same four, and its rows run on a click.
 class InteractionInput
 {
 public:
@@ -30,6 +30,8 @@ public:
 	bool execute(Approach approach);
 	// The same for one particular option, such as the target's second skill.
 	bool run(const ApproachOption* option);
+	// What the interact key does: the picked slot, or Normal when nothing is picked.
+	bool runCurrent();
 
 	// The last handler's line, shown briefly on screen, and whether it succeeded.
 	const std::string& feedback() const { return feedback_; }

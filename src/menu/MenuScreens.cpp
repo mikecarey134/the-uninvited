@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <cmath>
 #include "IconArt.h"
+#include "InteractPrompt.h"
 
 using namespace irr;
 using namespace core;
@@ -634,6 +635,7 @@ void MenuScreens::draw()
 			std::string icon = world_->detector().getTarget() ? world_->detector().getTarget()->getInfo().iconPath : "";
 			if (!icon.empty())
 				canvas_.drawImage(canvas_.loadTexture(("assets/ui/icons/" + icon).c_str()), artRect(icon, marker, 34));
+			drawInteractPrompt(canvas_, position2d<s32>(marker.X, marker.Y + radius + 12), world_->promptKey(), world_->promptAction());
 		}
 		world_->contextPanel().render(canvas_);
 		if (!world_->interactionFeedback().empty())

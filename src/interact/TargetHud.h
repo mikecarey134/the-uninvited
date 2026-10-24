@@ -8,8 +8,9 @@
 
 // The glue between detection, the approach registry and the D-pad. Normal is not on the D-pad: it is what X (or E, or a
 // left-click) does when no slot is picked. The D-pad holds the rest: Skill up, Guile right, a second Skill down, Force left.
-// When the target changes the D-pad shows it with nothing picked and an "X:" prompt naming its Normal action; a pick holds while
-// the target does. When the target is lost the D-pad goes idle.
+// When the target changes the D-pad shows it with nothing picked; the interact prompt by the target names the Normal verb
+// ("E Open"), and picking a slot switches it to that slot's action. A pick holds while the target does. When the target is lost
+// the D-pad goes idle.
 class TargetHud
 {
 public:
@@ -27,12 +28,13 @@ public:
 	const ApproachOption* selected() const { return selected_; }
 	// Picks a filled slot, or unpicks it if it was already picked (back to Normal). Returns false for an empty slot.
 	bool select(DpadDirection slot, DpadHud& hud);
+	// What the interact key does now, for the prompt: the picked slot's action, else the target's Normal verb; empty with no
+	// target or nothing to do.
+	std::string promptAction() const;
 
 	static const char* nameOf(Approach approach);
 
 private:
-	void promptNormal(DpadHud& hud) const;
-
 	ApproachRegistry registry_;
 	Interactable* shown_ = nullptr;
 	bool multiple_ = false;

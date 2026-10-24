@@ -133,7 +133,7 @@ TEST_CASE("targeting fills the D-pad from the registry, a new target clears the 
 	glue.update(&door, 1, hud);
 	CHECK(hud.state() == DpadState::ACTIVE);
 	CHECK(says(hud, L"Test Door"));
-	CHECK(says(hud, L"X: Try Handle"));
+	CHECK_FALSE(says(hud, L"X: Try Handle"));
 	CHECK_FALSE(says(hud, L"Try Handle"));
 	CHECK(says(hud, L"Kick Down"));
 	CHECK(says(hud, L"Pick Lock"));
@@ -143,7 +143,7 @@ TEST_CASE("targeting fills the D-pad from the registry, a new target clears the 
 	glue.update(&crate, 2, hud);
 	CHECK(hud.state() == DpadState::MULTI_OBJECT);
 	CHECK(says(hud, L"Test Crate"));
-	CHECK(says(hud, L"X: Open Crate"));
+	CHECK_FALSE(says(hud, L"X: Open Crate"));
 	CHECK_FALSE(says(hud, L"Open Crate"));
 	CHECK(says(hud, L"Smash Open"));
 	CHECK_FALSE(says(hud, L"Hack Keypad"));
@@ -169,4 +169,42 @@ TEST_CASE("a target whose type is not registered shows its name with every slot 
 	CHECK(says(hud, L"Odd Thing"));
 	CHECK_FALSE(says(hud, L"X: Try Handle"));
 	CHECK_FALSE(says(hud, L"Kick Down"));
+}
+
+TEST_CASE("the prompt names the target's Normal verb, switches to a picked slot's action, and goes back when unpicked or lost")
+{
+	TargetHud glue(defaultApproaches());
+	DpadHud hud;
+	Thing door("Test Door", "locked_door");
+	Thing crate("Test Crate", "supply_crate");
+	Thing odd("Odd Thing", "toaster");
+	CHECK(glue.promptAction().empty());
+	glue.update(&door, 1, hud);
+	CHECK(glue.promptAction() == "Open");
+	glue.select(DpadDirection::LEFT, hud);
+	CHECK(glue.promptAction() == "Kick Down");
+	glue.select(DpadDirection::UP, hud);
+	CHECK(glue.promptAction() == "Pick Lock");
+	glue.select(DpadDirection::UP, hud);
+	CHECK(glue.promptAction() == "Open");
+	glue.select(DpadDirection::DOWN, hud);
+	glue.update(&crate, 1, hud);
+	CHECK(glue.promptAction() == "Search");
+	glue.update(&odd, 1, hud);
+	CHECK(glue.promptAction().empty());
+	glue.update(nullptr, 0, hud);
+	CHECK(glue.promptAction().empty());
+}
+
+TEST_CASE("every object type has the survival-RPG verb on its prompt")
+{
+	ApproachRegistry registry = defaultApproaches();
+	const char* const expected[][2] = { { "supply_crate", "Search" }, { "locked_door", "Open" }, { "unlocked_door", "Open" }, { "terminal", "Use" },
+		{ "npc_friendly", "Talk" }, { "workbench", "Use" }, { "generator", "Use" }, { "barricaded_door", "Examine" } };
+	for (const auto& row : expected)
+	{
+		CAPTURE(row[0]);
+		REQUIRE(registry.getApproaches(row[0]) != nullptr);
+		CHECK(registry.getApproaches(row[0])->prompt == row[1]);
+	}
 }

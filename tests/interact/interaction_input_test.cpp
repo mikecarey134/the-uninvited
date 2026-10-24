@@ -90,18 +90,19 @@ TEST_CASE("with nothing targeted the D-pad and X pass through untouched")
 	CHECK(rig.log.empty());
 }
 
-TEST_CASE("a newly targeted door has nothing picked, so X runs Normal; a direction picks a slot and X runs that instead")
+TEST_CASE("a newly targeted door has nothing picked and no prompt, and X runs Normal; a direction picks a slot and X runs that instead")
 {
 	Rig rig;
 	rig.targets.update(&rig.door, 1, rig.hud);
 	CHECK(rig.targets.selected() == nullptr);
-	CHECK(rig.says(L"X: Try Handle"));
+	CHECK_FALSE(rig.says(L"X: Try Handle"));
 	CHECK(rig.press(KEY_KEY_R));
 	CHECK(rig.log == std::vector<std::string>{ "OK: Normal on Test Door" });
 	CHECK(rig.press(KEY_LEFT));
 	REQUIRE(rig.targets.selected() != nullptr);
 	CHECK(rig.targets.selected()->type == Approach::FORCE);
-	CHECK(rig.says(L"X: Kick Down"));
+	CHECK(rig.targets.promptAction() == "Kick Down");
+	CHECK_FALSE(rig.says(L"X: Kick Down"));
 	rig.press(KEY_KEY_R);
 	rig.press(KEY_UP);
 	rig.press(KEY_KEY_R);
@@ -121,7 +122,7 @@ TEST_CASE("pressing the picked direction again unpicks it, so X goes back to Nor
 	REQUIRE(rig.targets.selected() != nullptr);
 	CHECK(rig.press(KEY_UP));
 	CHECK(rig.targets.selected() == nullptr);
-	CHECK(rig.says(L"X: Try Handle"));
+	CHECK_FALSE(rig.says(L"X: Try Handle"));
 	rig.press(KEY_KEY_R);
 	CHECK(rig.log == std::vector<std::string>{ "OK: Normal on Test Door" });
 }
@@ -142,14 +143,14 @@ TEST_CASE("an empty slot is taken but changes nothing: the crate has only Force,
 	CHECK(rig.log == std::vector<std::string>{ "OK: Force on Test Crate" });
 }
 
-TEST_CASE("a target with only Normal shows no slots; its prompt names it and X runs it")
+TEST_CASE("a target with only Normal shows no slots and no prompt, and X runs it")
 {
 	Rig rig;
 	rig.targets.update(&rig.open, 1, rig.hud);
 	CHECK(rig.targets.selected() == nullptr);
 	for (DpadDirection slot : { DpadDirection::UP, DpadDirection::RIGHT, DpadDirection::DOWN, DpadDirection::LEFT })
 		CHECK(rig.targets.optionAt(slot) == nullptr);
-	CHECK(rig.says(L"X: Open Door"));
+	CHECK_FALSE(rig.says(L"X: Open Door"));
 	rig.press(KEY_KEY_R);
 	CHECK(rig.log == std::vector<std::string>{ "OK: Normal on Open Door" });
 }
@@ -163,11 +164,12 @@ TEST_CASE("the pick holds while the target does, and a different target starts f
 	rig.targets.update(&rig.door, 1, rig.hud);
 	REQUIRE(rig.targets.selected() != nullptr);
 	CHECK(rig.targets.selected()->type == Approach::FORCE);
-	CHECK(rig.says(L"X: Kick Down"));
+	CHECK(rig.targets.promptAction() == "Kick Down");
+	CHECK_FALSE(rig.says(L"X: Kick Down"));
 	rig.targets.update(&rig.crate, 2, rig.hud);
 	CHECK(rig.targets.selected() == nullptr);
 	CHECK_FALSE(rig.says(L"X: Kick Down"));
-	CHECK(rig.says(L"X: Open Crate"));
+	CHECK_FALSE(rig.says(L"X: Open Crate"));
 	rig.targets.update(&rig.door, 2, rig.hud);
 	CHECK(rig.targets.selected() == nullptr);
 }
@@ -340,4 +342,16 @@ TEST_CASE("while the console or a screen is open every key and click passes thro
 	console = false;
 	CHECK(rig.press(KEY_KEY_3));
 	CHECK(rig.log == std::vector<std::string>{ "OK: Skill(electronics) on Test Door" });
+}
+
+TEST_CASE("E and left-click do what the prompt says: the picked slot if there is one, else Normal")
+{
+	Rig rig;
+	rig.targets.update(&rig.door, 1, rig.hud);
+	rig.press(KEY_LEFT);
+	CHECK(rig.press(KEY_KEY_E));
+	CHECK(rig.input.onEvent(mouse(EMIE_LMOUSE_PRESSED_DOWN)));
+	rig.press(KEY_LEFT);
+	rig.press(KEY_KEY_E);
+	CHECK(rig.log == std::vector<std::string>{ "OK: Force on Test Door", "OK: Force on Test Door", "OK: Normal on Test Door" });
 }

@@ -35,10 +35,8 @@ bool InteractionInput::onEvent(const SEvent& event)
 		targets_.select(DpadDirection::LEFT, hud_);
 		return true;
 	case KEY_KEY_R:
-		run(targets_.selected() ? targets_.selected() : targets_.option(Approach::NORMAL));
-		return true;
 	case KEY_KEY_E:
-		execute(Approach::NORMAL);
+		runCurrent();
 		return true;
 	case KEY_KEY_1:
 	case KEY_KEY_2:
@@ -70,7 +68,7 @@ bool InteractionInput::onMouse(const SEvent::SMouseInput& mouse)
 		return panel_.isOpen();
 	case EMIE_LMOUSE_PRESSED_DOWN:
 		if (!panel_.isOpen())
-			execute(Approach::NORMAL);
+			runCurrent();
 		else if (panel_.rowAt(at) >= 0)
 			run(targets_.optionAt(byNumber[panel_.rows()[panel_.rowAt(at)].number - 1]));
 		return true;
@@ -107,6 +105,11 @@ void InteractionInput::update(f32 seconds)
 		if (feedbackLeft_ <= 0.0f)
 			feedback_.clear();
 	}
+}
+
+bool InteractionInput::runCurrent()
+{
+	return run(targets_.selected() ? targets_.selected() : targets_.option(Approach::NORMAL));
 }
 
 bool InteractionInput::execute(Approach approach)
