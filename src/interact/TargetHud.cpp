@@ -54,7 +54,7 @@ bool TargetHud::select(Approach approach, DpadHud& hud)
 	return true;
 }
 
-void TargetHud::update(const Interactable* target, std::size_t inRange, DpadHud& hud)
+void TargetHud::update(Interactable* target, std::size_t inRange, DpadHud& hud)
 {
 	bool multiple = target && inRange > 1;
 	if (target == shown_ && multiple == multiple_)

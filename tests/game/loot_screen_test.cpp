@@ -357,3 +357,16 @@ TEST_CASE("with the keyboard alone the two grids take turns with Tab or across t
 	search.draw();
 	CHECK(ringed(search.canvas, search.screen.containerCell(0)));
 }
+
+TEST_CASE("the loot screen can open on one given container even when no container is nearest, and marks it searched")
+{
+	Search search;
+	loot::Container crate{ "Crate", 40.0f, 40.0f, 4, {} };
+	search.screen.open(nullptr);
+	CHECK_FALSE(search.screen.isOpen());
+	search.screen.open(&crate);
+	CHECK(search.screen.isOpen());
+	CHECK(search.screen.container() == &crate);
+	CHECK(crate.searched);
+	CHECK(search.opened == 1);
+}

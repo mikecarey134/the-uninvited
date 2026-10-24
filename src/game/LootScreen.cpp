@@ -31,7 +31,11 @@ LootScreen::LootScreen(std::function<bool()> blocked, std::function<void()> open
 
 void LootScreen::open()
 {
-	loot::Container* found = nearby_ ? nearby_() : nullptr;
+	open(nearby_ ? nearby_() : nullptr);
+}
+
+void LootScreen::open(loot::Container* found)
+{
 	if (!found)
 		return;
 	container_ = found;

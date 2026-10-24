@@ -207,6 +207,7 @@ namespace
 						console.logMessage_ANSI(ELL_INFORMATION, line.c_str());
 						std::cout << line << std::endl;
 					});
+					world->setOpenLoot([&lootScreen](loot::Container& container) { lootScreen.open(&container); });
 					world->setInteractionBlocked([&console, &notebook, &inventoryScreen, &lootScreen] {
 						return console.isVisible() || notebook.isOpen() || inventoryScreen.isOpen() || lootScreen.isOpen();
 					});

@@ -624,6 +624,12 @@ void MenuScreens::draw()
 				canvas_.drawImage(canvas_.loadTexture(("assets/ui/icons/" + icon).c_str()), rect<s32>(marker.X - 9, marker.Y - 9, marker.X + 9, marker.Y + 9));
 		}
 		world_->contextPanel().render(canvas_);
+		if (!world_->interactionFeedback().empty())
+		{
+			std::wstring said(world_->interactionFeedback().begin(), world_->interactionFeedback().end());
+			canvas_.drawText(canvas_.loadFont(labelFont), said.c_str(), rect<s32>(0, (s32)screen.Height / 2 + 60, (s32)screen.Width,
+				(s32)screen.Height / 2 + 90), world_->interactionSucceeded() ? SColor(255, 235, 230, 220) : theme::accent, true, true, false);
+		}
 		if (world_->containerInReach() && !world_->dead())
 			canvas_.drawText(canvas_.loadFont(labelFont), L"Press E to search", rect<s32>(0, (s32)screen.Height - 156, (s32)screen.Width,
 				(s32)screen.Height - 132), SColor(255, 255, 255, 255), true, true, false);

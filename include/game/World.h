@@ -17,7 +17,8 @@
 #include "Loot.h"
 #include "protocol/GameMessages.h"
 
-struct TestInteractable;
+struct TestObject;
+class ContainerInteractable;
 
 class World : public InputLayer
 {
@@ -59,6 +60,10 @@ public:
 	bool contextPanelOpen() const { return contextPanel_.isOpen(); }
 	void setInteractionLog(std::function<void(const std::string&)> log) { interaction_.setLog(log); }
 	void setInteractionBlocked(std::function<bool()> blocked) { interaction_.setBlocked(blocked); }
+	// How the containers' approaches open the loot screen on one container.
+	void setOpenLoot(std::function<void(loot::Container&)> open) { openLoot_ = open; }
+	const std::string& interactionFeedback() const { return interaction_.feedback(); }
+	bool interactionSucceeded() const { return interaction_.feedbackSucceeded(); }
 	void arm(const HudWeapon& weapon) { weapon_ = weapon; }
 	irr::f32 speed() const { return speed_; }
 	void setSpeed(irr::f32 speed) { speed_ = speed; }
@@ -79,7 +84,8 @@ public:
 
 private:
 	void addTestInteractables();
-	void detect();
+	void addContainerInteractables();
+	void detect(irr::f32 seconds);
 	void addGround();
 	void addPlayer(const char* model, const char* skin);
 	void addLights();
@@ -125,7 +131,9 @@ private:
 	std::map<uint16_t, Remote> remotes_;
 	irr::f32 clock_;
 	InteractionDetector detector_;
-	std::vector<std::unique_ptr<TestInteractable>> testInteractables_;
+	std::vector<std::unique_ptr<TestObject>> testInteractables_;
+	std::vector<std::unique_ptr<ContainerInteractable>> containerInteractables_;
+	std::function<void(loot::Container&)> openLoot_;
 	Interactable* shownTarget_ = nullptr;
 	TargetHud targetHud_ = TargetHud(defaultApproaches());
 	ContextPanel contextPanel_;

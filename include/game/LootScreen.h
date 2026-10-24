@@ -17,6 +17,8 @@ public:
 	bool onEvent(const irr::SEvent& event) override;
 	bool isOpen() const { return open_; }
 	void open();
+	// Opens on one container, whether or not it is the nearest.
+	void open(loot::Container* found);
 	void close();
 	void draw(Canvas& canvas);
 	irr::core::rect<irr::s32> containerPanel() const;

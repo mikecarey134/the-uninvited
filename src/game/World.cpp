@@ -1,5 +1,7 @@
 #include "World.h"
 #include "Sky.h"
+#include "ContainerInteractable.h"
+#include "TestInteractables.h"
 #include "AssimpMeshLoader.h"
 #include <algorithm>
 #include <cmath>
@@ -62,6 +64,8 @@ World::World(IrrlichtDevice* device, const char* model, const char* skin, std::f
 	addGround();
 	addProps();
 	addTestInteractables();
+	addContainerInteractables();
+	interaction_.setPlayer(&sheet_);
 	addPlayer(model, skin);
 	addLights();
 	follow();
@@ -126,23 +130,12 @@ void World::addProp(const char* name, const char* file, f32 x, f32 z, const vect
 	}
 }
 
-// TEMPORARY (SCRUM-1001): coloured boxes standing in for real interactables until the object system exists.
-struct TestInteractable : public Interactable
-{
-	InteractableInfo info;
-	vector3df position;
-	std::string type;
-
-	InteractableInfo getInfo() const override { return info; }
-	vector3df getPosition() const override { return position; }
-	std::string getObjectType() const override { return type; }
-};
-
 // TEMPORARY (SCRUM-1001): a door and a crate side by side to try aiming between two, and a lone terminal for auto-targeting.
 void World::addTestInteractables()
 {
 	struct Spec
 	{
+		TestObject* object;
 		const char* name;
 		const char* type;
 		const char* icon;
@@ -151,12 +144,12 @@ void World::addTestInteractables()
 		SColor colour;
 	};
 	const Spec specs[] = {
-		{ "Test Door", "locked_door", "interactables/locked-door.png", vector3df(-2.5f, 0.0f, 4.0f), vector3df(1.0f, 2.0f, 0.2f), SColor(255, 110, 72, 40) },
-		{ "Test Crate", "supply_crate", "interactables/supply-crate.png", vector3df(-1.0f, 0.0f, 4.0f), vector3df(0.7f, 0.7f, 0.7f), SColor(255, 150, 118, 60) },
-		{ "Test Terminal", "terminal", "interactables/terminal.png", vector3df(-8.0f, 0.0f, 0.0f), vector3df(0.6f, 1.2f, 0.4f), SColor(255, 60, 90, 110) } };
+		{ new TestDoor(), "Test Door", "locked_door", "interactables/locked-door.png", vector3df(-2.5f, 0.0f, 4.0f), vector3df(1.0f, 2.0f, 0.2f), SColor(255, 110, 72, 40) },
+		{ new TestCrate(), "Test Crate", "supply_crate", "interactables/supply-crate.png", vector3df(-1.0f, 0.0f, 4.0f), vector3df(0.7f, 0.7f, 0.7f), SColor(255, 150, 118, 60) },
+		{ new TestTerminal(), "Test Terminal", "terminal", "interactables/terminal.png", vector3df(-8.0f, 0.0f, 0.0f), vector3df(0.6f, 1.2f, 0.4f), SColor(255, 60, 90, 110) } };
 	for (const Spec& spec : specs)
 	{
-		std::unique_ptr<TestInteractable> object(new TestInteractable());
+		std::unique_ptr<TestObject> object(spec.object);
 		object->info.name = spec.name;
 		object->info.iconPath = spec.icon;
 		object->type = spec.type;
@@ -173,13 +166,26 @@ void World::addTestInteractables()
 	}
 }
 
-void World::detect()
+void World::addContainerInteractables()
+{
+	for (loot::Container& container : containers_)
+	{
+		std::unique_ptr<ContainerInteractable> object(new ContainerInteractable(container, [this](loot::Container& chosen) {
+			if (openLoot_)
+				openLoot_(chosen);
+		}));
+		detector_.addInteractable(object.get());
+		containerInteractables_.push_back(std::move(object));
+	}
+}
+
+void World::detect(f32 seconds)
 {
 	if (player_)
 		detector_.update(player_->getPosition(), camera_->getTarget() - camera_->getPosition(), camera_->getPosition());
 	shownTarget_ = dead() ? nullptr : detector_.getTarget();
 	targetHud_.update(shownTarget_, detector_.getInRange().size(), dpad_);
-	interaction_.update();
+	interaction_.update(seconds);
 }
 
 bool World::targetMarker(position2d<s32>& at) const
@@ -346,7 +352,7 @@ void World::update(f32 seconds)
 	{
 		if (player_)
 			player_->setAnimationSpeed(0.0f);
-		detect();
+		detect(seconds);
 		return;
 	}
 	if (player_)
@@ -365,7 +371,7 @@ void World::update(f32 seconds)
 		animate(walking);
 	}
 	follow();
-	detect();
+	detect(seconds);
 }
 
 f32 World::cameraDistance() const

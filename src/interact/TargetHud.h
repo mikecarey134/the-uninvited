@@ -14,9 +14,9 @@ class TargetHud
 public:
 	explicit TargetHud(const ApproachRegistry& registry) : registry_(registry) {}
 
-	void update(const Interactable* target, std::size_t inRange, DpadHud& hud);
+	void update(Interactable* target, std::size_t inRange, DpadHud& hud);
 
-	const Interactable* target() const { return shown_; }
+	Interactable* target() const { return shown_; }
 	const ApproachSet* approaches() const;
 	const ApproachOption* option(Approach approach) const;
 	const ApproachOption* selected() const { return selected_; }
@@ -28,7 +28,7 @@ public:
 
 private:
 	ApproachRegistry registry_;
-	const Interactable* shown_ = nullptr;
+	Interactable* shown_ = nullptr;
 	bool multiple_ = false;
 	const ApproachOption* selected_ = nullptr;
 };

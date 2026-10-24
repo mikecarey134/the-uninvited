@@ -1,6 +1,9 @@
 #include "InteractionInput.h"
+#include "CharacterSheet.h"
 
 using namespace irr;
+
+const f32 InteractionInput::FEEDBACK_SECONDS = 2.5f;
 
 namespace
 {
@@ -94,18 +97,45 @@ void InteractionInput::togglePanel()
 	panel_.open(rows);
 }
 
-void InteractionInput::update()
+void InteractionInput::update(f32 seconds)
 {
 	if (panel_.isOpen() && targets_.target() != panelTarget_)
 		panel_.close();
+	if (feedbackLeft_ > 0.0f)
+	{
+		feedbackLeft_ -= seconds;
+		if (feedbackLeft_ <= 0.0f)
+			feedback_.clear();
+	}
 }
 
 bool InteractionInput::execute(Approach approach)
 {
-	if (!targets_.target() || !targets_.option(approach))
+	Interactable* target = targets_.target();
+	if (!target || !targets_.option(approach) || !player_)
 		return false;
 	panel_.close();
-	if (log_)
-		log_(std::string("INTERACT: ") + TargetHud::nameOf(approach) + " on " + targets_.target()->getInfo().name);
-	return true;
+	Actor actor{ *player_, "" };
+	bool done = false;
+	switch (approach)
+	{
+	case Approach::NORMAL:
+		done = target->onNormal(actor);
+		break;
+	case Approach::FORCE:
+		done = target->onForce(actor);
+		break;
+	case Approach::SKILL:
+		done = target->onSkill(actor);
+		break;
+	case Approach::GUILE:
+		done = target->onGuile(actor);
+		break;
+	}
+	succeeded_ = done;
+	feedback_ = !actor.message.empty() ? actor.message : (done ? "" : "Can't do that.");
+	feedbackLeft_ = feedback_.empty() ? 0.0f : FEEDBACK_SECONDS;
+	if (log_ && !feedback_.empty())
+		log_(std::string(done ? "OK: " : "FAILED: ") + feedback_);
+	return done;
 }
