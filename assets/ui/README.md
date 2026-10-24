@@ -12,10 +12,11 @@
 
 ## D-pad (runtime)
 
-- **UP** — `approach/normal.png`
-- **RIGHT** — `approach/force.png`
-- **LEFT** — `approach/trade.png` or `approach/companion-delegate.png`. These are contextual Guile sub-types; which one shows depends on whether the target is an NPC or an object.
-- **DOWN** — the specific skill icon from `skills/` for the action in context (e.g. `skills/lockpicking.png`, `skills/engineering.png`). It does not use `modes/skill.png`.
+- **UP** (Skill, cyan ring) — the specific skill icon from `skills/` for the object's first skill approach (e.g. `skills/lockpicking.png`, `skills/engineering.png`). It does not use `modes/skill.png`.
+- **RIGHT** (Guile, green ring) — `approach/trade.png` or `approach/companion-delegate.png`. These are contextual Guile sub-types; which one shows depends on whether the target is an NPC or an object.
+- **DOWN** (second Skill, cyan ring) — the skill icon for the object's second skill approach, if it has one (e.g. `skills/electronics.png` for a keypad); otherwise the slot is empty.
+- **LEFT** (Force, red ring) — `approach/force.png`
+- **Normal is not on the D-pad.** It is the default action: X on a controller, E or left-click on PC, with nothing picked on the D-pad. `approach/normal.png` is not shown in the D-pad.
 - The D-pad frame itself is drawn in-engine with lines and shapes; it is not an art asset.
 
 ## Modes

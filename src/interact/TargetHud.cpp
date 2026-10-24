@@ -1,21 +1,5 @@
 #include "TargetHud.h"
 
-DpadDirection TargetHud::slotFor(Approach approach)
-{
-	switch (approach)
-	{
-	case Approach::NORMAL:
-		return DpadDirection::UP;
-	case Approach::FORCE:
-		return DpadDirection::RIGHT;
-	case Approach::SKILL:
-		return DpadDirection::DOWN;
-	case Approach::GUILE:
-		return DpadDirection::LEFT;
-	}
-	return DpadDirection::NONE;
-}
-
 const char* TargetHud::nameOf(Approach approach)
 {
 	switch (approach)
@@ -43,13 +27,52 @@ const ApproachOption* TargetHud::option(Approach approach) const
 	return set ? set->getByType(approach) : nullptr;
 }
 
-bool TargetHud::select(Approach approach, DpadHud& hud)
+const ApproachOption* TargetHud::optionAt(DpadDirection slot) const
 {
-	const ApproachOption* chosen = option(approach);
+	const ApproachSet* set = approaches();
+	if (!set)
+		return nullptr;
+	switch (slot)
+	{
+	case DpadDirection::UP:
+	case DpadDirection::DOWN:
+	{
+		int wanted = slot == DpadDirection::UP ? 0 : 1;
+		for (const ApproachOption& each : set->options)
+			if (each.type == Approach::SKILL && wanted-- == 0)
+				return &each;
+		return nullptr;
+	}
+	case DpadDirection::RIGHT:
+		return set->getByType(Approach::GUILE);
+	case DpadDirection::LEFT:
+		return set->getByType(Approach::FORCE);
+	case DpadDirection::NONE:
+		break;
+	}
+	return nullptr;
+}
+
+void TargetHud::promptNormal(DpadHud& hud) const
+{
+	const ApproachOption* normal = option(Approach::NORMAL);
+	hud.setActionPrompt(normal ? normal->label : "");
+}
+
+bool TargetHud::select(DpadDirection slot, DpadHud& hud)
+{
+	const ApproachOption* chosen = optionAt(slot);
 	if (!chosen)
 		return false;
+	if (chosen == selected_)
+	{
+		selected_ = nullptr;
+		hud.clearSelection();
+		promptNormal(hud);
+		return true;
+	}
 	selected_ = chosen;
-	hud.setSelectedDirection(slotFor(approach));
+	hud.setSelectedDirection(slot);
 	hud.setActionPrompt(chosen->label);
 	return true;
 }
@@ -75,19 +98,15 @@ void TargetHud::update(Interactable* target, std::size_t inRange, DpadHud& hud)
 		return;
 	selected_ = nullptr;
 	hud.clearSelection();
-	hud.setActionPrompt("");
 	InteractableInfo info = target->getInfo();
 	hud.setTarget(info.name, info.iconPath);
-	const ApproachSet* set = approaches();
-	const Approach all[4] = { Approach::NORMAL, Approach::FORCE, Approach::SKILL, Approach::GUILE };
-	for (Approach approach : all)
+	for (DpadDirection slot : { DpadDirection::UP, DpadDirection::RIGHT, DpadDirection::DOWN, DpadDirection::LEFT })
 	{
-		const ApproachOption* found = set ? set->getByType(approach) : nullptr;
+		const ApproachOption* found = optionAt(slot);
 		if (found)
-			hud.setSlot(slotFor(approach), found->label, found->iconPath);
+			hud.setSlot(slot, found->label, found->iconPath);
 		else
-			hud.clearSlot(slotFor(approach));
+			hud.clearSlot(slot);
 	}
-	if (set && set->options.size() == 1)
-		select(set->options.front().type, hud);
+	promptNormal(hud);
 }

@@ -31,7 +31,7 @@ namespace
 		}
 		bool onNormal(Actor& player) override { return report(player, "Normal"); }
 		bool onForce(Actor& player) override { return report(player, "Force"); }
-		bool onSkill(Actor& player) override { return report(player, "Skill"); }
+		bool onSkill(Actor& player) override { return report(player, ("Skill(" + player.skill + ")").c_str()); }
 		bool onGuile(Actor& player) override { return report(player, "Guile"); }
 	};
 
@@ -90,60 +90,75 @@ TEST_CASE("with nothing targeted the D-pad and X pass through untouched")
 	CHECK(rig.log.empty());
 }
 
-TEST_CASE("a newly targeted door has nothing selected; X does nothing until a direction picks an approach")
+TEST_CASE("a newly targeted door has nothing picked, so X runs Normal; a direction picks a slot and X runs that instead")
 {
 	Rig rig;
 	rig.targets.update(&rig.door, 1, rig.hud);
 	CHECK(rig.targets.selected() == nullptr);
+	CHECK(rig.says(L"X: Try Handle"));
 	CHECK(rig.press(KEY_KEY_R));
-	CHECK(rig.log.empty());
-	CHECK(rig.press(KEY_RIGHT));
+	CHECK(rig.log == std::vector<std::string>{ "OK: Normal on Test Door" });
+	CHECK(rig.press(KEY_LEFT));
 	REQUIRE(rig.targets.selected() != nullptr);
 	CHECK(rig.targets.selected()->type == Approach::FORCE);
 	CHECK(rig.says(L"X: Kick Down"));
-	CHECK(rig.press(KEY_KEY_R));
-	REQUIRE(rig.log.size() == 1);
-	CHECK(rig.log[0] == "OK: Force on Test Door");
+	rig.press(KEY_KEY_R);
 	rig.press(KEY_UP);
 	rig.press(KEY_KEY_R);
 	rig.press(KEY_DOWN);
 	rig.press(KEY_KEY_R);
-	rig.press(KEY_LEFT);
+	rig.press(KEY_RIGHT);
 	rig.press(KEY_KEY_R);
-	CHECK(rig.log == std::vector<std::string>{ "OK: Force on Test Door", "OK: Normal on Test Door", "OK: Skill on Test Door",
-		"OK: Guile on Test Door" });
+	CHECK(rig.log == std::vector<std::string>{ "OK: Normal on Test Door", "OK: Force on Test Door", "OK: Skill(lockpicking) on Test Door",
+		"OK: Skill(electronics) on Test Door", "OK: Guile on Test Door" });
 }
 
-TEST_CASE("a direction whose approach the target lacks is taken but changes nothing")
+TEST_CASE("pressing the picked direction again unpicks it, so X goes back to Normal")
+{
+	Rig rig;
+	rig.targets.update(&rig.door, 1, rig.hud);
+	rig.press(KEY_UP);
+	REQUIRE(rig.targets.selected() != nullptr);
+	CHECK(rig.press(KEY_UP));
+	CHECK(rig.targets.selected() == nullptr);
+	CHECK(rig.says(L"X: Try Handle"));
+	rig.press(KEY_KEY_R);
+	CHECK(rig.log == std::vector<std::string>{ "OK: Normal on Test Door" });
+}
+
+TEST_CASE("an empty slot is taken but changes nothing: the crate has only Force, on the left")
 {
 	Rig rig;
 	rig.targets.update(&rig.crate, 1, rig.hud);
-	CHECK(rig.press(KEY_DOWN));
+	for (EKEY_CODE code : { KEY_UP, KEY_RIGHT, KEY_DOWN })
+		CHECK(rig.press(code));
 	CHECK(rig.targets.selected() == nullptr);
-	rig.press(KEY_RIGHT);
 	CHECK(rig.press(KEY_LEFT));
 	REQUIRE(rig.targets.selected() != nullptr);
+	CHECK(rig.targets.selected()->type == Approach::FORCE);
+	rig.press(KEY_DOWN);
 	CHECK(rig.targets.selected()->type == Approach::FORCE);
 	rig.press(KEY_KEY_R);
 	CHECK(rig.log == std::vector<std::string>{ "OK: Force on Test Crate" });
 }
 
-TEST_CASE("a target with a single approach starts with it selected, so X runs it at once")
+TEST_CASE("a target with only Normal shows no slots; its prompt names it and X runs it")
 {
 	Rig rig;
 	rig.targets.update(&rig.open, 1, rig.hud);
-	REQUIRE(rig.targets.selected() != nullptr);
-	CHECK(rig.targets.selected()->type == Approach::NORMAL);
+	CHECK(rig.targets.selected() == nullptr);
+	for (DpadDirection slot : { DpadDirection::UP, DpadDirection::RIGHT, DpadDirection::DOWN, DpadDirection::LEFT })
+		CHECK(rig.targets.optionAt(slot) == nullptr);
 	CHECK(rig.says(L"X: Open Door"));
 	rig.press(KEY_KEY_R);
 	CHECK(rig.log == std::vector<std::string>{ "OK: Normal on Open Door" });
 }
 
-TEST_CASE("the selection holds while the target does, and a different target starts fresh")
+TEST_CASE("the pick holds while the target does, and a different target starts fresh")
 {
 	Rig rig;
 	rig.targets.update(&rig.door, 1, rig.hud);
-	rig.press(KEY_RIGHT);
+	rig.press(KEY_LEFT);
 	rig.targets.update(&rig.door, 2, rig.hud);
 	rig.targets.update(&rig.door, 1, rig.hud);
 	REQUIRE(rig.targets.selected() != nullptr);
@@ -152,6 +167,7 @@ TEST_CASE("the selection holds while the target does, and a different target sta
 	rig.targets.update(&rig.crate, 2, rig.hud);
 	CHECK(rig.targets.selected() == nullptr);
 	CHECK_FALSE(rig.says(L"X: Kick Down"));
+	CHECK(rig.says(L"X: Open Crate"));
 	rig.targets.update(&rig.door, 2, rig.hud);
 	CHECK(rig.targets.selected() == nullptr);
 }
@@ -212,40 +228,41 @@ TEST_CASE("with nothing targeted the PC keys and both mouse buttons pass through
 	CHECK(rig.log.empty());
 }
 
-TEST_CASE("E and left-click run Normal at once, and number keys run their approach directly")
+TEST_CASE("E and left-click run Normal at once, and 1-4 run Force, Skill, the second Skill and Guile directly")
 {
 	Rig rig;
 	rig.targets.update(&rig.door, 1, rig.hud);
 	CHECK(rig.press(KEY_KEY_E));
 	CHECK(rig.input.onEvent(mouse(EMIE_LMOUSE_PRESSED_DOWN)));
+	CHECK(rig.press(KEY_KEY_1));
 	CHECK(rig.press(KEY_KEY_2));
 	CHECK(rig.press(KEY_KEY_3));
 	CHECK(rig.press(KEY_KEY_4));
-	CHECK(rig.press(KEY_KEY_1));
 	CHECK(rig.log == std::vector<std::string>{ "OK: Normal on Test Door", "OK: Normal on Test Door", "OK: Force on Test Door",
-		"OK: Skill on Test Door", "OK: Guile on Test Door", "OK: Normal on Test Door" });
+		"OK: Skill(lockpicking) on Test Door", "OK: Skill(electronics) on Test Door", "OK: Guile on Test Door" });
 }
 
-TEST_CASE("Q opens the panel with all four door approaches; a number key runs one and closes it")
+TEST_CASE("Q opens the panel with the door's four non-Normal approaches; a number key runs one and closes it")
 {
 	Rig rig;
 	rig.targets.update(&rig.door, 1, rig.hud);
 	CHECK(rig.press(KEY_KEY_Q));
 	REQUIRE(rig.panel.isOpen());
-	CHECK(labels(rig.panel) == std::vector<std::string>{ "1 Try Handle modes/normal.png", "2 Kick Down modes/force.png", "3 Pick Lock modes/skill.png",
+	CHECK(labels(rig.panel) == std::vector<std::string>{ "1 Kick Down modes/force.png", "2 Pick Lock modes/skill.png", "3 Hack Keypad modes/skill.png",
 		"4 Send Companion modes/guile.png" });
-	rig.press(KEY_KEY_2);
+	rig.press(KEY_KEY_1);
 	CHECK(rig.log == std::vector<std::string>{ "OK: Force on Test Door" });
 	CHECK_FALSE(rig.panel.isOpen());
 }
 
-TEST_CASE("the crate's panel has only Normal and Force, and 3 and 4 do nothing")
+TEST_CASE("the crate's panel has only Force, and 2, 3 and 4 do nothing")
 {
 	Rig rig;
 	rig.targets.update(&rig.crate, 1, rig.hud);
 	rig.press(KEY_TAB);
 	REQUIRE(rig.panel.isOpen());
-	CHECK(labels(rig.panel) == std::vector<std::string>{ "1 Open Crate modes/normal.png", "2 Smash Open modes/force.png" });
+	CHECK(labels(rig.panel) == std::vector<std::string>{ "1 Smash Open modes/force.png" });
+	CHECK(rig.press(KEY_KEY_2));
 	CHECK(rig.press(KEY_KEY_3));
 	CHECK(rig.press(KEY_KEY_4));
 	CHECK(rig.log.empty());
@@ -285,18 +302,19 @@ TEST_CASE("the panel closes on its open key again, on Escape, and when the targe
 TEST_CASE("clicking a panel row runs that approach; a click off the rows runs nothing; moving the mouse highlights the row")
 {
 	Rig rig;
-	rig.targets.update(&rig.crate, 1, rig.hud);
+	rig.targets.update(&rig.door, 1, rig.hud);
 	rig.press(KEY_KEY_Q);
-	position2d<s32> force = rig.panel.rowArea(1).getCenter();
-	CHECK(rig.input.onEvent(mouse(EMIE_MOUSE_MOVED, force)));
-	CHECK(rig.panel.hovered() == 1);
+	position2d<s32> hack = rig.panel.rowArea(2).getCenter();
+	CHECK(rig.input.onEvent(mouse(EMIE_MOUSE_MOVED, hack)));
+	CHECK(rig.panel.hovered() == 2);
 	CHECK(rig.input.onEvent(mouse(EMIE_LMOUSE_PRESSED_DOWN, position2d<s32>(5, 5))));
 	CHECK(rig.log.empty());
 	CHECK(rig.panel.isOpen());
-	rig.input.onEvent(mouse(EMIE_LMOUSE_PRESSED_DOWN, force));
-	CHECK(rig.log == std::vector<std::string>{ "OK: Force on Test Crate" });
+	rig.input.onEvent(mouse(EMIE_LMOUSE_PRESSED_DOWN, hack));
+	CHECK(rig.log == std::vector<std::string>{ "OK: Skill(electronics) on Test Door" });
 	CHECK_FALSE(rig.panel.isOpen());
 }
+
 
 TEST_CASE("a target with no Normal approach ignores E and left-click")
 {
@@ -321,5 +339,5 @@ TEST_CASE("while the console or a screen is open every key and click passes thro
 	CHECK_FALSE(rig.panel.isOpen());
 	console = false;
 	CHECK(rig.press(KEY_KEY_3));
-	CHECK(rig.log == std::vector<std::string>{ "OK: Skill on Test Door" });
+	CHECK(rig.log == std::vector<std::string>{ "OK: Skill(electronics) on Test Door" });
 }

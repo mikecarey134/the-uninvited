@@ -6,9 +6,10 @@
 #include "Interactable.h"
 #include <cstddef>
 
-// The glue between detection, the approach registry and the D-pad: when the target changes, the D-pad shows that target's name,
-// icon and approaches (Normal up, Force right, Skill down, Guile left) with nothing selected, unless the target has only one
-// approach, which starts selected. The selection holds while the target does. When the target is lost the D-pad goes idle.
+// The glue between detection, the approach registry and the D-pad. Normal is not on the D-pad: it is what X (or E, or a
+// left-click) does when no slot is picked. The D-pad holds the rest: Skill up, Guile right, a second Skill down, Force left.
+// When the target changes the D-pad shows it with nothing picked and an "X:" prompt naming its Normal action; a pick holds while
+// the target does. When the target is lost the D-pad goes idle.
 class TargetHud
 {
 public:
@@ -18,15 +19,20 @@ public:
 
 	Interactable* target() const { return shown_; }
 	const ApproachSet* approaches() const;
+	// The first option of a kind (for Skill, the first skill).
 	const ApproachOption* option(Approach approach) const;
+	// What a D-pad slot holds for the target, or nullptr: UP the first Skill, RIGHT Guile, DOWN the second Skill, LEFT Force.
+	const ApproachOption* optionAt(DpadDirection slot) const;
+	// The picked slot's option, or nullptr when X would do Normal.
 	const ApproachOption* selected() const { return selected_; }
-	// Selects an approach the target offers and returns true; anything else changes nothing and returns false.
-	bool select(Approach approach, DpadHud& hud);
+	// Picks a filled slot, or unpicks it if it was already picked (back to Normal). Returns false for an empty slot.
+	bool select(DpadDirection slot, DpadHud& hud);
 
-	static DpadDirection slotFor(Approach approach);
 	static const char* nameOf(Approach approach);
 
 private:
+	void promptNormal(DpadHud& hud) const;
+
 	ApproachRegistry registry_;
 	Interactable* shown_ = nullptr;
 	bool multiple_ = false;

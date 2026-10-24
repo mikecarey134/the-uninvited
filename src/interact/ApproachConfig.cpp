@@ -33,6 +33,7 @@ ApproachRegistry defaultApproaches()
 	ApproachRegistry registry;
 	registry.registerType("locked_door", { "", { { Approach::NORMAL, "Try Handle", normal, "" }, { Approach::FORCE, "Kick Down", force, "" },
 		{ Approach::SKILL, "Pick Lock", "skills/lockpicking.png", "lockpicking" },
+		{ Approach::SKILL, "Hack Keypad", "skills/electronics.png", "electronics" },
 		{ Approach::GUILE, "Send Companion", "approach/companion-delegate.png", "" } } });
 	registry.registerType("unlocked_door", { "", { { Approach::NORMAL, "Open Door", normal, "" } } });
 	registry.registerType("supply_crate", { "", { { Approach::NORMAL, "Open Crate", normal, "" }, { Approach::FORCE, "Smash Open", force, "" } } });

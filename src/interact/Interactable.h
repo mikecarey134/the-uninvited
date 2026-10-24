@@ -22,6 +22,7 @@ struct Actor
 {
 	const character::CharacterSheet& sheet;
 	std::string message;
+	std::string skill;         // for onSkill: which skill the player chose ("lockpicking", "electronics"...)
 	bool openedScreen = false; // the handler opened a screen (loot, dialogue...), which is feedback enough
 };
 

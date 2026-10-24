@@ -110,7 +110,7 @@ TEST_CASE("the D-pad sits bottom-left, about 126px square at 1080p, with room on
 	CHECK(bottom > 1080 - 60);
 }
 
-TEST_CASE("an active D-pad fades in and frames each available icon in its own coloured ring; empty slots get no ring")
+TEST_CASE("an active D-pad fades in and frames each available icon in its slot's ring: cyan for both skill slots, green Guile, red Force; empty slots get no ring")
 {
 	DpadHud dpad;
 	stock(dpad);
@@ -126,21 +126,34 @@ TEST_CASE("an active D-pad fades in and frames each available icon in its own co
 	CHECK(says(canvas, L"Force"));
 	CHECK(says(canvas, L"Locked Door"));
 	CHECK(drew(canvas, "assets/ui/icons/interactables/locked-door.png"));
-	const RecordingCanvas::Call* gold = image(canvas, "assets/ui/icons/rings/gold.png");
+	const RecordingCanvas::Call* cyan = image(canvas, "assets/ui/icons/rings/cyan.png");
 	const RecordingCanvas::Call* pick = image(canvas, "assets/ui/icons/skills/lockpicking.png");
-	REQUIRE(gold != nullptr);
+	REQUIRE(cyan != nullptr);
 	REQUIRE(pick != nullptr);
-	CHECK(std::abs(gold->area.getCenter().X - pick->area.getCenter().X) <= 1);
-	CHECK(std::abs(gold->area.getCenter().Y - pick->area.getCenter().Y) <= 1);
+	CHECK(std::abs(cyan->area.getCenter().X - pick->area.getCenter().X) <= 1);
+	CHECK(std::abs(cyan->area.getCenter().Y - pick->area.getCenter().Y) <= 1);
 	// Visible art, not PNG canvas: the icon fills about 70% of the ring as seen.
-	f32 ringSeen = gold->area.getWidth() * artBox("rings/gold.png").fill;
+	f32 ringSeen = cyan->area.getWidth() * artBox("rings/cyan.png").fill;
 	f32 iconSeen = pick->area.getWidth() * artBox("skills/lockpicking.png").fill;
 	CHECK(iconSeen / ringSeen > 0.6f);
 	CHECK(iconSeen / ringSeen < 0.8f);
-	CHECK(gold < pick);
+	CHECK(cyan < pick);
+	CHECK(drew(canvas, "assets/ui/icons/rings/green.png"));
+	CHECK_FALSE(drew(canvas, "assets/ui/icons/rings/red.png"));
+	CHECK_FALSE(drew(canvas, "assets/ui/icons/rings/gold.png"));
+	int cyans = 0;
+	for (const RecordingCanvas::Call& call : canvas.calls)
+		cyans += call.kind == RecordingCanvas::IMAGE && canvas.pathOf(call.texture) == "assets/ui/icons/rings/cyan.png";
+	CHECK(cyans == 1);
+	dpad.setSlot(DpadDirection::DOWN, "Hack", "skills/electronics.png");
+	dpad.setSlot(DpadDirection::LEFT, "Kick", "approach/force.png");
+	canvas.calls.clear();
+	dpad.render(canvas);
+	cyans = 0;
+	for (const RecordingCanvas::Call& call : canvas.calls)
+		cyans += call.kind == RecordingCanvas::IMAGE && canvas.pathOf(call.texture) == "assets/ui/icons/rings/cyan.png";
+	CHECK(cyans == 2);
 	CHECK(drew(canvas, "assets/ui/icons/rings/red.png"));
-	CHECK_FALSE(drew(canvas, "assets/ui/icons/rings/cyan.png"));
-	CHECK_FALSE(drew(canvas, "assets/ui/icons/rings/green.png"));
 	CHECK_FALSE(says(canvas, L"X: Pick Lock"));
 }
 
@@ -200,7 +213,7 @@ TEST_CASE("selecting an available slot shows the X prompt and rims its ring in g
 	RecordingCanvas canvas;
 	dpad.render(canvas);
 	int unselected = count(canvas, RecordingCanvas::LINE);
-	REQUIRE(drew(canvas, "assets/ui/icons/rings/gold.png"));
+	REQUIRE(drew(canvas, "assets/ui/icons/rings/cyan.png"));
 	dpad.setSelectedDirection(DpadDirection::UP);
 	dpad.setActionPrompt("Pick Lock");
 	canvas.calls.clear();
@@ -214,8 +227,8 @@ TEST_CASE("selecting an available slot shows the X prompt and rims its ring in g
 	CHECK_FALSE(says(canvas, L"Pick"));
 	CHECK_FALSE(says(canvas, L"X: Pick Lock"));
 	CHECK_FALSE(drew(canvas, "assets/ui/icons/skills/lockpicking.png"));
-	CHECK_FALSE(drew(canvas, "assets/ui/icons/rings/gold.png"));
-	CHECK(drew(canvas, "assets/ui/icons/rings/red.png"));
+	CHECK_FALSE(drew(canvas, "assets/ui/icons/rings/cyan.png"));
+	CHECK(drew(canvas, "assets/ui/icons/rings/green.png"));
 }
 
 TEST_CASE("the selected slot pulses: its label between 80% and 100% brightness, its ring swelling a little")
@@ -231,18 +244,18 @@ TEST_CASE("the selected slot pulses: its label between 80% and 100% brightness, 
 		canvas.calls.clear();
 		dpad.render(canvas);
 		const RecordingCanvas::Call* label = text(canvas, L"Pick");
-		const RecordingCanvas::Call* ring = image(canvas, "assets/ui/icons/rings/gold.png");
+		const RecordingCanvas::Call* ring = image(canvas, "assets/ui/icons/rings/cyan.png");
 		REQUIRE(label != nullptr);
 		REQUIRE(ring != nullptr);
-		lowest = std::min(lowest, label->colour.getRed());
-		highest = std::max(highest, label->colour.getRed());
+		lowest = std::min(lowest, label->colour.getBlue());
+		highest = std::max(highest, label->colour.getBlue());
 		smallest = std::min(smallest, ring->area.getWidth());
 		largest = std::max(largest, ring->area.getWidth());
 		dpad.update(0.5f / 30);
 	}
-	CHECK(lowest >= 0xd4 * 8 / 10 - 1);
-	CHECK(lowest <= 0xd4 * 82 / 100);
-	CHECK(highest >= 0xd4 - 2);
+	CHECK(lowest >= 0xbb * 8 / 10 - 1);
+	CHECK(lowest <= 0xbb * 82 / 100);
+	CHECK(highest >= 0xbb - 2);
 	CHECK(largest > smallest);
 	CHECK(largest <= smallest * 110 / 100);
 }

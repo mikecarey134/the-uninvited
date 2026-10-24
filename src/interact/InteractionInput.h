@@ -8,10 +8,10 @@
 #include <string>
 
 // Routes player input to the targeted interactable. With nothing targeted every event passes through untouched.
-// Controller: the gamepad layer posts the D-pad as the arrow keys and X as R, so arrows pick an approach and R executes the
-// selected one.
-// PC: left-click or E runs Normal; 1-4 run Normal, Force, Skill, Guile; right-click, Q or Tab toggle the context panel, whose rows
-// run on a click.
+// Controller: the gamepad layer posts the D-pad as the arrow keys and X as R, so arrows pick a slot (Skill up, Guile right, second
+// Skill down, Force left) and R runs the picked one, or Normal when none is picked.
+// PC: left-click or E runs Normal; 1-4 run Force, Skill, second Skill, Guile; right-click, Q or Tab toggle the context panel, which
+// lists those same four (Normal is the click itself), and its rows run on a click.
 class InteractionInput
 {
 public:
@@ -25,8 +25,11 @@ public:
 	bool onEvent(const irr::SEvent& event);
 	// Call every frame after the target updates: the panel closes when its target goes, and feedback runs down.
 	void update(irr::f32 seconds);
-	// Runs the target's handler for an approach it offers and returns whether it succeeded. Approaches the target lacks do nothing.
+	// Runs the target's handler for the first option of an approach it offers and returns whether it succeeded. Approaches the
+	// target lacks do nothing.
 	bool execute(Approach approach);
+	// The same for one particular option, such as the target's second skill.
+	bool run(const ApproachOption* option);
 
 	// The last handler's line, shown briefly on screen, and whether it succeeded.
 	const std::string& feedback() const { return feedback_; }

@@ -7,8 +7,9 @@ const f32 InteractionInput::FEEDBACK_SECONDS = 2.5f;
 
 namespace
 {
-	const Approach byNumber[4] = { Approach::NORMAL, Approach::FORCE, Approach::SKILL, Approach::GUILE };
-	const char* const modeIcons[4] = { "modes/normal.png", "modes/force.png", "modes/skill.png", "modes/guile.png" };
+	// 1-4 and the panel follow the D-pad: 1 Force (left), 2 Skill (up), 3 second Skill (down), 4 Guile (right).
+	const DpadDirection byNumber[4] = { DpadDirection::LEFT, DpadDirection::UP, DpadDirection::DOWN, DpadDirection::RIGHT };
+	const char* const modeIcons[4] = { "modes/force.png", "modes/skill.png", "modes/skill.png", "modes/guile.png" };
 }
 
 bool InteractionInput::onEvent(const SEvent& event)
@@ -22,20 +23,19 @@ bool InteractionInput::onEvent(const SEvent& event)
 	switch (event.KeyInput.Key)
 	{
 	case KEY_UP:
-		targets_.select(Approach::NORMAL, hud_);
+		targets_.select(DpadDirection::UP, hud_);
 		return true;
 	case KEY_RIGHT:
-		targets_.select(Approach::FORCE, hud_);
+		targets_.select(DpadDirection::RIGHT, hud_);
 		return true;
 	case KEY_DOWN:
-		targets_.select(Approach::SKILL, hud_);
+		targets_.select(DpadDirection::DOWN, hud_);
 		return true;
 	case KEY_LEFT:
-		targets_.select(Approach::GUILE, hud_);
+		targets_.select(DpadDirection::LEFT, hud_);
 		return true;
 	case KEY_KEY_R:
-		if (targets_.selected())
-			execute(targets_.selected()->type);
+		run(targets_.selected() ? targets_.selected() : targets_.option(Approach::NORMAL));
 		return true;
 	case KEY_KEY_E:
 		execute(Approach::NORMAL);
@@ -44,7 +44,7 @@ bool InteractionInput::onEvent(const SEvent& event)
 	case KEY_KEY_2:
 	case KEY_KEY_3:
 	case KEY_KEY_4:
-		execute(byNumber[event.KeyInput.Key - KEY_KEY_1]);
+		run(targets_.optionAt(byNumber[event.KeyInput.Key - KEY_KEY_1]));
 		return true;
 	case KEY_KEY_Q:
 	case KEY_TAB:
@@ -72,7 +72,7 @@ bool InteractionInput::onMouse(const SEvent::SMouseInput& mouse)
 		if (!panel_.isOpen())
 			execute(Approach::NORMAL);
 		else if (panel_.rowAt(at) >= 0)
-			execute(byNumber[panel_.rows()[panel_.rowAt(at)].number - 1]);
+			run(targets_.optionAt(byNumber[panel_.rows()[panel_.rowAt(at)].number - 1]));
 		return true;
 	case EMIE_RMOUSE_PRESSED_DOWN:
 		togglePanel();
@@ -91,7 +91,7 @@ void InteractionInput::togglePanel()
 	}
 	std::vector<ContextRow> rows;
 	for (int i = 0; i < 4; ++i)
-		if (const ApproachOption* option = targets_.option(byNumber[i]))
+		if (const ApproachOption* option = targets_.optionAt(byNumber[i]))
 			rows.push_back(ContextRow{ i + 1, modeIcons[i], option->label });
 	panelTarget_ = targets_.target();
 	panel_.open(rows);
@@ -111,13 +111,18 @@ void InteractionInput::update(f32 seconds)
 
 bool InteractionInput::execute(Approach approach)
 {
+	return run(targets_.option(approach));
+}
+
+bool InteractionInput::run(const ApproachOption* option)
+{
 	Interactable* target = targets_.target();
-	if (!target || !targets_.option(approach) || !player_)
+	if (!target || !option || !player_)
 		return false;
 	panel_.close();
-	Actor actor{ *player_, "" };
+	Actor actor{ *player_, "", option->skillName };
 	bool done = false;
-	switch (approach)
+	switch (option->type)
 	{
 	case Approach::NORMAL:
 		done = target->onNormal(actor);

@@ -53,18 +53,19 @@ TEST_CASE("the registry carries the eight starting object types with their label
 		const char* normal;
 		const char* force;
 		const char* skill;
+		const char* secondSkill;
 		const char* guile;
 	};
 	const Expected table[] = {
 		{ "locked_door", "Try Handle | approach/normal.png | ", "Kick Down | approach/force.png | ", "Pick Lock | skills/lockpicking.png | lockpicking",
-			"Send Companion | approach/companion-delegate.png | " },
-		{ "unlocked_door", "Open Door | approach/normal.png | ", "-", "-", "-" },
-		{ "supply_crate", "Open Crate | approach/normal.png | ", "Smash Open | approach/force.png | ", "-", "-" },
-		{ "terminal", "Use Terminal | approach/normal.png | ", "-", "Hack Terminal | skills/electronics.png | electronics", "-" },
-		{ "workbench", "Use Workbench | approach/normal.png | ", "-", "Craft Item | skills/engineering.png | engineering", "-" },
-		{ "npc_friendly", "Talk | approach/normal.png | ", "-", "-", "Trade | approach/trade.png | " },
-		{ "barricaded_door", "Examine | approach/normal.png | ", "Break Through | approach/force.png | ", "Dismantle | skills/construction.png | construction", "-" },
-		{ "generator", "Turn On | approach/normal.png | ", "-", "Repair | skills/engineering.png | engineering", "-" } };
+			"Hack Keypad | skills/electronics.png | electronics", "Send Companion | approach/companion-delegate.png | " },
+		{ "unlocked_door", "Open Door | approach/normal.png | ", "-", "-", "-", "-" },
+		{ "supply_crate", "Open Crate | approach/normal.png | ", "Smash Open | approach/force.png | ", "-", "-", "-" },
+		{ "terminal", "Use Terminal | approach/normal.png | ", "-", "Hack Terminal | skills/electronics.png | electronics", "-", "-" },
+		{ "workbench", "Use Workbench | approach/normal.png | ", "-", "Craft Item | skills/engineering.png | engineering", "-", "-" },
+		{ "npc_friendly", "Talk | approach/normal.png | ", "-", "-", "-", "Trade | approach/trade.png | " },
+		{ "barricaded_door", "Examine | approach/normal.png | ", "Break Through | approach/force.png | ", "Dismantle | skills/construction.png | construction", "-", "-" },
+		{ "generator", "Turn On | approach/normal.png | ", "-", "Repair | skills/engineering.png | engineering", "-", "-" } };
 	for (const Expected& expected : table)
 	{
 		CAPTURE(expected.type);
@@ -74,6 +75,13 @@ TEST_CASE("the registry carries the eight starting object types with their label
 		CHECK(row(*set, Approach::NORMAL) == expected.normal);
 		CHECK(row(*set, Approach::FORCE) == expected.force);
 		CHECK(row(*set, Approach::SKILL) == expected.skill);
+		std::string second = "-";
+		int skills = 0;
+		for (const ApproachOption& option : set->options)
+			if (option.type == Approach::SKILL && ++skills == 2)
+				second = option.label + " | " + option.iconPath + " | " + option.skillName;
+		CHECK(second == expected.secondSkill);
+		CHECK(skills <= 2);
 		CHECK(row(*set, Approach::GUILE) == expected.guile);
 		for (const ApproachOption& option : set->options)
 		{
@@ -95,12 +103,25 @@ TEST_CASE("hasApproach answers from the options")
 	CHECK_FALSE(crate->hasApproach(Approach::GUILE));
 }
 
-TEST_CASE("each approach has its own D-pad slot: Normal up, Force right, Skill down, Guile left")
+TEST_CASE("the D-pad slots hold Skill up, Guile right, the second Skill down and Force left; Normal has no slot")
 {
-	CHECK(TargetHud::slotFor(Approach::NORMAL) == DpadDirection::UP);
-	CHECK(TargetHud::slotFor(Approach::FORCE) == DpadDirection::RIGHT);
-	CHECK(TargetHud::slotFor(Approach::SKILL) == DpadDirection::DOWN);
-	CHECK(TargetHud::slotFor(Approach::GUILE) == DpadDirection::LEFT);
+	TargetHud glue(defaultApproaches());
+	DpadHud hud;
+	Thing door("Test Door", "locked_door");
+	glue.update(&door, 1, hud);
+	auto label = [&glue](DpadDirection slot) { return glue.optionAt(slot) ? glue.optionAt(slot)->label : std::string("-"); };
+	CHECK(label(DpadDirection::UP) == "Pick Lock");
+	CHECK(label(DpadDirection::RIGHT) == "Send Companion");
+	CHECK(label(DpadDirection::DOWN) == "Hack Keypad");
+	CHECK(label(DpadDirection::LEFT) == "Kick Down");
+	CHECK(label(DpadDirection::NONE) == "-");
+
+	Thing terminal("Test Terminal", "terminal");
+	glue.update(&terminal, 1, hud);
+	CHECK(label(DpadDirection::UP) == "Hack Terminal");
+	CHECK(label(DpadDirection::DOWN) == "-");
+	CHECK(label(DpadDirection::LEFT) == "-");
+	CHECK(label(DpadDirection::RIGHT) == "-");
 }
 
 TEST_CASE("targeting fills the D-pad from the registry, a new target clears the slots it lacks, and losing it goes idle")
@@ -112,16 +133,20 @@ TEST_CASE("targeting fills the D-pad from the registry, a new target clears the 
 	glue.update(&door, 1, hud);
 	CHECK(hud.state() == DpadState::ACTIVE);
 	CHECK(says(hud, L"Test Door"));
-	CHECK(says(hud, L"Try Handle"));
+	CHECK(says(hud, L"X: Try Handle"));
+	CHECK_FALSE(says(hud, L"Try Handle"));
 	CHECK(says(hud, L"Kick Down"));
 	CHECK(says(hud, L"Pick Lock"));
+	CHECK(says(hud, L"Hack Keypad"));
 	CHECK(says(hud, L"Send Companion"));
 
 	glue.update(&crate, 2, hud);
 	CHECK(hud.state() == DpadState::MULTI_OBJECT);
 	CHECK(says(hud, L"Test Crate"));
-	CHECK(says(hud, L"Open Crate"));
+	CHECK(says(hud, L"X: Open Crate"));
+	CHECK_FALSE(says(hud, L"Open Crate"));
 	CHECK(says(hud, L"Smash Open"));
+	CHECK_FALSE(says(hud, L"Hack Keypad"));
 	CHECK_FALSE(says(hud, L"Pick Lock"));
 	CHECK_FALSE(says(hud, L"Send Companion"));
 
@@ -142,6 +167,6 @@ TEST_CASE("a target whose type is not registered shows its name with every slot 
 	glue.update(&odd, 1, hud);
 	CHECK(hud.state() == DpadState::ACTIVE);
 	CHECK(says(hud, L"Odd Thing"));
-	CHECK_FALSE(says(hud, L"Try Handle"));
+	CHECK_FALSE(says(hud, L"X: Try Handle"));
 	CHECK_FALSE(says(hud, L"Kick Down"));
 }

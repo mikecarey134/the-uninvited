@@ -18,7 +18,7 @@ struct ApproachOption
 struct ApproachSet
 {
 	std::string objectType;              // "locked_door", "supply_crate", "terminal", etc.
-	std::vector<ApproachOption> options; // 1-4 options
+	std::vector<ApproachOption> options; // Normal plus up to four D-pad options; up to two may be Skill
 
 	const ApproachOption* getByType(Approach type) const;
 	bool hasApproach(Approach type) const;

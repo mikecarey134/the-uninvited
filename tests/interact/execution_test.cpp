@@ -83,7 +83,7 @@ TEST_CASE("kicking the test door checks Strength: one short of the threshold fai
 	CHECK(strong.log == std::vector<std::string>{ "OK: You kick the door open!" });
 }
 
-TEST_CASE("picking the test door's lock checks Lockpicking, its handle is locked, and Guile sends the companion")
+TEST_CASE("the test door's first skill checks Lockpicking and its second Electronics, its handle is locked, and Guile sends the companion")
 {
 	TestDoor door = made<TestDoor>("Test Door", "locked_door");
 	Rig clumsy(player(10, TestDoor::LOCKPICKING_TO_PICK - 1));
@@ -99,6 +99,17 @@ TEST_CASE("picking the test door's lock checks Lockpicking, its handle is locked
 	thief.aim(door);
 	CHECK(thief.input.execute(Approach::SKILL));
 	CHECK(thief.input.feedback() == "You pick the lock.");
+	thief.press(KEY_DOWN);
+	thief.press(KEY_KEY_R);
+	CHECK(thief.input.feedback() == "Keypad is too advanced.");
+
+	Rig hacker(player(10, 0, TestDoor::ELECTRONICS_TO_HACK));
+	hacker.aim(door);
+	hacker.press(KEY_KEY_3);
+	CHECK(hacker.input.feedback() == "You hack the keypad.");
+	CHECK(hacker.input.feedbackSucceeded());
+	hacker.press(KEY_KEY_2);
+	CHECK(hacker.input.feedback() == "Lock is too complex.");
 }
 
 TEST_CASE("the test terminal opens for anyone and its security falls to enough Electronics")
@@ -108,19 +119,19 @@ TEST_CASE("the test terminal opens for anyone and its security falls to enough E
 	novice.aim(terminal);
 	CHECK(novice.input.execute(Approach::NORMAL));
 	CHECK(novice.input.feedback() == "You access the terminal.");
-	novice.press(KEY_DOWN);
+	novice.press(KEY_UP);
 	novice.press(KEY_KEY_R);
 	CHECK(novice.input.feedback() == "Too advanced.");
 	CHECK_FALSE(novice.input.feedbackSucceeded());
 
 	Rig hacker(player(10, 0, TestTerminal::ELECTRONICS_TO_BYPASS));
 	hacker.aim(terminal);
-	hacker.press(KEY_KEY_3);
+	hacker.press(KEY_KEY_2);
 	CHECK(hacker.input.feedback() == "You bypass the security.");
 	CHECK(hacker.input.feedbackSucceeded());
 }
 
-TEST_CASE("a container is a supply_crate whose Normal and Force both open the loot screen on that container; the screen is the feedback, so only the console gets a line")
+TEST_CASE("a container is a supply_crate whose Normal (X with nothing picked) and Force (1) both open the loot screen on that container; the screen is the feedback, so only the console gets a line")
 {
 	loot::Container chest{ "Chest", 7.0f, -5.0f, 8, {} };
 	std::vector<loot::Container*> opened;
@@ -133,15 +144,14 @@ TEST_CASE("a container is a supply_crate whose Normal and Force both open the lo
 
 	Rig rig(player(10));
 	rig.aim(crate);
-	rig.press(KEY_UP);
 	rig.press(KEY_KEY_R);
 	CHECK(opened == std::vector<loot::Container*>{ &chest });
 	CHECK(rig.input.feedback().empty());
-	rig.press(KEY_KEY_2);
+	rig.press(KEY_KEY_1);
 	CHECK(opened == std::vector<loot::Container*>{ &chest, &chest });
 	CHECK(rig.input.feedback().empty());
 
-	Actor actor{ rig.sheet, "" };
+	Actor actor{ rig.sheet, "", "" };
 	CHECK_FALSE(crate.onSkill(actor));
 	CHECK_FALSE(crate.onGuile(actor));
 	CHECK(rig.log == std::vector<std::string>{ "OK: You open the Chest.", "OK: You smash the Chest open." });

@@ -19,6 +19,7 @@ struct TestDoor : public TestObject
 {
 	static const int STRENGTH_TO_KICK = 25;
 	static const int LOCKPICKING_TO_PICK = 20;
+	static const int ELECTRONICS_TO_HACK = 20;
 
 	bool onNormal(Actor& player) override;
 	bool onForce(Actor& player) override;

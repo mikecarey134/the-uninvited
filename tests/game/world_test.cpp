@@ -768,7 +768,7 @@ TEST_CASE("standing between the test door and crate targets whichever the camera
 	CHECK(fixture.world->detector().getTarget()->getInfo().name == "Test Crate");
 }
 
-TEST_CASE("at the test terminal the D-pad picks an approach and X (posted as R) runs it; away from it both pass through")
+TEST_CASE("at the test terminal D-pad up picks its skill and X (posted as R) runs it; away from it both pass through")
 {
 	Fixture fixture;
 	std::vector<std::string> log;
@@ -783,12 +783,12 @@ TEST_CASE("at the test terminal the D-pad picks an approach and X (posted as R) 
 	CHECK_FALSE(fixture.world->onEvent(r));
 	fixture.world->teleport(-8.0f, 0.0f, -1.5f);
 	fixture.world->update(0.0f);
-	fixture.key(KEY_DOWN, true);
+	fixture.key(KEY_UP, true);
 	CHECK(fixture.world->onEvent(r));
 	CHECK(log == std::vector<std::string>{ "FAILED: Too advanced." });
 }
 
-TEST_CASE("beside a world container the D-pad offers Normal and Force, and UP then X opens the loot screen on that container")
+TEST_CASE("beside a world container X with nothing picked runs Normal and opens the loot screen on that container")
 {
 	Fixture fixture;
 	std::vector<loot::Container*> opened;
@@ -799,7 +799,6 @@ TEST_CASE("beside a world container the D-pad offers Normal and Force, and UP th
 	REQUIRE(fixture.world->detector().hasTarget());
 	CHECK(fixture.world->detector().getTarget()->getInfo().name == crate.kind);
 	CHECK(fixture.world->detector().getTarget()->getObjectType() == "supply_crate");
-	fixture.key(KEY_UP, true);
 	fixture.key(KEY_KEY_R, true);
 	CHECK(opened == std::vector<loot::Container*>{ &crate });
 	CHECK(fixture.world->interactionFeedback().empty());

@@ -3,6 +3,7 @@
 
 const int TestDoor::STRENGTH_TO_KICK;
 const int TestDoor::LOCKPICKING_TO_PICK;
+const int TestDoor::ELECTRONICS_TO_HACK;
 const int TestTerminal::ELECTRONICS_TO_BYPASS;
 
 namespace
@@ -26,6 +27,8 @@ bool TestDoor::onForce(Actor& player)
 
 bool TestDoor::onSkill(Actor& player)
 {
+	if (player.skill == "electronics")
+		return say(player, player.sheet.getElectronics() >= ELECTRONICS_TO_HACK, "You hack the keypad.", "Keypad is too advanced.");
 	return say(player, player.sheet.getLockpicking() >= LOCKPICKING_TO_PICK, "You pick the lock.", "Lock is too complex.");
 }
 

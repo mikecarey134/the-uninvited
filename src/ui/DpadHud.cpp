@@ -15,10 +15,10 @@ namespace
 	const s32 margin = 12;
 	const char* const labelFont = "assets/fonts/label.png";
 	const std::string iconFolder = "assets/ui/icons/";
-	// UP gold, RIGHT red, DOWN cyan, LEFT green.
-	const SColor slotColours[4] = { SColor(255, 0xd4, 0xa8, 0x43), SColor(255, 0xc4, 0x40, 0x40), SColor(255, 0x4a, 0x9e, 0xbb),
-		SColor(255, 0x6b, 0x9a, 0x5a) };
-	const char* const rings[4] = { "rings/gold.png", "rings/red.png", "rings/cyan.png", "rings/green.png" };
+	// By slot: UP cyan (Skill), RIGHT green (Guile), DOWN cyan (second Skill), LEFT red (Force). Normal is X, not a slot.
+	const SColor slotColours[4] = { SColor(255, 0x4a, 0x9e, 0xbb), SColor(255, 0x6b, 0x9a, 0x5a), SColor(255, 0x4a, 0x9e, 0xbb),
+		SColor(255, 0xc4, 0x40, 0x40) };
+	const char* const rings[4] = { "rings/cyan.png", "rings/green.png", "rings/cyan.png", "rings/red.png" };
 	const SColor ghost(255, 140, 140, 140);
 	const SColor backing(255, 12, 11, 9);
 	const SColor frameLine(255, 190, 185, 170);
@@ -251,7 +251,9 @@ void DpadHud::render(Canvas& canvas)
 		above -= line / 2 + 4;
 		pillText(canvas, font, wide(targetName_), position2d<s32>(box.getCenter().X, above), 0, line, shade(white, opacity_), opacity_);
 	}
-	if (selected_ != DpadDirection::NONE && slots_[(int)selected_].available && !prompt_.empty())
+	// The prompt names what X does: the picked slot's action, or with nothing picked the target's Normal action.
+	bool picked = selected_ != DpadDirection::NONE;
+	if (!prompt_.empty() && (!picked || slots_[(int)selected_].available))
 	{
 		above -= line + 8;
 		pillText(canvas, font, wide("X: " + prompt_), position2d<s32>(box.getCenter().X, above), 0, line, shade(white, opacity_), opacity_);
