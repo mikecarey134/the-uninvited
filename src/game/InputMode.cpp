@@ -1,11 +1,22 @@
 #include "InputMode.h"
 #include <cstdlib>
+#include <cstring>
+#include <string>
 
 using namespace irr;
 
 namespace
 {
 	const s32 stickActive = 8000; // the same dead zone as the right-stick camera
+}
+
+PadFamily padFamilyFromName(const char* name)
+{
+	std::string text = name ? name : "";
+	for (const char* sony : { "Sony", "DualShock", "DualSense", "PS" })
+		if (text.find(sony) != std::string::npos)
+			return PadFamily::PLAYSTATION;
+	return PadFamily::XBOX;
 }
 
 void InputSource::observe(const SEvent& event)

@@ -1269,3 +1269,24 @@ TEST_CASE("when the wall clears the arm eases back out over about a quarter seco
 	CHECK(fixture.world->armLength() > full - (full - start) * 0.1f);
 	CHECK(fixture.world->armLength() <= full + 0.001f);
 }
+
+TEST_CASE("the prompt glyph is the E key until the pad is used, then the pad's interact button, and back on the next key press")
+{
+	Fixture fixture;
+	CHECK(fixture.world->promptGlyph() == "assets/textures/glyphs/kb/key_e.png");
+	fixture.source.beginPad(PadPart::BUTTON);
+	fixture.source.observe(SEvent());
+	fixture.source.endPad();
+	CHECK(fixture.world->promptGlyph() == "assets/textures/glyphs/xbox/x.png");
+	fixture.source.setPadFamily(PadFamily::PLAYSTATION);
+	CHECK(fixture.world->promptGlyph() == "assets/textures/glyphs/ps/square.png");
+	SEvent key;
+	key.EventType = EET_KEY_INPUT_EVENT;
+	key.KeyInput.Key = KEY_KEY_W;
+	key.KeyInput.PressedDown = true;
+	key.KeyInput.Char = 0;
+	key.KeyInput.Shift = false;
+	key.KeyInput.Control = false;
+	fixture.source.observe(key);
+	CHECK(fixture.world->promptGlyph() == "assets/textures/glyphs/kb/key_e.png");
+}

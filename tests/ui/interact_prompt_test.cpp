@@ -19,45 +19,47 @@ namespace
 	}
 }
 
-TEST_CASE("the interact prompt is a light keycap holding the key, then the verb, on a dark pill centred under the anchor")
+TEST_CASE("the interact prompt is the button's glyph image, then the verb, on a dark pill centred under the anchor")
 {
 	RecordingCanvas canvas;
 	canvas.textDimension = dimension2d<u32>(60, 16);
-	drawInteractPrompt(canvas, position2d<s32>(500, 300), "E", "Search");
-	const RecordingCanvas::Call* key = text(canvas, L"E");
+	drawInteractPrompt(canvas, position2d<s32>(500, 300), "assets/textures/glyphs/kb/key_e.png", "Search");
 	const RecordingCanvas::Call* verb = text(canvas, L"Search");
-	REQUIRE(key != nullptr);
 	REQUIRE(verb != nullptr);
-	CHECK(key->area.LowerRightCorner.X <= verb->area.UpperLeftCorner.X);
-	CHECK(key->colour.getRed() < 60);
+	CHECK(text(canvas, L"E") == nullptr);
+	const RecordingCanvas::Call* glyph = nullptr;
+	for (const RecordingCanvas::Call& call : canvas.calls)
+		if (call.kind == RecordingCanvas::IMAGE)
+			glyph = &call;
+	REQUIRE(glyph != nullptr);
+	CHECK(canvas.pathOf(glyph->texture) == "assets/textures/glyphs/kb/key_e.png");
+	CHECK(glyph->area.getWidth() == glyph->area.getHeight());
+	CHECK(glyph->area.getWidth() >= 24);
+	CHECK(glyph->area.getWidth() <= 32);
+	CHECK(glyph->area.LowerRightCorner.X <= verb->area.UpperLeftCorner.X);
 	CHECK(verb->colour.getRed() > 200);
 
 	REQUIRE(canvas.calls.front().kind == RecordingCanvas::RECT);
 	const RecordingCanvas::Call& pill = canvas.calls.front();
 	CHECK(pill.colour.getAlpha() < 255);
 	CHECK(pill.colour.getRed() == 0);
-	CHECK(pill.area.isPointInside(key->area.getCenter()));
+	CHECK(pill.area.isPointInside(glyph->area.getCenter()));
 	CHECK(pill.area.isPointInside(verb->area.getCenter()));
 	CHECK(std::abs(pill.area.getCenter().X - 500) <= 2);
-	CHECK(pill.area.UpperLeftCorner.Y < 300);
+}
 
-	// The keycap: a light face that reaches the cap's top edge, sitting on a darker lip that shows below it.
-	s32 capTop = 10000, faceTop = 10000, faceBottom = 0, lipBottom = 0;
-	for (const RecordingCanvas::Call& call : canvas.calls)
-	{
-		if (call.kind != RecordingCanvas::RECT || &call == &pill || !call.area.isPointInside(key->area.getCenter()))
-			continue;
-		capTop = std::min(capTop, call.area.UpperLeftCorner.Y);
-		if (call.colour.getRed() > 200)
+TEST_CASE("a different glyph is just a different image in the same place")
+{
+	RecordingCanvas keyboard, pad;
+	drawInteractPrompt(keyboard, position2d<s32>(500, 300), "assets/textures/glyphs/kb/key_e.png", "Open");
+	drawInteractPrompt(pad, position2d<s32>(500, 300), "assets/textures/glyphs/xbox/x.png", "Open");
+	REQUIRE(keyboard.calls.size() == pad.calls.size());
+	for (size_t i = 0; i < pad.calls.size(); ++i)
+		if (pad.calls[i].kind == RecordingCanvas::IMAGE)
 		{
-			faceTop = std::min(faceTop, call.area.UpperLeftCorner.Y);
-			faceBottom = std::max(faceBottom, call.area.LowerRightCorner.Y);
+			CHECK(pad.pathOf(pad.calls[i].texture) == "assets/textures/glyphs/xbox/x.png");
+			CHECK(pad.calls[i].area == keyboard.calls[i].area);
 		}
-		else
-			lipBottom = std::max(lipBottom, call.area.LowerRightCorner.Y);
-	}
-	CHECK(faceTop == capTop);
-	CHECK(lipBottom > faceBottom);
 }
 
 TEST_CASE("with nothing to do there is no prompt at all")

@@ -323,6 +323,7 @@ void DpadHud::drawContent(Canvas& canvas, const Layout& at, Slot (&slots)[4], co
 			anchor.X = w.UpperLeftCorner.X - 8;
 			align = -1;
 		}
+		// TODO: a small ButtonGlyphs glyph by each slot (the D-pad arm on a pad, the number key on keyboard).
 		pillText(canvas, at.font, label, anchor, align, at.line, shade(slotColours[i], alpha, chosen ? pulse : 1.0f), alpha);
 	}
 

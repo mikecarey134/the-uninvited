@@ -763,10 +763,10 @@ TEST_CASE("the vitals HUD shows only in the world, replacing the big name headin
 		CHECK(rim >= 3 * 40);
 		bool key = false, verb = false;
 		for (const RecordingCanvas::Call& call : canvas.calls)
-			if (call.kind == RecordingCanvas::TEXT && call.area.UpperLeftCorner.Y > marker->area.getCenter().Y)
+			if (call.area.UpperLeftCorner.Y > marker->area.getCenter().Y)
 			{
-				key = key || call.text == L"E";
-				verb = verb || call.text == L"Use";
+				key = key || (call.kind == RecordingCanvas::IMAGE && canvas.pathOf(call.texture) == "assets/textures/glyphs/kb/key_e.png");
+				verb = verb || (call.kind == RecordingCanvas::TEXT && call.text == L"Use");
 			}
 		CHECK(key);
 		CHECK(verb);
@@ -964,7 +964,10 @@ TEST_CASE("standing beside a container the only search prompt is E Search under 
 		canvas.calls.clear();
 		screens.draw();
 		REQUIRE(prompt() != nullptr);
-		CHECK(says(L"E") != nullptr);
+		bool glyph = false;
+		for (const RecordingCanvas::Call& call : canvas.calls)
+			glyph = glyph || (call.kind == RecordingCanvas::IMAGE && canvas.pathOf(call.texture) == "assets/textures/glyphs/kb/key_e.png");
+		CHECK(glyph);
 		CHECK(says(L"Press E to search") == nullptr);
 		world.teleport(chest.x + 4.0f, 0.0f, chest.z);
 		world.update(0.0f);

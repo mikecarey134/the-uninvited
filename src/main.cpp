@@ -119,6 +119,12 @@ namespace
 		core::array<SJoystickInfo> joysticks;
 		if (device->activateJoysticks(joysticks))
 			std::cout << "Gamepads found: " << joysticks.size() << std::endl;
+		// The first pad's name picks the glyph family (PlayStation or Xbox layout).
+		if (joysticks.size() > 0)
+		{
+			source.setPadFamily(padFamilyFromName(joysticks[0].Name.c_str()));
+			std::cout << "Gamepad: " << joysticks[0].Name.c_str() << std::endl;
+		}
 		GuiInputLayer layer(device->getGUIEnvironment(), [&screens](const SEvent& event) { return screens.onGuiEvent(event); },
 			[&screens] { screens.back(); }, [] { return true; });
 		router.push(&layer);

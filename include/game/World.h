@@ -11,6 +11,7 @@
 #include "Hud.h"
 #include "InteractionDetector.h"
 #include "ForceBreak.h"
+#include "ButtonGlyphs.h"
 #include "InteractionInput.h"
 #include "TargetHud.h"
 #include "InputRouter.h"
@@ -73,8 +74,11 @@ public:
 	const std::string& interactionFeedback() const { return interaction_.feedback(); }
 	// The interact prompt by the target: which key, and what it does now (empty with no target).
 	std::string promptAction() const { return targetHud_.promptAction(); }
-	// The interact key as the player's last-used device names it: E on keyboard, X on a pad (glyphs are a TODO in InteractPrompt.h).
-	std::string promptKey() const { return source_ && source_->mode() == InputMode::GAMEPAD ? "X" : "E"; }
+	// The interact button's glyph for the player's last-used device: the E key, or the pad's X (Square on PlayStation).
+	std::string promptGlyph() const
+	{
+		return glyphPath(GlyphAction::INTERACT, source_ ? glyphFamily(source_->mode(), source_->padFamily()) : GlyphFamily::KEYBOARD_MOUSE);
+	}
 	// Tells interaction input which presses came from the pad; without one, every key counts as the keyboard.
 	void setInputSource(const InputSource* source)
 	{
