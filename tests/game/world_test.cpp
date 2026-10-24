@@ -1,5 +1,6 @@
 #include "doctest.h"
 #include "World.h"
+#include "TestInteractables.h"
 #include "Sky.h"
 #include "Loot.h"
 #include <cmath>
@@ -817,5 +818,7 @@ TEST_CASE("at the test door with Force picked the prompt still says Open, and E 
 	fixture.key(KEY_LEFT, true);
 	CHECK(fixture.world->promptAction() == "Open");
 	fixture.key(KEY_KEY_E, true);
-	CHECK(log == std::vector<std::string>{ "FAILED: Not strong enough." });
+	// The fixture's character is rolled at random, so the kick's outcome follows its Strength; either way it is Force, not the handle.
+	bool strong = fixture.world->sheet().getStrength() >= TestDoor::STRENGTH_TO_KICK;
+	CHECK(log == std::vector<std::string>{ strong ? "OK: You kick the door open!" : "FAILED: Not strong enough." });
 }

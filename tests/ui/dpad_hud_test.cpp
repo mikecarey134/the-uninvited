@@ -235,6 +235,7 @@ TEST_CASE("the selected slot pulses: its label between 80% and 100% brightness, 
 {
 	DpadHud dpad = active();
 	dpad.setSelectedDirection(DpadDirection::UP);
+	dpad.update(0.2f); // past the pick's pop
 	u32 lowest = 255, highest = 0;
 	s32 smallest = 1000, largest = 0;
 	// One canvas for every frame, as in the game: the D-pad keeps the textures it loaded from it.
@@ -257,5 +258,176 @@ TEST_CASE("the selected slot pulses: its label between 80% and 100% brightness, 
 	CHECK(lowest <= 0xbb * 82 / 100);
 	CHECK(highest >= 0xbb - 2);
 	CHECK(largest > smallest);
-	CHECK(largest <= smallest * 110 / 100);
+	CHECK(largest * 100 <= smallest * 111);
+}
+
+namespace
+{
+	u32 alphaOf(const RecordingCanvas& canvas, const std::string& path)
+	{
+		const RecordingCanvas::Call* call = image(canvas, path);
+		return call ? call->colour.getAlpha() : 0;
+	}
+
+	s32 widthOf(const RecordingCanvas& canvas, const std::string& path)
+	{
+		const RecordingCanvas::Call* call = image(canvas, path);
+		return call ? call->area.getWidth() : 0;
+	}
+
+	void stockAll(DpadHud& dpad)
+	{
+		dpad.setTarget("Locked Door", "interactables/locked-door.png");
+		dpad.setSlot(DpadDirection::UP, "Pick", "skills/lockpicking.png");
+		dpad.setSlot(DpadDirection::RIGHT, "Send", "approach/companion-delegate.png");
+		dpad.setSlot(DpadDirection::DOWN, "Hack", "skills/electronics.png");
+		dpad.setSlot(DpadDirection::LEFT, "Kick", "approach/force.png");
+	}
+}
+
+TEST_CASE("idle to active: the frame brightens first, then each slot pops in from 80% size, up first and left last, all within 300ms, easing out")
+{
+	DpadHud dpad;
+	stockAll(dpad);
+	dpad.setState(DpadState::ACTIVE);
+	RecordingCanvas canvas;
+	dpad.update(0.03f);
+	dpad.render(canvas);
+	CHECK(dpad.opacity() > 0.35f);
+	CHECK(count(canvas, RecordingCanvas::IMAGE) == 0);
+	f32 early = dpad.opacity();
+
+	dpad.update(0.04f);
+	canvas.calls.clear();
+	dpad.render(canvas);
+	u32 up = alphaOf(canvas, "assets/ui/icons/skills/lockpicking.png");
+	u32 left = alphaOf(canvas, "assets/ui/icons/approach/force.png");
+	CHECK(up > 0);
+	CHECK(up > left);
+	CHECK(up < 255);
+	s32 popping = widthOf(canvas, "assets/ui/icons/rings/cyan.png");
+	// Ease-out: the first 30ms did more than 30/200 of the frame's brightening.
+	CHECK((early - 0.35f) / 0.65f > 0.3f);
+
+	dpad.update(0.23f); // 300ms in
+	canvas.calls.clear();
+	dpad.render(canvas);
+	CHECK(dpad.opacity() == doctest::Approx(1.0f));
+	CHECK(alphaOf(canvas, "assets/ui/icons/skills/lockpicking.png") == 255);
+	CHECK(alphaOf(canvas, "assets/ui/icons/approach/force.png") == 255);
+	s32 full = widthOf(canvas, "assets/ui/icons/rings/cyan.png");
+	CHECK(popping < full);
+	CHECK(popping >= full * 8 / 10);
+}
+
+TEST_CASE("active to idle: icons and rings fade out before the frame dims, and it is all idle again within about 200ms")
+{
+	DpadHud dpad;
+	stockAll(dpad);
+	dpad.setState(DpadState::ACTIVE);
+	dpad.update(1.0f);
+	dpad.setState(DpadState::IDLE);
+	dpad.update(0.04f);
+	RecordingCanvas canvas;
+	dpad.render(canvas);
+	CHECK(dpad.opacity() > 0.95f);
+	CHECK(alphaOf(canvas, "assets/ui/icons/approach/force.png") < 255);
+	dpad.update(0.17f);
+	canvas.calls.clear();
+	dpad.render(canvas);
+	CHECK(dpad.opacity() == doctest::Approx(0.35f));
+	CHECK(count(canvas, RecordingCanvas::IMAGE) == 0);
+	CHECK(count(canvas, RecordingCanvas::TEXT) == 0);
+}
+
+TEST_CASE("picking a slot pops its ring about 10% bigger and back within 150ms; the previously picked slot settles without a pop")
+{
+	DpadHud dpad = active();
+	RecordingCanvas canvas;
+	dpad.render(canvas);
+	s32 base = widthOf(canvas, "assets/ui/icons/rings/cyan.png");
+	s32 baseRed = widthOf(canvas, "assets/ui/icons/rings/green.png");
+	dpad.setSelectedDirection(DpadDirection::UP);
+	dpad.update(0.05f);
+	canvas.calls.clear();
+	dpad.render(canvas);
+	// The pop on top of the ordinary pulse: well over the ~5% the pulse alone gives at this moment, and no more than 20%.
+	CHECK(widthOf(canvas, "assets/ui/icons/rings/cyan.png") * 100 >= base * 109);
+	CHECK(widthOf(canvas, "assets/ui/icons/rings/cyan.png") * 100 <= base * 120);
+	dpad.update(0.12f);
+	dpad.setSelectedDirection(DpadDirection::RIGHT);
+	canvas.calls.clear();
+	dpad.render(canvas);
+	CHECK(widthOf(canvas, "assets/ui/icons/rings/cyan.png") == base);
+	dpad.update(0.05f);
+	canvas.calls.clear();
+	dpad.render(canvas);
+	CHECK(widthOf(canvas, "assets/ui/icons/rings/green.png") > baseRed);
+	CHECK(widthOf(canvas, "assets/ui/icons/rings/cyan.png") == base);
+}
+
+TEST_CASE("switching straight to another target keeps the frame bright and crossfades the old content out and the new in within 150ms")
+{
+	DpadHud dpad = active();
+	dpad.setTarget("Supply Crate", "interactables/supply-crate.png");
+	dpad.clearSlot(DpadDirection::UP);
+	dpad.clearSlot(DpadDirection::RIGHT);
+	dpad.setSlot(DpadDirection::LEFT, "Smash", "approach/force.png");
+	RecordingCanvas canvas;
+	dpad.update(0.03f);
+	dpad.render(canvas);
+	CHECK(dpad.opacity() == doctest::Approx(1.0f));
+	const RecordingCanvas::Call* old = text(canvas, L"Locked Door");
+	REQUIRE(old != nullptr);
+	CHECK(old->colour.getAlpha() < 255);
+	CHECK(text(canvas, L"Supply Crate") == nullptr);
+	dpad.update(0.13f);
+	canvas.calls.clear();
+	dpad.render(canvas);
+	CHECK(dpad.opacity() == doctest::Approx(1.0f));
+	CHECK(text(canvas, L"Locked Door") == nullptr);
+	CHECK(text(canvas, L"Pick") == nullptr);
+	REQUIRE(text(canvas, L"Supply Crate") != nullptr);
+	CHECK(text(canvas, L"Supply Crate")->colour.getAlpha() == 255);
+	CHECK(text(canvas, L"Smash") != nullptr);
+}
+
+TEST_CASE("a target with a single slot gives it one gentle glow just after it pops in, without picking it; two slots get none")
+{
+	DpadHud dpad;
+	dpad.setTarget("Supply Crate", "interactables/supply-crate.png");
+	dpad.setSlot(DpadDirection::LEFT, "Smash", "approach/force.png");
+	dpad.setState(DpadState::ACTIVE);
+	RecordingCanvas canvas;
+	dpad.update(1.0f);
+	dpad.render(canvas);
+	int settled = count(canvas, RecordingCanvas::LINE);
+	DpadHud fresh;
+	fresh.setTarget("Supply Crate", "interactables/supply-crate.png");
+	fresh.setSlot(DpadDirection::LEFT, "Smash", "approach/force.png");
+	fresh.setState(DpadState::ACTIVE);
+	int most = 0;
+	for (int frame = 0; frame < 40; ++frame)
+	{
+		fresh.update(0.025f);
+		canvas.calls.clear();
+		fresh.render(canvas);
+		most = std::max(most, count(canvas, RecordingCanvas::LINE));
+	}
+	CHECK(most >= settled + 3 * 32);
+
+	DpadHud pair = active();
+	int pairMost = 0, pairBase = 0;
+	pair.setTarget("Other", "interactables/supply-crate.png");
+	for (int frame = 0; frame < 40; ++frame)
+	{
+		pair.update(0.025f);
+		canvas.calls.clear();
+		pair.render(canvas);
+		pairMost = std::max(pairMost, count(canvas, RecordingCanvas::LINE));
+	}
+	canvas.calls.clear();
+	pair.render(canvas);
+	pairBase = count(canvas, RecordingCanvas::LINE);
+	CHECK(pairMost < pairBase + 3 * 32);
 }

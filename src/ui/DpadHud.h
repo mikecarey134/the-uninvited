@@ -33,7 +33,24 @@ private:
 		TextureHandle icon = nullptr;
 	};
 
+	struct Layout
+	{
+		irr::core::dimension2d<irr::u32> screen;
+		irr::core::rect<irr::s32> box;
+		irr::core::rect<irr::s32> wedges[4];
+		irr::core::rect<irr::s32> centre;
+		irr::s32 cell = 0;
+		irr::s32 line = 0;
+		irr::s32 ringSize = 0;
+		irr::s32 iconSize = 0;
+		FontHandle font = nullptr;
+	};
+
 	TextureHandle texture(Canvas& canvas, const std::string& iconPath, TextureHandle& cached);
+	// How far a slot's content has popped in (0-1, eased): order 0 is UP and the centre, then RIGHT, DOWN, LEFT.
+	irr::f32 reveal(int order) const;
+	void drawContent(Canvas& canvas, const Layout& at, Slot (&slots)[4], const std::string& name, const std::string& iconPath,
+		TextureHandle& icon, irr::f32 fade, bool current);
 
 	DpadState state_ = DpadState::IDLE;
 	Slot slots_[4];
@@ -45,6 +62,16 @@ private:
 	irr::f32 opacity_ = 0.35f; // the idle opacity, so the D-pad shows faded from the first frame
 	irr::f32 pulseClock_ = 0.0f;
 	TextureHandle ringTextures_[4] = {};
+	// Animation: the entrance timeline (0 idle .. full), the pick pop, the target-switch crossfade and the lone-slot glow.
+	irr::f32 timeline_ = 0.0f;
+	irr::f32 popClock_ = 1.0f;
+	irr::f32 switchClock_ = 1.0f;
+	irr::f32 attentionClock_ = 10.0f;
+	Slot oldSlots_[4];
+	std::string oldName_;
+	std::string oldIconPath_;
+	TextureHandle oldIcon_ = nullptr;
+	TextureHandle oldRingTextures_[4] = {};
 };
 
 #endif

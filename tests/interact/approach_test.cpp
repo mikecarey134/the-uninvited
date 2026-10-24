@@ -29,6 +29,7 @@ namespace
 
 	bool says(DpadHud& hud, const std::wstring& text)
 	{
+		hud.update(1.0f); // let any entrance or target-switch animation finish
 		RecordingCanvas canvas;
 		hud.render(canvas);
 		for (const RecordingCanvas::Call& call : canvas.calls)
